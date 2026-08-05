@@ -124,8 +124,7 @@ async def test_full_lifecycle(db, settings):
     assert summary.total_changed == 1
     with session_scope(db) as session:
         fields = {
-            c.field
-            for c in session.query(JobChangeRow).filter(JobChangeRow.meaningful).all()
+            c.field for c in session.query(JobChangeRow).filter(JobChangeRow.meaningful).all()
         }
         assert "title" in fields and "season" in fields
 
