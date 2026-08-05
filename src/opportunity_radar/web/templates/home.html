@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% from "_job_table.html" import job_rows %}
+{% block content %}
+<h1>Home</h1>
+
+<div class="panel">
+  <strong>Source health:</strong>
+  {% if source_failing %}
+    <span class="badge err">{{ source_failing|length }}/{{ source_total }} failing</span>
+    {% for s in source_failing[:5] %}
+      <span class="badge warn">{{ s.company_id }} ({{ s.consecutive_failures }})</span>
+    {% endfor %}
+    <a href="/health">details →</a>
+  {% else %}
+    <span class="badge ok">{{ source_total }} sources healthy</span>
+  {% endif %}
+</div>
+
+<h2>🚨 High-priority, first seen in the last 24h</h2>
+{{ job_rows(high_today) }}
+
+<h2>❄️ Off-season openings (Winter / Spring / Fall / Off-cycle)</h2>
+{{ job_rows(off_season) }}
+
+<h2>☀️ Summer 2027 openings</h2>
+{{ job_rows(summer) }}
+
+<h2>⏰ Approaching deadlines</h2>
+<table>
+  <thead><tr><th>Deadline</th><th>Job</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for app, job in deadline_jobs %}
+    {% if job %}
+    <tr>
+      <td>{{ app.deadline }}</td>
+      <td><a href="/jobs/{{ job.id }}">{{ job.title }}</a> — {{ job.company_name }}</td>
+      <td>{{ app.status }}</td>
+    </tr>
+    {% endif %}
+  {% else %}
+    <tr><td colspan="3" class="muted">No tracked deadlines.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h2>🔁 Recently changed</h2>
+<table>
+  <thead><tr><th>When</th><th>Job</th><th>Change</th></tr></thead>
+  <tbody>
+  {% for change in recent_changes %}
+    {% set job = change_jobs.get(change.job_id) %}
+    {% if job %}
+    <tr>
+      <td class="muted">{{ humanize_age(change.changed_at) }}</td>
+      <td><a href="/jobs/{{ job.id }}">{{ job.title }}</a></td>
+      <td>{{ change.field }}: {{ change.old_value or '—' }} → {{ change.new_value or '—' }}</td>
+    </tr>
+    {% endif %}
+  {% else %}
+    <tr><td colspan="3" class="muted">No recent changes.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

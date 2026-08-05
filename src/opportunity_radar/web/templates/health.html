@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Source health — Opportunity Radar{% endblock %}
+{% block content %}
+<h1>Source health</h1>
+
+<h2>Current state</h2>
+<table>
+  <thead>
+    <tr><th>Company</th><th>Last success</th><th>Last attempt</th>
+        <th>Consecutive failures</th><th>Job count</th><th>Last error</th></tr>
+  </thead>
+  <tbody>
+  {% for state in states %}
+    <tr>
+      <td>{{ state.company_id }}</td>
+      <td class="muted">{{ humanize_age(state.last_success_at) if state.last_success_at else 'never' }}</td>
+      <td class="muted">{{ humanize_age(state.last_attempt_at) if state.last_attempt_at else 'never' }}</td>
+      <td>
+        {% if state.consecutive_failures >= 3 %}<span class="badge err">{{ state.consecutive_failures }}</span>
+        {% elif state.consecutive_failures > 0 %}<span class="badge warn">{{ state.consecutive_failures }}</span>
+        {% else %}<span class="badge ok">0</span>{% endif %}
+      </td>
+      <td>{{ state.last_job_count if state.last_job_count is not none else '—' }}</td>
+      <td class="muted">{{ (state.last_error or '')[:100] }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="6" class="muted">No scans recorded yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h2>Recent scan runs</h2>
+<table>
+  <thead>
+    <tr><th>Started</th><th>Company</th><th>Adapter</th><th>OK</th><th>HTTP</th>
+        <th>Found</th><th>New</th><th>Changed</th><th>Closed</th><th>ms</th><th>Error</th></tr>
+  </thead>
+  <tbody>
+  {% for run in runs %}
+    <tr>
+      <td class="muted">{{ humanize_age(run.started_at) }}</td>
+      <td>{{ run.company_id }}</td>
+      <td>{{ run.adapter }}</td>
+      <td>{% if run.success %}<span class="badge ok">✓</span>{% else %}<span class="badge err">✗</span>{% endif %}</td>
+      <td class="muted">{{ run.http_status or '' }}</td>
+      <td>{{ run.jobs_found }}</td>
+      <td>{{ run.new_count }}</td>
+      <td>{{ run.changed_count }}</td>
+      <td>{{ run.closed_count }}</td>
+      <td class="muted">{{ run.duration_ms }}</td>
+      <td class="muted">{{ (run.error or '')[:60] }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

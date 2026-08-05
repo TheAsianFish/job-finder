@@ -1,0 +1,24 @@
+{% macro score_class(score) -%}
+{%- if score >= 82 %}high{% elif score >= 60 %}mid{% else %}low{% endif -%}
+{%- endmacro %}
+{% macro job_rows(jobs) %}
+<table>
+  <thead>
+    <tr><th>Score</th><th>Company</th><th>Title</th><th>Season</th><th>Location</th><th>First seen</th></tr>
+  </thead>
+  <tbody>
+  {% for job in jobs %}
+    <tr>
+      <td><span class="score {{ score_class(job.match_score) }}">{{ job.match_score|round|int }}</span></td>
+      <td>{{ job.company_name }}</td>
+      <td><a href="/jobs/{{ job.id }}">{{ job.title }}</a></td>
+      <td>{{ job.season if job.season != 'unspecified' else '—' }} {{ job.season_year or '' }}</td>
+      <td>{{ job.primary_location or job.remote_type }}</td>
+      <td class="muted">{{ humanize_age(job.first_seen_at) }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="6" class="muted">Nothing here yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endmacro %}

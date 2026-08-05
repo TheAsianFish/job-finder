@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% from "_job_table.html" import score_class %}
+{% block title %}Jobs — Opportunity Radar{% endblock %}
+{% block content %}
+<h1>Jobs</h1>
+
+<form class="filters" method="get" action="/jobs">
+  <input type="text" name="q" placeholder="Search title/company/text" value="{{ filters.q }}">
+  <select name="status">
+    {% for value in ["active", "closed", "all"] %}
+    <option value="{{ value }}" {{ 'selected' if filters.status == value }}>{{ value }}</option>
+    {% endfor %}
+  </select>
+  <select name="season">
+    <option value="">any season</option>
+    {% for value in ["winter", "spring", "summer", "fall", "off_cycle", "year_round", "unspecified"] %}
+    <option value="{{ value }}" {{ 'selected' if filters.season == value }}>{{ value }}</option>
+    {% endfor %}
+  </select>
+  <input type="number" name="season_year" placeholder="year" style="width:90px" value="{{ filters.season_year }}">
+  <input type="number" name="min_score" placeholder="min score" style="width:100px" value="{{ filters.min_score }}">
+  <select name="company">
+    <option value="">any company</option>
+    {% for company in companies %}
+    <option value="{{ company.id }}" {{ 'selected' if filters.company == company.id }}>{{ company.name }}</option>
+    {% endfor %}
+  </select>
+  <select name="role_family">
+    <option value="">any family</option>
+    {% for value in ["general_swe","backend","infrastructure","ml_systems","data_infrastructure","developer_tools","fullstack","frontend","embedded","robotics","security","quant_developer","research_engineering","adjacent"] %}
+    <option value="{{ value }}" {{ 'selected' if filters.role_family == value }}>{{ value }}</option>
+    {% endfor %}
+  </select>
+  <select name="remote_type">
+    <option value="">any remote type</option>
+    {% for value in ["remote","hybrid","onsite","unknown"] %}
+    <option value="{{ value }}" {{ 'selected' if filters.remote_type == value }}>{{ value }}</option>
+    {% endfor %}
+  </select>
+  <select name="application_status">
+    <option value="">any app status</option>
+    {% for value in ["saved","dismissed","applied","oa","interview","offer","rejected"] %}
+    <option value="{{ value }}" {{ 'selected' if filters.application_status == value }}>{{ value }}</option>
+    {% endfor %}
+  </select>
+  <select name="eligibility">
+    <option value="">any eligibility</option>
+    {% for value in ["confirmed_eligible","likely_eligible","uncertain","likely_ineligible","confirmed_ineligible"] %}
+    <option value="{{ value }}" {{ 'selected' if filters.eligibility == value }}>{{ value }}</option>
+    {% endfor %}
+  </select>
+  <select name="order">
+    {% for value in ["score", "first_seen", "posted"] %}
+    <option value="{{ value }}" {{ 'selected' if filters.order == value }}>sort: {{ value }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Filter</button>
+  <a href="/jobs"><button type="button" class="secondary">Reset</button></a>
+</form>
+
+<table>
+  <thead>
+    <tr><th>Score</th><th>Company</th><th>Title</th><th>Season</th><th>Family</th>
+        <th>Location</th><th>Eligibility</th><th>App</th><th>First seen</th></tr>
+  </thead>
+  <tbody>
+  {% for job in jobs %}
+    <tr>
+      <td><span class="score {{ score_class(job.match_score) }}">{{ job.match_score|round|int }}</span></td>
+      <td>{{ job.company_name }}</td>
+      <td><a href="/jobs/{{ job.id }}">{{ job.title }}</a></td>
+      <td>{{ job.season if job.season != 'unspecified' else '—' }} {{ job.season_year or '' }}</td>
+      <td class="muted">{{ job.role_family or '—' }}</td>
+      <td>{{ (job.primary_location or job.remote_type)[:30] }}</td>
+      <td class="muted">{{ job.eligibility_level.replace('_', ' ') }}</td>
+      <td>{{ app_statuses.get(job.id, '') }}</td>
+      <td class="muted">{{ humanize_age(job.first_seen_at) }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="9" class="muted">No jobs match these filters.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<div class="actions">
+  {% if page > 1 %}<a href="?page={{ page - 1 }}&q={{ filters.q }}&status={{ filters.status }}&season={{ filters.season }}"><button class="secondary">← Prev</button></a>{% endif %}
+  {% if jobs|length == page_size %}<a href="?page={{ page + 1 }}&q={{ filters.q }}&status={{ filters.status }}&season={{ filters.season }}"><button class="secondary">Next →</button></a>{% endif %}
+</div>
+{% endblock %}

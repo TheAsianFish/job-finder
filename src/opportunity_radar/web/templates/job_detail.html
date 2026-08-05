@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}{{ job.title }} — Opportunity Radar{% endblock %}
+{% block content %}
+<h1>{{ job.title }}</h1>
+<p>
+  <strong>{{ job.company_name }}</strong>
+  · <span class="score {% if job.match_score >= 82 %}high{% elif job.match_score >= 60 %}mid{% else %}low{% endif %}">{{ job.match_score|round|int }}/100</span>
+  · <span class="badge">{{ job.status }}</span>
+  {% if job.is_baseline %}<span class="badge">baseline</span>{% endif %}
+  <span class="badge">{{ job.source_adapter }}</span>
+</p>
+
+<div class="actions">
+  <a href="{{ job.apply_url }}" target="_blank" rel="noopener noreferrer"><button>Apply on employer site ↗</button></a>
+  <button class="secondary" onclick="navigator.clipboard.writeText('{{ job.apply_url }}')">Copy apply link</button>
+  {% for action, label in [("saved", "Save"), ("dismissed", "Dismiss"), ("applied", "Applied"), ("oa", "OA"), ("interview", "Interview")] %}
+  <form method="post" action="/jobs/{{ job.id }}/status" style="display:inline">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <input type="hidden" name="status" value="{{ action }}">
+    <button class="secondary" type="submit">{{ label }}</button>
+  </form>
+  {% endfor %}
+</div>
+
+<div class="grid2">
+  <div class="panel">
+    <h2 style="margin-top:0">Facts</h2>
+    <ul class="plain">
+      <li><strong>Season:</strong> {{ job.season }} {{ job.season_year or '' }}
+          <span class="muted">(confidence {{ (job.season_confidence * 100)|round|int }}%)</span></li>
+      <li><strong>Locations:</strong> {{ job.all_locations|join(', ') or job.remote_type }}</li>
+      <li><strong>Remote type:</strong> {{ job.remote_type }}</li>
+      <li><strong>Role family:</strong> {{ job.role_family or '—' }}</li>
+      <li><strong>Employment type:</strong> {{ job.employment_type or '—' }}</li>
+      {% if job.duration_weeks %}<li><strong>Duration:</strong> {{ job.duration_weeks }} weeks</li>{% endif %}
+      {% if job.compensation_min %}
+      <li><strong>Compensation:</strong> {{ job.compensation_min|round|int }}–{{ job.compensation_max|round|int if job.compensation_max else '?' }}
+          {{ job.compensation_currency or '' }}/{{ job.compensation_period or '' }}</li>
+      {% endif %}
+      <li><strong>Posted:</strong> {{ job.posted_at.strftime('%Y-%m-%d') if job.posted_at else 'unknown' }}</li>
+      <li><strong>First seen:</strong> {{ humanize_age(job.first_seen_at) }}</li>
+      <li><strong>Eligibility:</strong> {{ job.eligibility_level.replace('_', ' ') }}
+          <span class="muted">(confidence {{ (job.eligibility_confidence * 100)|round|int }}%)</span></li>
+    </ul>
+    {% if job.eligibility_text %}
+    <p class="muted"><strong>Exact eligibility text:</strong><br>“{{ job.eligibility_text }}”</p>
+    {% endif %}
+    {% if job.work_authorization_text %}
+    <p class="muted"><strong>Work authorization text:</strong><br>“{{ job.work_authorization_text }}”</p>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-top:0">Match explanation</h2>
+    <ul class="plain">
+      {% for reason in job.match_reasons %}<li>✔ {{ reason }}</li>{% endfor %}
+    </ul>
+    {% if job.risk_flags %}
+    <h2>Risks</h2>
+    <ul class="plain">
+      {% for risk in job.risk_flags %}<li>⚠ {{ risk }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    <h2>Score components</h2>
+    <ul class="plain">
+      {% for name, value in job.score_components.items() %}
+      <li class="muted">{{ name }}: {{ value }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+
+<div class="panel">
+  <h2 style="margin-top:0">Application tracking</h2>
+  <p class="muted">Status: <strong>{{ application.status if application else 'none' }}</strong>
+    {% if application and application.applied_at %} · applied {{ humanize_age(application.applied_at) }}{% endif %}
+    {% if application and application.resume_variant %} · resume: {{ application.resume_variant }}{% endif %}
+  </p>
+  <form method="post" action="/jobs/{{ job.id }}/status" class="filters">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <select name="status">
+      {% for value in ["saved","applied","oa","interview","offer","rejected","dismissed"] %}
+      <option value="{{ value }}" {{ 'selected' if application and application.status == value }}>{{ value }}</option>
+      {% endfor %}
+    </select>
+    <select name="resume_variant">
+      <option value="">resume variant…</option>
+      {% for variant in resume_variants %}
+      <option value="{{ variant }}" {{ 'selected' if application and application.resume_variant == variant }}>{{ variant }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" name="recruiter_name" placeholder="recruiter"
+           value="{{ application.recruiter_name if application and application.recruiter_name else '' }}">
+    <input type="text" name="referral_status" placeholder="referral"
+           value="{{ application.referral_status if application and application.referral_status else '' }}">
+    <input type="date" name="deadline"
+           value="{{ application.deadline if application and application.deadline else '' }}">
+    <button type="submit">Update</button>
+  </form>
+  <form method="post" action="/jobs/{{ job.id }}/note">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <textarea name="notes" rows="3" style="width:100%" placeholder="Notes…">{{ application.notes if application and application.notes else '' }}</textarea>
+    <button type="submit" style="margin-top:0.4rem">Save note</button>
+  </form>
+</div>
+
+<div class="panel">
+  <h2 style="margin-top:0">Description</h2>
+  <div class="description">{{ job.description_text or 'No description captured.' }}</div>
+</div>
+
+<div class="grid2">
+  <div class="panel">
+    <h2 style="margin-top:0">Change history</h2>
+    <table>
+      <thead><tr><th>When</th><th>Field</th><th>Change</th></tr></thead>
+      <tbody>
+      {% for change in changes %}
+        <tr>
+          <td class="muted">{{ humanize_age(change.changed_at) }}</td>
+          <td>{{ change.field }}{% if change.meaningful %} <span class="badge warn">meaningful</span>{% endif %}</td>
+          <td class="muted">{{ change.old_value or '—' }} → {{ change.new_value or '—' }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="3" class="muted">No changes recorded.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="panel">
+    <h2 style="margin-top:0">Source URLs</h2>
+    <ul class="plain">
+      <li><a href="{{ job.apply_url }}" target="_blank" rel="noopener noreferrer">Apply URL</a></li>
+      <li><a href="{{ job.source_url }}" target="_blank" rel="noopener noreferrer">Source URL</a></li>
+      {% for alias in aliases %}
+        {% if alias.url and alias.url != job.apply_url %}
+        <li class="muted">{{ alias.alias_kind }}: <a href="{{ alias.url }}" target="_blank" rel="noopener noreferrer">{{ alias.url[:80] }}</a></li>
+        {% endif %}
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endblock %}

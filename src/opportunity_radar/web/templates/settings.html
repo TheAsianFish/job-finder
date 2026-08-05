@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Settings — Opportunity Radar{% endblock %}
+{% block content %}
+<h1>Settings</h1>
+<p class="muted">Settings are file-based: edit <code>config/profile.yaml</code>,
+<code>config/settings.yaml</code>, <code>config/scoring.yaml</code>, and <code>.env</code>,
+then restart the daemon. This page shows the loaded values.</p>
+
+<div class="grid2">
+  <div class="panel">
+    <h2 style="margin-top:0">Candidate profile</h2>
+    <ul class="plain">
+      <li><strong>Expected graduation:</strong> {{ profile.candidate.expected_graduation }}</li>
+      <li><strong>Degree:</strong> {{ profile.candidate.degree_level }} — {{ profile.candidate.school }}</li>
+      <li><strong>US citizen:</strong> {{ profile.candidate.us_citizen if profile.candidate.us_citizen is not none else 'not configured' }}</li>
+      <li><strong>Requires sponsorship:</strong> {{ profile.candidate.requires_sponsorship if profile.candidate.requires_sponsorship is not none else 'not configured' }}</li>
+      <li><strong>Clearance eligible:</strong> {{ profile.candidate.clearance_eligible if profile.candidate.clearance_eligible is not none else 'not configured' }}</li>
+      <li><strong>Remote OK:</strong> {{ profile.preferences.allow_remote }}</li>
+      <li><strong>Relocation:</strong> {{ profile.preferences.willing_to_relocate }}</li>
+      <li><strong>Preferred locations:</strong> {{ profile.preferences.preferred_locations|join(', ') }}</li>
+      <li><strong>Target role families:</strong> {{ profile.preferences.role_families|join(', ') }}</li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-top:0">Alerts & scanning</h2>
+    <ul class="plain">
+      <li><strong>Discord webhook:</strong>
+        {% if webhook_configured %}<span class="badge ok">configured</span>
+        {% else %}<span class="badge err">missing — set DISCORD_WEBHOOK_URL in .env</span>{% endif %}</li>
+      <li><strong>Immediate alert threshold:</strong> {{ alerts.immediate_min_score }}</li>
+      <li><strong>Digest threshold:</strong> {{ alerts.digest_min_score }}</li>
+      <li><strong>Dashboard threshold:</strong> {{ alerts.dashboard_min_score }}</li>
+      <li><strong>Alert on changes:</strong> {{ alerts.alert_on_changes }}</li>
+      <li><strong>Scan intervals (min):</strong>
+        core {{ scheduler.core_interval_minutes }} ·
+        strong {{ scheduler.strong_interval_minutes }} ·
+        broad {{ scheduler.broad_interval_minutes }} ·
+        exploratory {{ scheduler.exploratory_interval_minutes }}</li>
+      <li><strong>Digests at:</strong> {{ scheduler.morning_digest_hour }}:00 and {{ scheduler.evening_digest_hour }}:00 local</li>
+    </ul>
+    <h2>Target windows</h2>
+    <ul class="plain">
+      {% for window in windows %}
+      <li>{{ window.name }}: {{ window.start }} → {{ window.end }} (priority {{ window.priority }})</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endblock %}
