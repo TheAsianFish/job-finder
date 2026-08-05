@@ -18,6 +18,15 @@ _env = Environment(
     loader=FileSystemLoader(str(_WEB_DIR / "templates")),
     autoescape=select_autoescape(default=True, default_for_string=True),
 )
+
+
+def _humanize(value):  # available inside imported macros too
+    from opportunity_radar.utilities.dates import ensure_utc, humanize_age
+
+    return humanize_age(ensure_utc(value))
+
+
+_env.globals["humanize_age"] = _humanize
 templates = Jinja2Templates(env=_env)
 
 
