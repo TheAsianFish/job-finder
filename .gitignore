@@ -1,0 +1,32 @@
+# Secrets and local state
+.env
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+config/settings.yaml
+config/profile.yaml
+config/companies.yaml
+config/scoring.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+
+# Logs
+*.log
+logs/
