@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Run the first-run baseline import (no alert flood).
+set -euo pipefail
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$PROJECT_DIR"
+uv run opportunity-radar baseline "$@"

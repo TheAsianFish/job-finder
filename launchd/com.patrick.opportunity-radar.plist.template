@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.patrick.opportunity-radar</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>__UV_PATH__</string>
+    <string>run</string>
+    <string>--project</string>
+    <string>__PROJECT_DIR__</string>
+    <string>opportunity-radar</string>
+    <string>daemon</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>__PROJECT_DIR__</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>OPPORTUNITY_RADAR_HOME</key>
+    <string>__PROJECT_DIR__</string>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+
+  <key>ThrottleInterval</key>
+  <integer>60</integer>
+
+  <key>StandardOutPath</key>
+  <string>__LOG_DIR__/daemon.log</string>
+  <key>StandardErrorPath</key>
+  <string>__LOG_DIR__/daemon.err.log</string>
+</dict>
+</plist>

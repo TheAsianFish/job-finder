@@ -1,0 +1,57 @@
+# OPTIONAL cloud scanning while your Mac is offline (spec §20).
+# Local mode is canonical. This workflow is disabled unless you set the
+# repository variable ENABLE_CLOUD_SCAN=true and add DISCORD_WEBHOOK_URL
+# to Actions secrets. SQLite state is persisted as a workflow artifact —
+# best-effort continuity, not a primary datastore.
+#
+# Note: GitHub scheduled workflows can be delayed several minutes.
+
+name: Opportunity Radar Scan
+
+on:
+  schedule:
+    - cron: "17 * * * *"   # non-round minute to avoid scheduler congestion
+  workflow_dispatch:
+
+concurrency:
+  group: opportunity-radar-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    if: vars.ENABLE_CLOUD_SCAN == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Restore previous database
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: radar-db
+          path: data/
+
+      - name: Initialize and scan
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          OPPORTUNITY_RADAR_SECRET_KEY: ${{ secrets.OPPORTUNITY_RADAR_SECRET_KEY }}
+        run: |
+          uv run opportunity-radar db migrate
+          uv run opportunity-radar scan
+
+      - name: Persist database
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: radar-db
+          path: data/opportunity_radar.db
+          retention-days: 7
+          overwrite: true
