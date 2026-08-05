@@ -1,0 +1,59 @@
+# Copy to config/scoring.yaml to customize scoring weights and alert thresholds.
+# Component budget (clamped to 0-100 total):
+#   Company quality:              0-25
+#   Role-family fit:              0-20
+#   Season/timing fit:            0-20
+#   Technical-skill overlap:      0-15
+#   Production/systems relevance: 0-10
+#   Location/remote fit:          0-5
+#   Freshness:                    0-5
+#   Eligibility adjustment:     -50-0
+#   Risk/noise adjustment:      -30-0
+
+company_tier_points:
+  core: 25
+  strong: 20
+  broad: 14
+  exploratory: 8
+
+role_family_weights:
+  general_swe: 20
+  backend: 20
+  infrastructure: 20
+  ml_systems: 19
+  developer_tools: 19
+  data_infrastructure: 18
+  fullstack: 16
+  quant_developer: 15
+  research_engineering: 15
+  security: 14
+  robotics: 14
+  frontend: 12
+  embedded: 10
+  adjacent: 5
+  irrelevant: 0
+
+target_windows:
+  - name: spring_2027
+    start: 2027-01-01
+    end: 2027-06-15
+    priority: 95
+  - name: summer_2027
+    start: 2027-05-15
+    end: 2027-09-15
+    priority: 100
+  - name: fall_2027
+    start: 2027-08-01
+    end: 2027-12-31
+    priority: 80
+  - name: new_grad_late_2027
+    start: 2027-10-01
+    end: 2028-06-30
+    priority: 70
+
+alerts:
+  immediate_min_score: 82
+  digest_min_score: 60
+  dashboard_min_score: 35
+  suppress_below_score: 20
+  alert_on_changes: true

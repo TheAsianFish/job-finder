@@ -1,0 +1,81 @@
+# Copy to config/profile.yaml and edit for your own situation.
+# null means "unknown" — the eligibility engine surfaces the question instead of guessing.
+
+candidate:
+  expected_graduation: 2027-12-01
+  degree_level: bachelors
+  school: University of California, San Diego
+  country: US
+
+  requires_sponsorship: null
+  us_citizen: null
+  permanent_resident: null
+  clearance_eligible: null
+
+preferences:
+  countries: [US]
+  allow_remote: true
+  willing_to_relocate: true
+  preferred_locations:
+    - California
+    - New York
+    - Seattle
+    - Boston
+    - Austin
+    - Remote
+
+  role_families:
+    - general_swe
+    - backend
+    - infrastructure
+    - ml_systems
+    - developer_tools
+    - data_infrastructure
+    - fullstack
+
+  target_seasons:
+    - spring_2027
+    - summer_2027
+    - fall_2027
+    - new_grad_late_2027
+
+skills:
+  languages:
+    - Python
+    - Java
+    - C#
+    - C
+    - C++
+    - JavaScript
+    - TypeScript
+    - SQL
+  technologies:
+    - React
+    - .NET
+    - Blazor
+    - Entity Framework Core
+    - FastAPI
+    - Flask
+    - PostgreSQL
+    - SQL Server
+    - AWS
+    - Docker
+    - Kubernetes
+    - Kubeflow
+    - Jenkins
+    - Azure DevOps
+    - Jest
+    - Git
+    - Tree-sitter
+    - ChromaDB
+  concepts:
+    - production software
+    - backend systems
+    - cloud infrastructure
+    - distributed systems
+    - machine learning systems
+    - developer tooling
+    - databases
+    - operating systems
+    - concurrency
+    - data pipelines

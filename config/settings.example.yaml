@@ -1,0 +1,23 @@
+# Copy to config/settings.yaml and edit. All values shown are defaults.
+
+scheduler:
+  default_interval_minutes: 30
+  core_interval_minutes: 20
+  strong_interval_minutes: 45
+  broad_interval_minutes: 120
+  exploratory_interval_minutes: 360
+  max_concurrency_global: 8
+  max_concurrency_per_domain: 1
+  request_timeout_seconds: 30
+  retries: 3
+  backoff_seconds: [2, 8, 30]
+  jitter_seconds: 45
+  morning_digest_hour: 8
+  evening_digest_hour: 18
+
+alerts:
+  immediate_min_score: 82
+  digest_min_score: 60
+  dashboard_min_score: 35
+  suppress_below_score: 20
+  alert_on_changes: true

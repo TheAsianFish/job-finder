@@ -1,0 +1,216 @@
+# Title classification rules. Edit freely — no code changes needed.
+# All matching is case-insensitive; patterns are matched on word boundaries.
+
+positive_titles:
+  - software engineer
+  - software engineering
+  - software developer
+  - software development engineer
+  - sde
+  - swe
+  - backend engineer
+  - backend developer
+  - back-end engineer
+  - platform engineer
+  - infrastructure engineer
+  - systems engineer
+  - systems software
+  - product engineer
+  - full stack engineer
+  - full-stack engineer
+  - fullstack engineer
+  - frontend engineer
+  - front-end engineer
+  - machine learning engineer
+  - ml engineer
+  - ml systems
+  - data engineer
+  - database engineer
+  - developer tools
+  - cloud engineer
+  - site reliability engineer
+  - sre
+  - devops engineer
+  - security engineer
+  - robotics software
+  - embedded software
+  - simulation software
+  - hmi software
+  - engineering intern
+  - software co-op
+  - quantitative developer
+  - quant developer
+  - research engineer
+  - forward deployed engineer
+  - member of technical staff
+
+early_career_signals:
+  - intern
+  - internship
+  - co-op
+  - coop
+  - co op
+  - off-cycle
+  - off cycle
+  - year-round
+  - year round
+  - student
+  - university
+  - undergraduate
+  - new college graduate
+  - new grad
+  - new graduate
+  - college grad
+  - graduate software engineer
+  - early career
+  - early-career
+  - apprentice
+  - apprenticeship
+  - campus
+  - emerging talent
+  - entry level
+  - entry-level
+
+# Hard exclusions — apply ONLY when matched in the title with high confidence.
+hard_exclusions:
+  - senior
+  - sr.
+  - staff
+  - principal
+  - lead
+  - manager
+  - director
+  - vp
+  - head of
+  - architect
+  - distinguished
+  - fellow
+  - nurse
+  - marketing
+  - sales
+  - account executive
+  - recruiter
+  - it support
+  - help desk
+  - helpdesk
+
+# Description-level exclusion phrases (need high confidence).
+description_exclusions:
+  - "10+ years"
+  - "8+ years"
+  - "12+ years"
+  - phd required
+  - licensed professional engineer
+  - unpaid trial
+
+# Role family keywords, checked in order (title first, then description).
+role_families:
+  quant_developer:
+    - quantitative developer
+    - quant developer
+    - quantitative research engineer
+    - trading systems
+  ml_systems:
+    - machine learning engineer
+    - ml engineer
+    - ml systems
+    - ml infrastructure
+    - ml platform
+    - applied ml
+    - mlops
+    - ai engineer
+    - deep learning
+  data_infrastructure:
+    - data engineer
+    - data infrastructure
+    - data platform
+    - database engineer
+    - database internals
+    - data pipelines
+    - streaming platform
+  developer_tools:
+    - developer tools
+    - developer experience
+    - devex
+    - build systems
+    - compiler
+    - developer productivity
+    - internal tools
+    - devtools
+  infrastructure:
+    - infrastructure engineer
+    - platform engineer
+    - site reliability
+    - sre
+    - devops
+    - cloud engineer
+    - cloud infrastructure
+    - distributed systems
+    - systems engineer
+    - kernel
+    - virtualization
+    - networking engineer
+    - storage engineer
+  security:
+    - security engineer
+    - application security
+    - appsec
+    - infrastructure security
+    - detection engineer
+    - offensive security
+  robotics:
+    - robotics software
+    - robotics engineer
+    - autonomy software
+    - motion planning
+    - perception engineer
+  embedded:
+    - embedded software
+    - embedded engineer
+    - firmware
+    - bare metal
+    - rtos
+  backend:
+    - backend engineer
+    - backend developer
+    - back-end engineer
+    - backend software
+    - server engineer
+    - api engineer
+    - services engineer
+  frontend:
+    - frontend engineer
+    - front-end engineer
+    - frontend developer
+    - ui engineer
+    - web engineer
+  fullstack:
+    - full stack
+    - full-stack
+    - fullstack
+    - product engineer
+  research_engineering:
+    - research engineer
+    - research software
+    - member of technical staff
+  general_swe:
+    - software engineer
+    - software developer
+    - software development engineer
+    - sde
+    - swe
+    - engineering intern
+    - software intern
+
+# Words that suggest a non-software role even if "engineer" appears.
+non_software_signals:
+  - mechanical engineer
+  - civil engineer
+  - electrical engineer
+  - manufacturing engineer
+  - process engineer
+  - chemical engineer
+  - quality engineer
+  - test technician
+  - facilities
+  - hvac
