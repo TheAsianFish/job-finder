@@ -1,0 +1,47 @@
+{
+  "jobs": [
+    {
+      "id": 4011001,
+      "internal_job_id": 2011001,
+      "title": "Software Engineer Intern - Summer 2027",
+      "updated_at": "2026-08-01T09:15:00-04:00",
+      "first_published": "2026-07-30T12:00:00-04:00",
+      "requisition_id": "R-1001",
+      "location": { "name": "San Francisco, CA" },
+      "absolute_url": "https://boards.greenhouse.io/acmecorp/jobs/4011001",
+      "metadata": [],
+      "content": "&lt;div&gt;&lt;p&gt;Join our payments infrastructure team. You will build production services in &lt;strong&gt;Python&lt;/strong&gt; and Java on Kubernetes, working with PostgreSQL and distributed systems.&lt;/p&gt;&lt;p&gt;Must be graduating between December 2026 and June 2028 and returning to school after the internship.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [{ "id": 1, "name": "Engineering" }],
+      "offices": [{ "id": 1, "name": "San Francisco" }]
+    },
+    {
+      "id": 4011002,
+      "internal_job_id": 2011002,
+      "title": "Spring 2027 Backend Engineering Intern",
+      "updated_at": "2026-08-03T10:00:00-04:00",
+      "first_published": "2026-08-03T08:00:00-04:00",
+      "requisition_id": "R-1002",
+      "location": { "name": "New York, NY" },
+      "absolute_url": "https://boards.greenhouse.io/acmecorp/jobs/4011002",
+      "metadata": [],
+      "content": "&lt;p&gt;Off-cycle internship on the API platform team. Work with Go, Python, AWS, and Docker. We are unable to sponsor visas for this position.&lt;/p&gt;",
+      "departments": [{ "id": 1, "name": "Engineering" }],
+      "offices": [{ "id": 2, "name": "New York" }]
+    },
+    {
+      "id": 4011003,
+      "internal_job_id": 2011003,
+      "title": "Senior Staff Software Engineer, Payments",
+      "updated_at": "2026-07-10T10:00:00-04:00",
+      "first_published": "2026-07-01T08:00:00-04:00",
+      "requisition_id": "R-1003",
+      "location": { "name": "Remote - US" },
+      "absolute_url": "https://boards.greenhouse.io/acmecorp/jobs/4011003",
+      "metadata": [],
+      "content": "&lt;p&gt;10+ years of experience building distributed systems.&lt;/p&gt;",
+      "departments": [{ "id": 1, "name": "Engineering" }],
+      "offices": []
+    }
+  ],
+  "meta": { "total": 3 }
+}

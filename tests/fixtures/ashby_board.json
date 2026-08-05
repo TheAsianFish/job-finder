@@ -1,0 +1,63 @@
+{
+  "apiVersion": "1",
+  "jobs": [
+    {
+      "id": "cccc1111-dddd-2222-eeee-3333ffff4444",
+      "title": "Machine Learning Engineer Intern - Fall 2027",
+      "department": "Engineering",
+      "team": "ML Platform",
+      "employmentType": "Intern",
+      "location": "San Francisco",
+      "secondaryLocations": [
+        { "location": "Remote (US)", "address": { "postalAddress": { "addressCountry": "US" } } }
+      ],
+      "publishedAt": "2026-08-04T16:00:00.000Z",
+      "isListed": true,
+      "isRemote": false,
+      "address": { "postalAddress": { "addressLocality": "San Francisco", "addressRegion": "CA", "addressCountry": "US" } },
+      "jobUrl": "https://jobs.ashbyhq.com/acmeai/cccc1111-dddd-2222-eeee-3333ffff4444",
+      "applyUrl": "https://jobs.ashbyhq.com/acmeai/cccc1111-dddd-2222-eeee-3333ffff4444/application",
+      "descriptionHtml": "<p>Productionize ML pipelines with Kubernetes, Kubeflow, and Python. Off-cycle candidates welcome. Expected graduation date of December 2026 or later.</p>",
+      "descriptionPlain": "Productionize ML pipelines with Kubernetes, Kubeflow, and Python. Off-cycle candidates welcome. Expected graduation date of December 2026 or later.",
+      "compensation": {
+        "compensationTierSummaries": [
+          {
+            "compensationComponents": [
+              {
+                "summary": "$55 - $65 / hr",
+                "compensationType": "Hourly",
+                "interval": "1 HOUR",
+                "currencyCode": "USD",
+                "minValue": 55,
+                "maxValue": 65
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "dddd1111-eeee-2222-ffff-3333aaaa4444",
+      "title": "Recruiting Coordinator",
+      "department": "People",
+      "team": "Talent",
+      "employmentType": "FullTime",
+      "location": "New York",
+      "secondaryLocations": [],
+      "publishedAt": "2026-07-20T10:00:00.000Z",
+      "isListed": true,
+      "isRemote": false,
+      "jobUrl": "https://jobs.ashbyhq.com/acmeai/dddd1111-eeee-2222-ffff-3333aaaa4444",
+      "applyUrl": "https://jobs.ashbyhq.com/acmeai/dddd1111-eeee-2222-ffff-3333aaaa4444/application",
+      "descriptionHtml": "<p>Coordinate interviews and support the recruiting team.</p>",
+      "descriptionPlain": "Coordinate interviews and support the recruiting team."
+    },
+    {
+      "id": "unlisted-9999",
+      "title": "Hidden Draft Role",
+      "isListed": false,
+      "location": "Nowhere",
+      "jobUrl": "https://jobs.ashbyhq.com/acmeai/unlisted-9999"
+    }
+  ]
+}

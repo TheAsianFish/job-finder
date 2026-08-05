@@ -1,0 +1,39 @@
+[
+  {
+    "id": "aaa11111-2222-3333-4444-555566667777",
+    "text": "Software Engineering Intern (Winter 2027)",
+    "categories": {
+      "commitment": "Intern",
+      "department": "Engineering",
+      "location": "New York, NY",
+      "team": "Platform",
+      "allLocations": ["New York, NY", "Chicago, IL"]
+    },
+    "country": "US",
+    "workplaceType": "hybrid",
+    "createdAt": 1754300000000,
+    "descriptionPlain": "Build low latency trading infrastructure in C++ and Python. Must be a U.S. citizen. Starts January 2027.",
+    "description": "<div>Build low latency trading infrastructure in C++ and Python. Must be a U.S. citizen. Starts January 2027.</div>",
+    "lists": [],
+    "hostedUrl": "https://jobs.lever.co/acmetrading/aaa11111-2222-3333-4444-555566667777",
+    "applyUrl": "https://jobs.lever.co/acmetrading/aaa11111-2222-3333-4444-555566667777/apply"
+  },
+  {
+    "id": "bbb11111-2222-3333-4444-555566667777",
+    "text": "New Grad Software Engineer 2028",
+    "categories": {
+      "commitment": "Full-time",
+      "department": "Engineering",
+      "location": "Remote - United States",
+      "team": "Backend"
+    },
+    "country": "US",
+    "workplaceType": "remote",
+    "createdAt": 1754350000000,
+    "descriptionPlain": "Design backend APIs with Python, FastAPI, and PostgreSQL on AWS. Graduating in 2027 or 2028.",
+    "description": "<div>Design backend APIs with Python, FastAPI, and PostgreSQL on AWS. Graduating in 2027 or 2028.</div>",
+    "lists": [],
+    "hostedUrl": "https://jobs.lever.co/acmetrading/bbb11111-2222-3333-4444-555566667777",
+    "applyUrl": "https://jobs.lever.co/acmetrading/bbb11111-2222-3333-4444-555566667777/apply"
+  }
+]
