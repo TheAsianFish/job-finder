@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 from opportunity_radar.config import ProfileConfig, ScoringConfig, TargetWindow
 from opportunity_radar.matching.eligibility import EligibilityResult
@@ -129,6 +129,8 @@ def _score_location(locations: list[str], remote_type: str, profile: ProfileConf
 
 def _score_freshness(first_seen_at: datetime, now: datetime | None = None) -> float:
     now = now or utcnow()
+    if first_seen_at.tzinfo is None:
+        first_seen_at = first_seen_at.replace(tzinfo=UTC)
     age_hours = max((now - first_seen_at).total_seconds() / 3600.0, 0.0)
     if age_hours < 6:
         return 5.0

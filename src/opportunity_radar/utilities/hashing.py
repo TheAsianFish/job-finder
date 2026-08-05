@@ -28,7 +28,15 @@ def url_hash(apply_url: str) -> str:
 
 
 def fuzzy_key_hash(company_id: str, title: str, locations: list[str]) -> str:
-    normalized_locations = sorted(normalize_for_comparison(loc) for loc in locations if loc)
+    """Company + title + city-level locations.
+
+    Locations are reduced to their city token ("San Francisco, CA" ->
+    "san francisco") so an ATS listing and a careers-site copy of the same
+    role merge, while roles in different cities stay distinct.
+    """
+    normalized_locations = sorted(
+        {normalize_for_comparison(loc.split(",")[0]) for loc in locations if loc}
+    )
     key = "|".join(
         [
             "fuzzy",

@@ -11,6 +11,13 @@ def utcnow() -> datetime:
     return datetime.now(UTC)
 
 
+def ensure_utc(value: datetime | None) -> datetime | None:
+    """Coerce naive datetimes (e.g. read back from SQLite) to UTC-aware."""
+    if value is None:
+        return None
+    return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
 def parse_datetime(value: str | int | float | datetime | None) -> datetime | None:
     """Parse an ISO timestamp, epoch millis/seconds, or common date string.
 
