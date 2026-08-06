@@ -185,13 +185,22 @@ def insert_job(
 def add_missing_aliases(
     session: Session, job: JobRow, alias_hashes: dict[str, str], record: JobRecord
 ) -> None:
-    existing = {
+    """Attach this record's identities to the job.
+
+    (kind, hash) is globally unique. A hash already owned by a DIFFERENT job
+    is skipped: e.g. a title change can make one job's fuzzy key collide with
+    another job's — the two jobs stay distinct and the alias keeps pointing
+    at its original owner (spec §6.2: never merge on title similarity alone).
+    """
+    owned = {
         (alias.alias_kind, alias.alias_hash)
-        for alias in session.scalars(select(JobAliasRow).where(JobAliasRow.job_id == job.id))
+        for alias in session.scalars(
+            select(JobAliasRow).where(JobAliasRow.alias_hash.in_(list(alias_hashes.values())))
+        )
     }
     now = utcnow()
     for kind, alias_hash in alias_hashes.items():
-        if (kind, alias_hash) not in existing:
+        if (kind, alias_hash) not in owned:
             session.add(
                 JobAliasRow(
                     job_id=job.id,

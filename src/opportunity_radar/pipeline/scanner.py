@@ -162,9 +162,28 @@ async def _scan_company(
         return outcome
 
     async with db_lock:
-        outcome = _persist_company_jobs(
-            company, adapter_name, raw_jobs, settings, baseline, db_url, summary
-        )
+        try:
+            outcome = _persist_company_jobs(
+                company, adapter_name, raw_jobs, settings, baseline, db_url, summary
+            )
+        except Exception as exc:
+            duration_ms = int((time.monotonic() - t0) * 1000)
+            log.error("persist_failed", error=str(exc), duration_ms=duration_ms)
+            with session_scope(db_url) as session:
+                repo.update_source_state_failure(session, company.id, f"persist: {exc}")
+                outcome = ScanOutcome(
+                    company_id=company.id,
+                    adapter=adapter_name,
+                    success=False,
+                    jobs_found=len(raw_jobs),
+                    duration_ms=duration_ms,
+                    error=f"persistence error: {exc}",
+                    error_category="persist",
+                    started_at=started,
+                    finished_at=utcnow(),
+                )
+                repo.record_scan_run(session, outcome)
+            return outcome
     outcome.started_at = started
     outcome.finished_at = utcnow()
     outcome.duration_ms = int((time.monotonic() - t0) * 1000)
