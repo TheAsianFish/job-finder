@@ -68,6 +68,9 @@ class SchedulerSettings(BaseModel):
     jitter_seconds: int = 45
     morning_digest_hour: int = 8
     evening_digest_hour: int = 18
+    # Weekly feedback-driven tuning + source self-repair in the daemon.
+    auto_tune: bool = False
+    auto_tune_interval_days: int = 7
 
     def tier_intervals(self) -> dict[str, int]:
         return {

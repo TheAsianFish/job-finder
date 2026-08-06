@@ -74,6 +74,7 @@ async def run_daemon() -> None:
                 await _notify_persistent_failures(notifier)
 
         await _maybe_send_digest(notifier)
+        await _maybe_auto_tune(notifier)
         await asyncio.sleep(_TICK_SECONDS)
 
 
@@ -97,6 +98,68 @@ async def _maybe_send_digest(notifier: DiscordNotifier) -> None:
             repo.meta_set(session, key, today)
         sent = await send_digest(settings, notifier)
         logger.info("digest_tick", slot_hour=hour, sent=sent)
+
+
+LAST_AUTO_TUNE_KEY = "last_auto_tune_at"
+
+
+async def _maybe_auto_tune(notifier: DiscordNotifier) -> None:
+    """Weekly self-maintenance: feedback tuning + source repair (opt-in)."""
+    settings = get_settings()
+    if not settings.scheduler.auto_tune:
+        return
+    interval = timedelta(days=settings.scheduler.auto_tune_interval_days)
+    now = utcnow()
+    with session_scope() as session:
+        last_raw = repo.meta_get(session, LAST_AUTO_TUNE_KEY)
+    if last_raw:
+        from opportunity_radar.utilities.dates import parse_datetime
+
+        last = parse_datetime(last_raw)
+        if last and now - last < interval:
+            return
+    with session_scope() as session:
+        repo.meta_set(session, LAST_AUTO_TUNE_KEY, now.isoformat())
+
+    from opportunity_radar.tuning import run_tune
+
+    lines: list[str] = []
+    try:
+        report = run_tune(apply=True)
+        for adjustment in report.adjustments:
+            lines.append(
+                f"tuned {adjustment.key}: {adjustment.old:g} → {adjustment.new:g} "
+                f"({adjustment.reason})"
+            )
+        lines.extend(f"suggestion: {s}" for s in report.suggestions)
+    except Exception as exc:
+        logger.error("auto_tune_failed", error=str(exc))
+
+    try:
+        import httpx
+
+        from opportunity_radar.adapters.base import AdapterContext
+        from opportunity_radar.discovery.repair import repair_failing_sources
+        from opportunity_radar.utilities.rate_limit import RateLimiter, build_user_agent
+
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            ctx = AdapterContext(
+                client=client,
+                limiter=RateLimiter(settings.scheduler.max_concurrency_global),
+                user_agent=build_user_agent(settings.contact),
+                timeout=float(settings.scheduler.request_timeout_seconds),
+            )
+            repair = await repair_failing_sources(ctx)
+        lines.extend(repair.details)
+    except Exception as exc:
+        logger.error("auto_repair_failed", error=str(exc))
+
+    logger.info("auto_tune_complete", actions=len(lines))
+    if lines and notifier.configured:
+        await notifier.send_failure(  # reuse the notice embed; informational
+            "Weekly self-maintenance report",
+            "\n".join(f"• {line}" for line in lines[:15]),
+        )
 
 
 async def _notify_persistent_failures(notifier: DiscordNotifier) -> None:

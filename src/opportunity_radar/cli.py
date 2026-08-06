@@ -710,6 +710,63 @@ def notify_digest() -> None:
     console.print("Digest sent." if ok else "Nothing to send (or webhook failed).")
 
 
+@app.command()
+def tune(
+    apply: bool = typer.Option(False, "--apply", help="Write adjustments to config/scoring.yaml"),
+) -> None:
+    """Learn from your saves/dismissals and nudge scoring parameters.
+
+    Deterministic and bounded: ±1 weight / ±2 threshold per run, with every
+    change explained. Without --apply this only shows recommendations.
+    """
+    from opportunity_radar.tuning import run_tune
+
+    report = run_tune(apply=apply)
+    console.print(f"Feedback events analyzed: {report.feedback_events}")
+    if not report.adjustments and not report.suggestions:
+        console.print(
+            "[dim]No adjustments — not enough feedback yet. Keep saving/dismissing "
+            "jobs; tuning activates after a few signals per category.[/dim]"
+        )
+        return
+    for adjustment in report.adjustments:
+        arrow = f"{adjustment.old:g} → {adjustment.new:g}"
+        state = "[green]applied[/green]" if apply else "[yellow]recommended[/yellow]"
+        console.print(f" {state}  {adjustment.key}: {arrow}  ({adjustment.reason})")
+    for suggestion in report.suggestions:
+        console.print(f" [cyan]suggestion[/cyan]  {suggestion}")
+    if report.adjustments and not apply:
+        console.print("\nRun with [bold]--apply[/bold] to write these to config/scoring.yaml.")
+
+
+@companies_app.command("repair")
+def companies_repair(
+    min_failures: int = typer.Option(
+        3, help="Repair sources with at least this many consecutive failures"
+    ),
+) -> None:
+    """Re-discover ATS config for failing sources and fix companies.yaml."""
+    from opportunity_radar.discovery.repair import repair_failing_sources
+
+    async def run() -> None:
+        client, ctx = _make_ctx_client()
+        try:
+            result = await repair_failing_sources(ctx, min_failures=min_failures)
+        finally:
+            await client.aclose()
+        if not result.details:
+            console.print("No sources currently failing — nothing to repair.")
+            return
+        for detail in result.details:
+            console.print(f"  {detail}")
+        console.print(
+            f"[green]{len(result.repaired)} repaired[/green], "
+            f"[yellow]{len(result.unrepairable)} need manual attention[/yellow]."
+        )
+
+    asyncio.run(run())
+
+
 @db_app.command("migrate")
 def db_migrate() -> None:
     """Apply pending database migrations."""

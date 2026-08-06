@@ -14,6 +14,10 @@ scheduler:
   jitter_seconds: 45
   morning_digest_hour: 8
   evening_digest_hour: 18
+  # Weekly hands-off maintenance: feedback-driven scoring nudges (bounded,
+  # audited in config/scoring.yaml) + auto-repair of failing sources.
+  auto_tune: true
+  auto_tune_interval_days: 7
 
 alerts:
   immediate_min_score: 82
