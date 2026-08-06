@@ -8,999 +8,1194 @@
 #   enabled: false entries are seeds that need adapter work — validate before enabling.
 #
 # Verify any entry with:  uv run opportunity-radar companies validate --company <id>
-# Board tokens below are best-effort seeds, not guarantees; if validation fails,
-# run `opportunity-radar companies discover <domain>` to re-detect.
+# If validation fails, run: uv run opportunity-radar companies discover <domain>
 
 companies:
-  # ── Fintech / financial infrastructure ─────────────────────────────
-  - id: stripe
-    name: Stripe
-    domain: stripe.com
-    tier: core
-    adapter: greenhouse
-    adapter_config: { board_token: stripe }
-    tags: [fintech, infrastructure, payments]
-
-  - id: ramp
-    name: Ramp
-    domain: ramp.com
-    tier: core
-    adapter: ashby
-    adapter_config: { job_board_name: ramp }
-    tags: [fintech]
-
-  - id: plaid
-    name: Plaid
-    domain: plaid.com
-    tier: strong
-    adapter: auto
-    career_urls: [https://plaid.com/careers/]
-    tags: [fintech]
-
-  - id: brex
-    name: Brex
-    domain: brex.com
-    tier: strong
-    adapter: auto
-    career_urls: [https://www.brex.com/careers]
-    tags: [fintech]
-
-  - id: robinhood
-    name: Robinhood
-    domain: robinhood.com
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: robinhood }
-    tags: [fintech, trading]
-
-  - id: coinbase
-    name: Coinbase
-    domain: coinbase.com
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: coinbase }
-    tags: [fintech, crypto]
-
-  - id: affirm
-    name: Affirm
-    domain: affirm.com
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: affirm }
-    tags: [fintech]
-
-  - id: mercury
-    name: Mercury
-    domain: mercury.com
-    tier: strong
-    adapter: auto
-    career_urls: [https://mercury.com/jobs]
-    tags: [fintech]
-
-  - id: rippling
-    name: Rippling
-    domain: rippling.com
-    tier: strong
-    adapter: auto
-    career_urls: [https://www.rippling.com/careers]
-    tags: [fintech, hr-tech]
-
-  - id: gusto
-    name: Gusto
-    domain: gusto.com
-    tier: broad
-    adapter: greenhouse
-    adapter_config: { board_token: gusto }
-    tags: [fintech]
-
-  - id: modern-treasury
-    name: Modern Treasury
-    domain: moderntreasury.com
-    tier: broad
-    adapter: auto
-    career_urls: [https://www.moderntreasury.com/careers]
-    tags: [fintech]
-
-  # ── AI / ML / compute infrastructure ────────────────────────────────
-  - id: openai
-    name: OpenAI
-    domain: openai.com
-    tier: core
-    adapter: ashby
-    adapter_config: { job_board_name: openai }
-    tags: [ai, research]
-
-  - id: anthropic
-    name: Anthropic
-    domain: anthropic.com
-    tier: core
-    adapter: greenhouse
-    adapter_config: { board_token: anthropic }
-    tags: [ai, research]
-
-  - id: databricks
-    name: Databricks
-    domain: databricks.com
-    tier: core
-    adapter: greenhouse
-    adapter_config: { board_token: databricks }
-    tags: [ai, data, infrastructure]
-
-  - id: scale-ai
-    name: Scale AI
-    domain: scale.com
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: scaleai }
-    tags: [ai]
-
-  - id: snowflake
-    name: Snowflake
-    domain: snowflake.com
-    tier: strong
-    adapter: auto
-    career_urls: [https://careers.snowflake.com/us/en/search-results]
-    enabled: false
-    notes: Custom ATS (Eightfold) — needs adapter work before enabling.
-    tags: [data, infrastructure]
-
-  - id: huggingface
-    name: Hugging Face
-    domain: huggingface.co
-    tier: strong
-    adapter: auto
-    career_urls: [https://apply.workable.com/huggingface/]
-    enabled: false
-    notes: Workable ATS — no adapter yet; JSON-LD may work on job pages.
-    tags: [ai, developer-tools]
-
-  - id: xai
-    name: xAI
-    domain: x.ai
-    tier: strong
-    adapter: auto
-    career_urls: [https://x.ai/careers]
-    tags: [ai]
-
-  - id: together-ai
-    name: Together AI
-    domain: together.ai
-    tier: strong
-    adapter: auto
-    career_urls: [https://www.together.ai/careers]
-    tags: [ai, infrastructure]
-
-  - id: modal
-    name: Modal
-    domain: modal.com
-    tier: strong
-    adapter: auto
-    career_urls: [https://jobs.ashbyhq.com/modal]
-    tags: [ai, infrastructure, developer-tools]
-
-  - id: baseten
-    name: Baseten
-    domain: baseten.co
-    tier: broad
-    adapter: auto
-    career_urls: [https://jobs.ashbyhq.com/baseten]
-    tags: [ai, infrastructure]
-
-  - id: replicate
-    name: Replicate
-    domain: replicate.com
-    tier: broad
-    adapter: auto
-    career_urls: [https://jobs.ashbyhq.com/replicate]
-    tags: [ai, developer-tools]
-
-  - id: perplexity
-    name: Perplexity
-    domain: perplexity.ai
-    tier: strong
-    adapter: auto
-    career_urls: [https://www.perplexity.ai/hub/careers]
-    tags: [ai]
-
-  - id: anysphere
-    name: Anysphere (Cursor)
-    domain: cursor.com
-    tier: strong
-    adapter: auto
-    career_urls: [https://www.cursor.com/careers]
-    tags: [ai, developer-tools]
-
-  - id: elevenlabs
-    name: ElevenLabs
-    domain: elevenlabs.io
-    tier: broad
-    adapter: auto
-    career_urls: [https://elevenlabs.io/careers]
-    tags: [ai]
-
-  - id: wandb
-    name: Weights & Biases
-    domain: wandb.ai
-    tier: broad
-    adapter: auto
-    career_urls: [https://wandb.ai/site/careers]
-    tags: [ai, developer-tools]
-
-  - id: pinecone
-    name: Pinecone
-    domain: pinecone.io
-    tier: broad
-    adapter: auto
-    career_urls: [https://www.pinecone.io/careers/]
-    tags: [ai, data]
-
-  - id: coreweave
-    name: CoreWeave
-    domain: coreweave.com
-    tier: broad
-    adapter: auto
-    career_urls: [https://www.coreweave.com/careers]
-    tags: [ai, infrastructure]
-
-  - id: groq
-    name: Groq
-    domain: groq.com
-    tier: broad
-    adapter: auto
-    career_urls: [https://groq.com/careers/]
-    tags: [ai, hardware]
-
-  # ── Cloud / infrastructure / databases / devtools ───────────────────
-  - id: cloudflare
-    name: Cloudflare
-    domain: cloudflare.com
-    tier: core
-    adapter: greenhouse
-    adapter_config: { board_token: cloudflare }
-    tags: [infrastructure, security]
-
-  - id: datadog
-    name: Datadog
-    domain: datadoghq.com
-    tier: core
-    adapter: greenhouse
-    adapter_config: { board_token: datadog }
-    tags: [infrastructure, observability]
-
-  - id: mongodb
-    name: MongoDB
-    domain: mongodb.com
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: mongodb }
-    tags: [databases]
-
-  - id: confluent
-    name: Confluent
-    domain: confluent.io
-    tier: strong
-    adapter: auto
-    career_urls: [https://careers.confluent.io]
-    tags: [data, infrastructure]
-
-  - id: elastic
-    name: Elastic
-    domain: elastic.co
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: elastic }
-    tags: [search, observability]
-
-  - id: hashicorp
-    name: HashiCorp
-    domain: hashicorp.com
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: hashicorp }
-    tags: [infrastructure, developer-tools]
-
-  - id: cockroach-labs
-    name: Cockroach Labs
-    domain: cockroachlabs.com
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: cockroachlabs }
-    tags: [databases]
-
-  - id: supabase
-    name: Supabase
-    domain: supabase.com
-    tier: broad
-    adapter: auto
-    career_urls: [https://supabase.com/careers]
-    tags: [databases, developer-tools]
-
-  - id: vercel
-    name: Vercel
-    domain: vercel.com
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: vercel }
-    tags: [developer-tools, frontend]
-
-  - id: sentry
-    name: Sentry
-    domain: sentry.io
-    tier: broad
-    adapter: greenhouse
-    adapter_config: { board_token: sentry }
-    tags: [developer-tools, observability]
-
-  - id: grafana
-    name: Grafana Labs
-    domain: grafana.com
-    tier: broad
-    adapter: greenhouse
-    adapter_config: { board_token: grafanalabs }
-    tags: [observability]
-
-  - id: temporal
-    name: Temporal
-    domain: temporal.io
-    tier: broad
-    adapter: greenhouse
-    adapter_config: { board_token: temporaltechnologies }
-    tags: [infrastructure, developer-tools]
-
-  - id: docker
-    name: Docker
-    domain: docker.com
-    tier: broad
-    adapter: auto
-    career_urls: [https://www.docker.com/careers/]
-    tags: [developer-tools]
-
-  - id: github
-    name: GitHub
-    domain: github.com
-    tier: strong
-    adapter: auto
-    career_urls: [https://www.github.careers/careers-home]
-    enabled: false
-    notes: Custom careers portal — needs adapter work.
-    tags: [developer-tools]
-
-  - id: gitlab
-    name: GitLab
-    domain: gitlab.com
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: gitlab }
-    tags: [developer-tools]
-
-  - id: atlassian
-    name: Atlassian
-    domain: atlassian.com
-    tier: strong
-    adapter: auto
-    career_urls: [https://www.atlassian.com/company/careers/all-jobs]
-    enabled: false
-    notes: Custom careers site — needs adapter work.
-    tags: [developer-tools]
-
-  - id: postman
-    name: Postman
-    domain: postman.com
-    tier: broad
-    adapter: auto
-    career_urls: [https://www.postman.com/company/careers/]
-    tags: [developer-tools]
-
-  - id: twilio
-    name: Twilio
-    domain: twilio.com
-    tier: broad
-    adapter: greenhouse
-    adapter_config: { board_token: twilio }
-    tags: [infrastructure, api]
-
-  - id: pagerduty
-    name: PagerDuty
-    domain: pagerduty.com
-    tier: broad
-    adapter: greenhouse
-    adapter_config: { board_token: pagerduty }
-    tags: [observability]
-
-  - id: fastly
-    name: Fastly
-    domain: fastly.com
-    tier: broad
-    adapter: greenhouse
-    adapter_config: { board_token: fastly }
-    tags: [infrastructure]
-
-  - id: digitalocean
-    name: DigitalOcean
-    domain: digitalocean.com
-    tier: broad
-    adapter: auto
-    career_urls: [https://www.digitalocean.com/careers]
-    tags: [infrastructure]
-
-  - id: dbt-labs
-    name: dbt Labs
-    domain: getdbt.com
-    tier: broad
-    adapter: auto
-    career_urls: [https://www.getdbt.com/careers]
-    tags: [data]
-
-  - id: fivetran
-    name: Fivetran
-    domain: fivetran.com
-    tier: broad
-    adapter: greenhouse
-    adapter_config: { board_token: fivetran }
-    tags: [data]
-
-  - id: motherduck
-    name: MotherDuck
-    domain: motherduck.com
-    tier: exploratory
-    adapter: auto
-    career_urls: [https://motherduck.com/careers/]
-    tags: [databases]
-
-  # ── Product / collaboration ────────────────────────────────────────
-  - id: figma
-    name: Figma
-    domain: figma.com
-    tier: core
-    adapter: greenhouse
-    adapter_config: { board_token: figma }
-    tags: [product, design-tools]
-
-  - id: notion
-    name: Notion
-    domain: notion.so
-    tier: strong
-    adapter: ashby
-    adapter_config: { job_board_name: notion }
-    tags: [product]
-
-  - id: linear
-    name: Linear
-    domain: linear.app
-    tier: strong
-    adapter: ashby
-    adapter_config: { job_board_name: Linear }
-    tags: [product, developer-tools]
-
-  - id: airtable
-    name: Airtable
-    domain: airtable.com
-    tier: broad
-    adapter: auto
-    career_urls: [https://airtable.com/careers]
-    tags: [product]
-
-  - id: asana
-    name: Asana
-    domain: asana.com
-    tier: broad
-    adapter: greenhouse
-    adapter_config: { board_token: asana }
-    tags: [product]
-
-  - id: dropbox
-    name: Dropbox
-    domain: dropbox.com
-    tier: broad
-    adapter: greenhouse
-    adapter_config: { board_token: dropbox }
-    tags: [product, infrastructure]
-
-  - id: canva
-    name: Canva
-    domain: canva.com
-    tier: broad
-    adapter: auto
-    career_urls: [https://www.lifeatcanva.com/en/jobs/]
-    tags: [product]
-
-  - id: grammarly
-    name: Grammarly
-    domain: grammarly.com
-    tier: broad
-    adapter: auto
-    career_urls: [https://www.grammarly.com/careers]
-    tags: [product, ai]
-
-  # ── Consumer / marketplace ─────────────────────────────────────────
-  - id: airbnb
-    name: Airbnb
-    domain: airbnb.com
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: airbnb }
-    tags: [consumer, marketplace]
-
-  - id: doordash
-    name: DoorDash
-    domain: doordash.com
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: doordashusa }
-    tags: [consumer, logistics]
-
-  - id: instacart
-    name: Instacart
-    domain: instacart.com
-    tier: broad
-    adapter: greenhouse
-    adapter_config: { board_token: instacart }
-    tags: [consumer]
-
-  - id: pinterest
-    name: Pinterest
-    domain: pinterest.com
-    tier: broad
-    adapter: greenhouse
-    adapter_config: { board_token: pinterest }
-    tags: [consumer]
-
-  - id: reddit
-    name: Reddit
-    domain: redditinc.com
-    tier: broad
-    adapter: greenhouse
-    adapter_config: { board_token: reddit }
-    tags: [consumer]
-
-  - id: roblox
-    name: Roblox
-    domain: roblox.com
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: roblox }
-    tags: [consumer, gaming]
-
-  - id: discord-inc
-    name: Discord
-    domain: discord.com
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: discord }
-    tags: [consumer]
-
-  - id: duolingo
-    name: Duolingo
-    domain: duolingo.com
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: duolingo }
-    tags: [consumer, education]
-
-  - id: spotify
-    name: Spotify
-    domain: spotify.com
-    tier: strong
-    adapter: auto
-    career_urls: [https://www.lifeatspotify.com/jobs]
-    enabled: false
-    notes: Custom careers site — needs adapter work.
-    tags: [consumer]
-
-  - id: uber
-    name: Uber
-    domain: uber.com
-    tier: strong
-    adapter: auto
-    career_urls: [https://www.uber.com/us/en/careers/list/]
-    enabled: false
-    notes: Custom careers site — needs adapter work.
-    tags: [consumer, marketplace]
-
-  - id: lyft
-    name: Lyft
-    domain: lyft.com
-    tier: broad
-    adapter: greenhouse
-    adapter_config: { board_token: lyft }
-    tags: [consumer]
-
-  # ── Quant trading / market tech ────────────────────────────────────
-  - id: jane-street
-    name: Jane Street
-    domain: janestreet.com
-    tier: core
-    adapter: auto
-    career_urls: [https://www.janestreet.com/join-jane-street/open-roles/]
-    enabled: false
-    notes: Custom site — check JSON-LD; enable after validating.
-    tags: [quant, trading]
-
-  - id: hudson-river-trading
-    name: Hudson River Trading
-    domain: hudsonrivertrading.com
-    tier: core
-    adapter: greenhouse
-    adapter_config: { board_token: wehrtyou }
-    tags: [quant, trading]
-
-  - id: citadel
-    name: Citadel
-    domain: citadel.com
-    tier: core
-    adapter: auto
-    career_urls: [https://www.citadel.com/careers/open-opportunities/]
-    enabled: false
-    notes: Custom careers site — needs adapter work.
-    tags: [quant, trading]
-
-  - id: two-sigma
-    name: Two Sigma
-    domain: twosigma.com
-    tier: core
-    adapter: auto
-    career_urls: [https://careers.twosigma.com/careers/SearchJobs]
-    enabled: false
-    notes: Avature ATS — needs adapter work.
-    tags: [quant, trading]
-
-  - id: imc
-    name: IMC Trading
-    domain: imc.com
-    tier: strong
-    adapter: auto
-    career_urls: [https://www.imc.com/us/careers]
-    tags: [quant, trading]
-
-  - id: optiver
-    name: Optiver
-    domain: optiver.com
-    tier: strong
-    adapter: auto
-    career_urls: [https://optiver.com/working-at-optiver/career-opportunities/]
-    tags: [quant, trading]
-
-  - id: drw
-    name: DRW
-    domain: drw.com
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: drweng }
-    tags: [quant, trading]
-
-  - id: sig
-    name: Susquehanna (SIG)
-    domain: sig.com
-    tier: strong
-    adapter: auto
-    career_urls: [https://careers.sig.com]
-    enabled: false
-    notes: Custom careers site — needs adapter work.
-    tags: [quant, trading]
-
-  - id: akuna
-    name: Akuna Capital
-    domain: akunacapital.com
-    tier: strong
-    adapter: auto
-    career_urls: [https://akunacapital.com/careers]
-    tags: [quant, trading]
-
-  - id: jump-trading
-    name: Jump Trading
-    domain: jumptrading.com
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: jumptrading }
-    tags: [quant, trading]
-
-  - id: five-rings
-    name: Five Rings
-    domain: fiverings.com
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: fiverings }
-    tags: [quant, trading]
-
-  # ── Security ───────────────────────────────────────────────────────
-  - id: crowdstrike
-    name: CrowdStrike
-    domain: crowdstrike.com
-    tier: strong
-    adapter: auto
-    career_urls: [https://www.crowdstrike.com/careers/]
-    enabled: false
-    notes: Workday ATS — needs adapter work.
-    tags: [security]
-
-  - id: wiz
-    name: Wiz
-    domain: wiz.io
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: wizinc }
-    tags: [security]
-
-  - id: snyk
-    name: Snyk
-    domain: snyk.io
-    tier: broad
-    adapter: greenhouse
-    adapter_config: { board_token: snyk }
-    tags: [security, developer-tools]
-
-  - id: vanta
-    name: Vanta
-    domain: vanta.com
-    tier: broad
-    adapter: auto
-    career_urls: [https://www.vanta.com/company/careers]
-    tags: [security]
-
-  - id: 1password
-    name: 1Password
-    domain: 1password.com
-    tier: broad
-    adapter: auto
-    career_urls: [https://1password.com/careers]
-    tags: [security]
-
-  - id: chainguard
-    name: Chainguard
-    domain: chainguard.dev
-    tier: exploratory
-    adapter: auto
-    career_urls: [https://www.chainguard.dev/careers]
-    tags: [security, developer-tools]
-
-  # ── Autonomy / aerospace / defense / robotics ──────────────────────
-  - id: palantir
-    name: Palantir
-    domain: palantir.com
-    tier: core
-    adapter: lever
-    adapter_config: { site: palantir }
-    tags: [defense, data, infrastructure]
-
-  - id: anduril
-    name: Anduril
-    domain: anduril.com
-    tier: core
-    adapter: greenhouse
-    adapter_config: { board_token: andurilindustries }
-    tags: [defense, autonomy]
-
-  - id: spacex
-    name: SpaceX
-    domain: spacex.com
-    tier: core
-    adapter: greenhouse
-    adapter_config: { board_token: spacex }
-    tags: [aerospace]
-
-  - id: waymo
-    name: Waymo
-    domain: waymo.com
-    tier: strong
-    adapter: auto
-    career_urls: [https://careers.withwaymo.com/jobs/search]
-    tags: [autonomy]
-
-  - id: applied-intuition
-    name: Applied Intuition
-    domain: appliedintuition.com
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: appliedintuition }
-    tags: [autonomy, simulation]
-
-  - id: skydio
-    name: Skydio
-    domain: skydio.com
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: skydio }
-    tags: [robotics, autonomy]
-
-  - id: shield-ai
-    name: Shield AI
-    domain: shield.ai
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: shieldai }
-    tags: [defense, autonomy]
-
-  - id: zipline
-    name: Zipline
-    domain: flyzipline.com
-    tier: strong
-    adapter: greenhouse
-    adapter_config: { board_token: flyzipline }
-    tags: [robotics, logistics]
-
-  - id: figure-ai
-    name: Figure AI
-    domain: figure.ai
-    tier: strong
-    adapter: auto
-    career_urls: [https://www.figure.ai/careers]
-    tags: [robotics]
-
-  - id: astranis
-    name: Astranis
-    domain: astranis.com
-    tier: broad
-    adapter: greenhouse
-    adapter_config: { board_token: astranis }
-    tags: [aerospace]
-
-  - id: rocket-lab
-    name: Rocket Lab
-    domain: rocketlabusa.com
-    tier: broad
-    adapter: auto
-    career_urls: [https://www.rocketlabusa.com/careers/positions/]
-    tags: [aerospace]
-
-  # ── Big tech (custom ATS — enable after adapter work) ──────────────
-  - id: google
-    name: Google
-    domain: google.com
-    tier: core
-    adapter: auto
-    career_urls: [https://www.google.com/about/careers/applications/jobs/results/]
-    enabled: false
-    notes: Custom careers system — no public polling API; needs adapter work.
-    tags: [faang, cloud, ai, infrastructure]
-
-  - id: meta
-    name: Meta
-    domain: meta.com
-    tier: core
-    adapter: auto
-    career_urls: [https://www.metacareers.com/jobs]
-    enabled: false
-    notes: Custom careers system — needs adapter work.
-    tags: [faang]
-
-  - id: apple
-    name: Apple
-    domain: apple.com
-    tier: core
-    adapter: auto
-    career_urls: [https://jobs.apple.com/en-us/search]
-    enabled: false
-    notes: Custom careers system — needs adapter work.
-    tags: [faang]
-
-  - id: amazon
-    name: Amazon / AWS
-    domain: amazon.jobs
-    tier: core
-    adapter: auto
-    career_urls: [https://www.amazon.jobs/en/search]
-    enabled: false
-    notes: Custom careers system — needs adapter work.
-    tags: [faang, cloud]
-
-  - id: microsoft
-    name: Microsoft
-    domain: microsoft.com
-    tier: core
-    adapter: auto
-    career_urls: [https://jobs.careers.microsoft.com/global/en/search]
-    enabled: false
-    notes: Custom careers system — needs adapter work.
-    tags: [faang, cloud]
-
-  - id: nvidia
-    name: NVIDIA
-    domain: nvidia.com
-    tier: core
-    adapter: auto
-    career_urls: [https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite]
-    enabled: false
-    notes: Workday ATS — placeholder adapter only.
-    tags: [faang, ai, hardware]
-
-  - id: netflix
-    name: Netflix
-    domain: netflix.com
-    tier: core
-    adapter: auto
-    career_urls: [https://explore.jobs.netflix.net/careers]
-    enabled: false
-    notes: Custom (Eightfold) careers system — needs adapter work.
-    tags: [faang]
-
-  - id: ibm
-    name: IBM
-    domain: ibm.com
-    tier: strong
-    adapter: auto
-    career_urls: [https://www.ibm.com/careers/search]
-    enabled: false
-    notes: Custom careers system — needs adapter work. (Past internship employer.)
-    tags: [enterprise, cloud]
-
-  - id: adobe
-    name: Adobe
-    domain: adobe.com
-    tier: strong
-    adapter: auto
-    career_urls: [https://careers.adobe.com/us/en/search-results]
-    enabled: false
-    notes: Workday ATS — placeholder adapter only.
-    tags: [enterprise]
-
-  - id: salesforce
-    name: Salesforce
-    domain: salesforce.com
-    tier: strong
-    adapter: auto
-    career_urls: [https://careers.salesforce.com/en/jobs/]
-    enabled: false
-    notes: Workday ATS — placeholder adapter only.
-    tags: [enterprise, cloud]
-
-  # ── Healthcare / bio software ──────────────────────────────────────
-  - id: benchling
-    name: Benchling
-    domain: benchling.com
-    tier: broad
-    adapter: greenhouse
-    adapter_config: { board_token: benchling }
-    tags: [biotech, product]
-
-  - id: tempus
-    name: Tempus
-    domain: tempus.com
-    tier: broad
-    adapter: greenhouse
-    adapter_config: { board_token: tempus }
-    tags: [healthcare, data]
-
-  - id: abridge
-    name: Abridge
-    domain: abridge.com
-    tier: exploratory
-    adapter: auto
-    career_urls: [https://www.abridge.com/careers]
-    tags: [healthcare, ai]
-
-  # ── Industrial / enterprise operations ─────────────────────────────
-  - id: samsara
-    name: Samsara
-    domain: samsara.com
-    tier: broad
-    adapter: greenhouse
-    adapter_config: { board_token: samsara }
-    tags: [iot, infrastructure]
-
-  - id: motive
-    name: Motive
-    domain: gomotive.com
-    tier: broad
-    adapter: auto
-    career_urls: [https://gomotive.com/careers/]
-    tags: [iot]
-
-  - id: procore
-    name: Procore
-    domain: procore.com
-    tier: broad
-    adapter: auto
-    career_urls: [https://careers.procore.com/jobs]
-    enabled: false
-    notes: SmartRecruiters ATS — placeholder adapter only.
-    tags: [enterprise, construction]
-
-  - id: esri
-    name: Esri
-    domain: esri.com
-    tier: broad
-    adapter: auto
-    career_urls: [https://www.esri.com/en-us/about/careers/job-search]
-    enabled: false
-    notes: Custom careers site — needs adapter work.
-    tags: [gis, enterprise]
+- id: stripe
+  name: Stripe
+  domain: stripe.com
+  tier: core
+  adapter: greenhouse
+  adapter_config:
+    board_token: stripe
+  tags:
+  - fintech
+  - infrastructure
+  - payments
+- id: ramp
+  name: Ramp
+  domain: ramp.com
+  tier: core
+  adapter: ashby
+  adapter_config:
+    job_board_name: ramp
+  tags:
+  - fintech
+- id: plaid
+  name: Plaid
+  domain: plaid.com
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://plaid.com/careers/
+  tags:
+  - fintech
+- id: brex
+  name: Brex
+  domain: brex.com
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://www.brex.com/careers
+  tags:
+  - fintech
+- id: robinhood
+  name: Robinhood
+  domain: robinhood.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: robinhood
+  tags:
+  - fintech
+  - trading
+- id: coinbase
+  name: Coinbase
+  domain: coinbase.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: coinbase
+  tags:
+  - fintech
+  - crypto
+- id: affirm
+  name: Affirm
+  domain: affirm.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: affirm
+  tags:
+  - fintech
+- id: mercury
+  name: Mercury
+  domain: mercury.com
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://mercury.com/jobs
+  tags:
+  - fintech
+- id: rippling
+  name: Rippling
+  domain: rippling.com
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://www.rippling.com/careers
+  tags:
+  - fintech
+  - hr-tech
+- id: gusto
+  name: Gusto
+  domain: gusto.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: gusto
+  tags:
+  - fintech
+- id: modern-treasury
+  name: Modern Treasury
+  domain: moderntreasury.com
+  tier: broad
+  adapter: auto
+  career_urls:
+  - https://www.moderntreasury.com/careers
+  tags:
+  - fintech
+- id: openai
+  name: OpenAI
+  domain: openai.com
+  tier: core
+  adapter: ashby
+  adapter_config:
+    job_board_name: openai
+  tags:
+  - ai
+  - research
+- id: anthropic
+  name: Anthropic
+  domain: anthropic.com
+  tier: core
+  adapter: greenhouse
+  adapter_config:
+    board_token: anthropic
+  tags:
+  - ai
+  - research
+- id: databricks
+  name: Databricks
+  domain: databricks.com
+  tier: core
+  adapter: greenhouse
+  adapter_config:
+    board_token: databricks
+  tags:
+  - ai
+  - data
+  - infrastructure
+- id: scale-ai
+  name: Scale AI
+  domain: scale.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: scaleai
+  tags:
+  - ai
+- id: snowflake
+  name: Snowflake
+  domain: snowflake.com
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://careers.snowflake.com/us/en/search-results
+  enabled: false
+  notes: Custom ATS (Eightfold) — needs adapter work before enabling.
+  tags:
+  - data
+  - infrastructure
+- id: huggingface
+  name: Hugging Face
+  domain: huggingface.co
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://apply.workable.com/huggingface/
+  enabled: false
+  notes: Workable ATS — no adapter yet; JSON-LD may work on job pages.
+  tags:
+  - ai
+  - developer-tools
+- id: xai
+  name: xAI
+  domain: x.ai
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://x.ai/careers
+  tags:
+  - ai
+- id: together-ai
+  name: Together AI
+  domain: together.ai
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://www.together.ai/careers
+  tags:
+  - ai
+  - infrastructure
+- id: modal
+  name: Modal
+  domain: modal.com
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://jobs.ashbyhq.com/modal
+  tags:
+  - ai
+  - infrastructure
+  - developer-tools
+- id: baseten
+  name: Baseten
+  domain: baseten.co
+  tier: broad
+  adapter: auto
+  career_urls:
+  - https://jobs.ashbyhq.com/baseten
+  tags:
+  - ai
+  - infrastructure
+- id: replicate
+  name: Replicate
+  domain: replicate.com
+  tier: broad
+  adapter: auto
+  career_urls:
+  - https://jobs.ashbyhq.com/replicate
+  tags:
+  - ai
+  - developer-tools
+  adapter_config: {}
+  enabled: false
+  notes: No public ATS fingerprint found — needs adapter work.
+- id: perplexity
+  name: Perplexity
+  domain: perplexity.ai
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://www.perplexity.ai/hub/careers
+  tags:
+  - ai
+- id: anysphere
+  name: Anysphere (Cursor)
+  domain: cursor.com
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://www.cursor.com/careers
+  tags:
+  - ai
+  - developer-tools
+- id: elevenlabs
+  name: ElevenLabs
+  domain: elevenlabs.io
+  tier: broad
+  adapter: auto
+  career_urls:
+  - https://elevenlabs.io/careers
+  tags:
+  - ai
+- id: wandb
+  name: Weights & Biases
+  domain: wandb.ai
+  tier: broad
+  adapter: auto
+  career_urls:
+  - https://wandb.ai/site/careers
+  tags:
+  - ai
+  - developer-tools
+- id: pinecone
+  name: Pinecone
+  domain: pinecone.io
+  tier: broad
+  adapter: auto
+  career_urls:
+  - https://www.pinecone.io/careers/
+  tags:
+  - ai
+  - data
+- id: coreweave
+  name: CoreWeave
+  domain: coreweave.com
+  tier: broad
+  adapter: auto
+  career_urls:
+  - https://www.coreweave.com/careers
+  tags:
+  - ai
+  - infrastructure
+- id: groq
+  name: Groq
+  domain: groq.com
+  tier: broad
+  adapter: auto
+  career_urls:
+  - https://groq.com/careers/
+  tags:
+  - ai
+  - hardware
+- id: cloudflare
+  name: Cloudflare
+  domain: cloudflare.com
+  tier: core
+  adapter: greenhouse
+  adapter_config:
+    board_token: cloudflare
+  tags:
+  - infrastructure
+  - security
+- id: datadog
+  name: Datadog
+  domain: datadoghq.com
+  tier: core
+  adapter: greenhouse
+  adapter_config:
+    board_token: datadog
+  tags:
+  - infrastructure
+  - observability
+- id: mongodb
+  name: MongoDB
+  domain: mongodb.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: mongodb
+  tags:
+  - databases
+- id: confluent
+  name: Confluent
+  domain: confluent.io
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://careers.confluent.io
+  tags:
+  - data
+  - infrastructure
+- id: elastic
+  name: Elastic
+  domain: elastic.co
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: elastic
+  tags:
+  - search
+  - observability
+- id: hashicorp
+  name: HashiCorp
+  domain: hashicorp.com
+  tier: strong
+  adapter: auto
+  adapter_config: {}
+  tags:
+  - infrastructure
+  - developer-tools
+  enabled: false
+  notes: Moved off public Greenhouse after IBM acquisition — needs adapter work.
+- id: cockroach-labs
+  name: Cockroach Labs
+  domain: cockroachlabs.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: cockroachlabs
+  tags:
+  - databases
+- id: supabase
+  name: Supabase
+  domain: supabase.com
+  tier: broad
+  adapter: auto
+  career_urls:
+  - https://supabase.com/careers
+  tags:
+  - databases
+  - developer-tools
+- id: vercel
+  name: Vercel
+  domain: vercel.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: vercel
+  tags:
+  - developer-tools
+  - frontend
+- id: sentry
+  name: Sentry
+  domain: sentry.io
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: sentry
+  tags:
+  - developer-tools
+  - observability
+  enabled: true
+- id: grafana
+  name: Grafana Labs
+  domain: grafana.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: grafanalabs
+  tags:
+  - observability
+- id: temporal
+  name: Temporal
+  domain: temporal.io
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: temporaltechnologies
+  tags:
+  - infrastructure
+  - developer-tools
+- id: docker
+  name: Docker
+  domain: docker.com
+  tier: broad
+  adapter: auto
+  career_urls:
+  - https://www.docker.com/careers/
+  tags:
+  - developer-tools
+- id: github
+  name: GitHub
+  domain: github.com
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://www.github.careers/careers-home
+  enabled: false
+  notes: Custom careers portal — needs adapter work.
+  tags:
+  - developer-tools
+- id: gitlab
+  name: GitLab
+  domain: gitlab.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: gitlab
+  tags:
+  - developer-tools
+- id: atlassian
+  name: Atlassian
+  domain: atlassian.com
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://www.atlassian.com/company/careers/all-jobs
+  enabled: false
+  notes: Custom careers site — needs adapter work.
+  tags:
+  - developer-tools
+- id: postman
+  name: Postman
+  domain: postman.com
+  tier: broad
+  adapter: auto
+  career_urls:
+  - https://www.postman.com/company/careers/
+  tags:
+  - developer-tools
+- id: twilio
+  name: Twilio
+  domain: twilio.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: twilio
+  tags:
+  - infrastructure
+  - api
+- id: pagerduty
+  name: PagerDuty
+  domain: pagerduty.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: pagerduty
+  tags:
+  - observability
+- id: fastly
+  name: Fastly
+  domain: fastly.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: fastly
+  tags:
+  - infrastructure
+- id: digitalocean
+  name: DigitalOcean
+  domain: digitalocean.com
+  tier: broad
+  adapter: auto
+  career_urls:
+  - https://www.digitalocean.com/careers
+  tags:
+  - infrastructure
+- id: dbt-labs
+  name: dbt Labs
+  domain: getdbt.com
+  tier: broad
+  adapter: auto
+  career_urls:
+  - https://www.getdbt.com/careers
+  tags:
+  - data
+- id: fivetran
+  name: Fivetran
+  domain: fivetran.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: fivetran
+  tags:
+  - data
+- id: motherduck
+  name: MotherDuck
+  domain: motherduck.com
+  tier: exploratory
+  adapter: auto
+  career_urls:
+  - https://motherduck.com/careers/
+  tags:
+  - databases
+- id: figma
+  name: Figma
+  domain: figma.com
+  tier: core
+  adapter: greenhouse
+  adapter_config:
+    board_token: figma
+  tags:
+  - product
+  - design-tools
+- id: notion
+  name: Notion
+  domain: notion.so
+  tier: strong
+  adapter: ashby
+  adapter_config:
+    job_board_name: notion
+  tags:
+  - product
+- id: linear
+  name: Linear
+  domain: linear.app
+  tier: strong
+  adapter: ashby
+  adapter_config:
+    job_board_name: Linear
+  tags:
+  - product
+  - developer-tools
+- id: airtable
+  name: Airtable
+  domain: airtable.com
+  tier: broad
+  adapter: auto
+  career_urls:
+  - https://airtable.com/careers
+  tags:
+  - product
+- id: asana
+  name: Asana
+  domain: asana.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: asana
+  tags:
+  - product
+- id: dropbox
+  name: Dropbox
+  domain: dropbox.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: dropbox
+  tags:
+  - product
+  - infrastructure
+- id: canva
+  name: Canva
+  domain: canva.com
+  tier: broad
+  adapter: auto
+  career_urls:
+  - https://www.lifeatcanva.com/en/jobs/
+  tags:
+  - product
+- id: grammarly
+  name: Grammarly
+  domain: grammarly.com
+  tier: broad
+  adapter: auto
+  career_urls:
+  - https://www.grammarly.com/careers
+  tags:
+  - product
+  - ai
+- id: airbnb
+  name: Airbnb
+  domain: airbnb.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: airbnb
+  tags:
+  - consumer
+  - marketplace
+- id: doordash
+  name: DoorDash
+  domain: doordash.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: doordashusa
+  tags:
+  - consumer
+  - logistics
+- id: instacart
+  name: Instacart
+  domain: instacart.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: instacart
+  tags:
+  - consumer
+- id: pinterest
+  name: Pinterest
+  domain: pinterest.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: pinterest
+  tags:
+  - consumer
+- id: reddit
+  name: Reddit
+  domain: redditinc.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: reddit
+  tags:
+  - consumer
+- id: roblox
+  name: Roblox
+  domain: roblox.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: roblox
+  tags:
+  - consumer
+  - gaming
+- id: discord-inc
+  name: Discord
+  domain: discord.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: discord
+  tags:
+  - consumer
+- id: duolingo
+  name: Duolingo
+  domain: duolingo.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: duolingo
+  tags:
+  - consumer
+  - education
+- id: spotify
+  name: Spotify
+  domain: spotify.com
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://www.lifeatspotify.com/jobs
+  enabled: false
+  notes: Custom careers site — needs adapter work.
+  tags:
+  - consumer
+- id: uber
+  name: Uber
+  domain: uber.com
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://www.uber.com/us/en/careers/list/
+  enabled: false
+  notes: Custom careers site — needs adapter work.
+  tags:
+  - consumer
+  - marketplace
+- id: lyft
+  name: Lyft
+  domain: lyft.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: lyft
+  tags:
+  - consumer
+- id: jane-street
+  name: Jane Street
+  domain: janestreet.com
+  tier: core
+  adapter: auto
+  career_urls:
+  - https://www.janestreet.com/join-jane-street/open-roles/
+  enabled: false
+  notes: Custom site — check JSON-LD; enable after validating.
+  tags:
+  - quant
+  - trading
+- id: hudson-river-trading
+  name: Hudson River Trading
+  domain: hudsonrivertrading.com
+  tier: core
+  adapter: greenhouse
+  adapter_config:
+    board_token: wehrtyou
+  tags:
+  - quant
+  - trading
+- id: citadel
+  name: Citadel
+  domain: citadel.com
+  tier: core
+  adapter: auto
+  career_urls:
+  - https://www.citadel.com/careers/open-opportunities/
+  enabled: false
+  notes: Custom careers site — needs adapter work.
+  tags:
+  - quant
+  - trading
+- id: two-sigma
+  name: Two Sigma
+  domain: twosigma.com
+  tier: core
+  adapter: auto
+  career_urls:
+  - https://careers.twosigma.com/careers/SearchJobs
+  enabled: false
+  notes: Avature ATS — needs adapter work.
+  tags:
+  - quant
+  - trading
+- id: imc
+  name: IMC Trading
+  domain: imc.com
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://www.imc.com/us/careers
+  tags:
+  - quant
+  - trading
+- id: optiver
+  name: Optiver
+  domain: optiver.com
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://optiver.com/working-at-optiver/career-opportunities/
+  tags:
+  - quant
+  - trading
+- id: drw
+  name: DRW
+  domain: drw.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: drweng
+  tags:
+  - quant
+  - trading
+- id: sig
+  name: Susquehanna (SIG)
+  domain: sig.com
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://careers.sig.com
+  enabled: false
+  notes: Custom careers site — needs adapter work.
+  tags:
+  - quant
+  - trading
+- id: akuna
+  name: Akuna Capital
+  domain: akunacapital.com
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://akunacapital.com/careers
+  tags:
+  - quant
+  - trading
+- id: jump-trading
+  name: Jump Trading
+  domain: jumptrading.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: jumptrading
+  tags:
+  - quant
+  - trading
+- id: five-rings
+  name: Five Rings
+  domain: fiverings.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: fiveringsllc
+  tags:
+  - quant
+  - trading
+  enabled: true
+- id: crowdstrike
+  name: CrowdStrike
+  domain: crowdstrike.com
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://www.crowdstrike.com/careers/
+  enabled: false
+  notes: Workday ATS — needs adapter work.
+  tags:
+  - security
+- id: wiz
+  name: Wiz
+  domain: wiz.io
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: wizinc
+  tags:
+  - security
+- id: snyk
+  name: Snyk
+  domain: snyk.io
+  tier: broad
+  adapter: auto
+  adapter_config: {}
+  tags:
+  - security
+  - developer-tools
+  enabled: false
+  notes: No public ATS fingerprint found (custom careers site) — needs adapter work.
+- id: vanta
+  name: Vanta
+  domain: vanta.com
+  tier: broad
+  adapter: auto
+  career_urls:
+  - https://www.vanta.com/company/careers
+  tags:
+  - security
+- id: 1password
+  name: 1Password
+  domain: 1password.com
+  tier: broad
+  adapter: auto
+  career_urls:
+  - https://1password.com/careers
+  tags:
+  - security
+- id: chainguard
+  name: Chainguard
+  domain: chainguard.dev
+  tier: exploratory
+  adapter: auto
+  career_urls:
+  - https://www.chainguard.dev/careers
+  tags:
+  - security
+  - developer-tools
+- id: palantir
+  name: Palantir
+  domain: palantir.com
+  tier: core
+  adapter: lever
+  adapter_config:
+    site: palantir
+  tags:
+  - defense
+  - data
+  - infrastructure
+- id: anduril
+  name: Anduril
+  domain: anduril.com
+  tier: core
+  adapter: greenhouse
+  adapter_config:
+    board_token: andurilindustries
+  tags:
+  - defense
+  - autonomy
+- id: spacex
+  name: SpaceX
+  domain: spacex.com
+  tier: core
+  adapter: greenhouse
+  adapter_config:
+    board_token: spacex
+  tags:
+  - aerospace
+- id: waymo
+  name: Waymo
+  domain: waymo.com
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://careers.withwaymo.com/jobs/search
+  tags:
+  - autonomy
+- id: applied-intuition
+  name: Applied Intuition
+  domain: appliedintuition.com
+  tier: strong
+  adapter: ashby
+  adapter_config:
+    job_board_name: applied
+  tags:
+  - autonomy
+  - simulation
+  enabled: true
+- id: skydio
+  name: Skydio
+  domain: skydio.com
+  tier: strong
+  adapter: auto
+  adapter_config: {}
+  tags:
+  - robotics
+  - autonomy
+  career_urls:
+  - https://www.skydio.com/careers
+  enabled: true
+  notes: Greenhouse board token not publicly discoverable; auto/JSON-LD fallback.
+- id: shield-ai
+  name: Shield AI
+  domain: shield.ai
+  tier: strong
+  adapter: lever
+  adapter_config:
+    site: shieldai
+  tags:
+  - defense
+  - autonomy
+  enabled: true
+- id: zipline
+  name: Zipline
+  domain: flyzipline.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: flyzipline
+  tags:
+  - robotics
+  - logistics
+- id: figure-ai
+  name: Figure AI
+  domain: figure.ai
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://www.figure.ai/careers
+  tags:
+  - robotics
+- id: astranis
+  name: Astranis
+  domain: astranis.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: astranis
+  tags:
+  - aerospace
+- id: rocket-lab
+  name: Rocket Lab
+  domain: rocketlabusa.com
+  tier: broad
+  adapter: auto
+  career_urls:
+  - https://www.rocketlabusa.com/careers/positions/
+  tags:
+  - aerospace
+- id: google
+  name: Google
+  domain: google.com
+  tier: core
+  adapter: auto
+  career_urls:
+  - https://www.google.com/about/careers/applications/jobs/results/
+  enabled: false
+  notes: Custom careers system — no public polling API; needs adapter work.
+  tags:
+  - faang
+  - cloud
+  - ai
+  - infrastructure
+- id: meta
+  name: Meta
+  domain: meta.com
+  tier: core
+  adapter: auto
+  career_urls:
+  - https://www.metacareers.com/jobs
+  enabled: false
+  notes: Custom careers system — needs adapter work.
+  tags:
+  - faang
+- id: apple
+  name: Apple
+  domain: apple.com
+  tier: core
+  adapter: auto
+  career_urls:
+  - https://jobs.apple.com/en-us/search
+  enabled: false
+  notes: Custom careers system — needs adapter work.
+  tags:
+  - faang
+- id: amazon
+  name: Amazon / AWS
+  domain: amazon.jobs
+  tier: core
+  adapter: auto
+  career_urls:
+  - https://www.amazon.jobs/en/search
+  enabled: false
+  notes: Custom careers system — needs adapter work.
+  tags:
+  - faang
+  - cloud
+- id: microsoft
+  name: Microsoft
+  domain: microsoft.com
+  tier: core
+  adapter: auto
+  career_urls:
+  - https://jobs.careers.microsoft.com/global/en/search
+  enabled: false
+  notes: Custom careers system — needs adapter work.
+  tags:
+  - faang
+  - cloud
+- id: nvidia
+  name: NVIDIA
+  domain: nvidia.com
+  tier: core
+  adapter: auto
+  career_urls:
+  - https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite
+  enabled: false
+  notes: Workday ATS — placeholder adapter only.
+  tags:
+  - faang
+  - ai
+  - hardware
+- id: netflix
+  name: Netflix
+  domain: netflix.com
+  tier: core
+  adapter: auto
+  career_urls:
+  - https://explore.jobs.netflix.net/careers
+  enabled: false
+  notes: Custom (Eightfold) careers system — needs adapter work.
+  tags:
+  - faang
+- id: ibm
+  name: IBM
+  domain: ibm.com
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://www.ibm.com/careers/search
+  enabled: false
+  notes: Custom careers system — needs adapter work. (Past internship employer.)
+  tags:
+  - enterprise
+  - cloud
+- id: adobe
+  name: Adobe
+  domain: adobe.com
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://careers.adobe.com/us/en/search-results
+  enabled: false
+  notes: Workday ATS — placeholder adapter only.
+  tags:
+  - enterprise
+- id: salesforce
+  name: Salesforce
+  domain: salesforce.com
+  tier: strong
+  adapter: auto
+  career_urls:
+  - https://careers.salesforce.com/en/jobs/
+  enabled: false
+  notes: Workday ATS — placeholder adapter only.
+  tags:
+  - enterprise
+  - cloud
+- id: benchling
+  name: Benchling
+  domain: benchling.com
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: benchling
+  tags:
+  - biotech
+  - product
+  enabled: true
+- id: tempus
+  name: Tempus
+  domain: tempus.com
+  tier: broad
+  adapter: auto
+  adapter_config: {}
+  tags:
+  - healthcare
+  - data
+  enabled: false
+  notes: No public ATS fingerprint found (custom careers site) — needs adapter work.
+- id: abridge
+  name: Abridge
+  domain: abridge.com
+  tier: exploratory
+  adapter: auto
+  career_urls:
+  - https://www.abridge.com/careers
+  tags:
+  - healthcare
+  - ai
+- id: samsara
+  name: Samsara
+  domain: samsara.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: samsara
+  tags:
+  - iot
+  - infrastructure
+- id: motive
+  name: Motive
+  domain: gomotive.com
+  tier: broad
+  adapter: auto
+  career_urls:
+  - https://gomotive.com/careers/
+  tags:
+  - iot
+- id: procore
+  name: Procore
+  domain: procore.com
+  tier: broad
+  adapter: auto
+  career_urls:
+  - https://careers.procore.com/jobs
+  enabled: false
+  notes: SmartRecruiters ATS — placeholder adapter only.
+  tags:
+  - enterprise
+  - construction
+- id: esri
+  name: Esri
+  domain: esri.com
+  tier: broad
+  adapter: auto
+  career_urls:
+  - https://www.esri.com/en-us/about/careers/job-search
+  enabled: false
+  notes: Custom careers site — needs adapter work.
+  tags:
+  - gis
+  - enterprise
