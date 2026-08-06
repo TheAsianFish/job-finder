@@ -47,6 +47,14 @@ Dashboard verified serving all pages on 127.0.0.1:8765 against the live
 database; a real Roblox "[Summer 2027] Software Engineer Intern" scored 90.5
 with correct season, direct apply URL, and extracted eligibility sentence.
 
+Second full live scan (dedupe proof): **90 sources, 14,611 jobs seen, 812
+new** — the new records correspond almost exactly to the five freshly
+re-pointed sources (~816 jobs); every previously imported job deduplicated
+against its existing record. 319 meaningful changes tracked, 0 false
+closures, 90/94 sources healthy. Final DB: 14,103 active jobs, of which 22
+clear the immediate-alert bar and 933 are early-career (91 off-season) —
+high recall, low noise, as designed.
+
 ## Known gaps / deferred (with reasons)
 
 - **Workday / SmartRecruiters / iCIMS / Eightfold / SuccessFactors / Taleo**:
