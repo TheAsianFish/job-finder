@@ -20,7 +20,7 @@ Last updated: 2026-08-05
 | 14 | CLI: scan, daemon, status, companies, job status changes | ✅ | Full command tree per spec §17 |
 | 15 | Daemon survives transient network failures | ✅ | Per-scan exception isolation; failures recorded, never crash the loop |
 | 16 | launchd installer works | ✅ | `scripts/install_launchd.sh`, KeepAlive, logs to ~/Library/Logs/OpportunityRadar |
-| 17 | Tests pass | ✅ | 140 tests, offline (respx fixtures) |
+| 17 | Tests pass | ✅ | 143 tests, offline (respx fixtures) |
 | 18 | Type checking and linting pass | ✅ | ruff format+lint, mypy clean |
 | 19 | Secrets not committed | ✅ | `.env`, local yaml configs, and DB gitignored; log redaction for webhook keys |
 | 20 | No auto-application functionality | ✅ | Read-only GETs only; apply URLs surfaced for manual use |
@@ -33,9 +33,19 @@ Last updated: 2026-08-05
 ## Live verification log (2026-08-05)
 
 `companies validate` against real public boards (single polite GET each):
-- stripe (greenhouse) — OK, jobs returned
-- palantir (lever) — OK, jobs returned
-- openai (ashby) — OK, jobs returned
+- stripe (greenhouse) — OK, 548 jobs
+- palantir (lever) — OK, 301 jobs
+- openai (ashby) — OK, 735 jobs
+- sentry/benchling/applied-intuition (ashby), shield-ai (lever),
+  five-rings (greenhouse) — OK after re-fingerprinting with `companies discover`
+
+Full live baseline run: **94 sources scanned, 13,793 jobs fetched, 13,291
+imported** with zero per-job alerts (baseline mode) and one summary. Ten seed
+sources 404'd on stale board tokens; five were re-pointed via built-in ATS
+discovery, four were disabled with notes, one (skydio) fell back to auto.
+Dashboard verified serving all pages on 127.0.0.1:8765 against the live
+database; a real Roblox "[Summer 2027] Software Engineer Intern" scored 90.5
+with correct season, direct apply URL, and extracted eligibility sentence.
 
 ## Known gaps / deferred (with reasons)
 
