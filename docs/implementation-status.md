@@ -20,7 +20,7 @@ Last updated: 2026-08-05
 | 14 | CLI: scan, daemon, status, companies, job status changes | ✅ | Full command tree per spec §17 |
 | 15 | Daemon survives transient network failures | ✅ | Per-scan exception isolation; failures recorded, never crash the loop |
 | 16 | launchd installer works | ✅ | `scripts/install_launchd.sh`, KeepAlive, logs to ~/Library/Logs/OpportunityRadar |
-| 17 | Tests pass | ✅ | 143 tests, offline (respx fixtures) |
+| 17 | Tests pass | ✅ | 154 tests, offline (respx fixtures) |
 | 18 | Type checking and linting pass | ✅ | ruff format+lint, mypy clean |
 | 19 | Secrets not committed | ✅ | `.env`, local yaml configs, and DB gitignored; log redaction for webhook keys |
 | 20 | No auto-application functionality | ✅ | Read-only GETs only; apply URLs surfaced for manual use |
@@ -54,6 +54,17 @@ against its existing record. 319 meaningful changes tracked, 0 false
 closures, 90/94 sources healthy. Final DB: 14,103 active jobs, of which 22
 clear the immediate-alert bar and 933 are early-career (91 off-season) —
 high recall, low noise, as designed.
+
+## Post-launch additions (2026-08-06)
+
+- Discord webhook configured and verified live (test message, real alerts for
+  Anduril and Roblox Summer 2027 intern roles).
+- Fixed alias unique-constraint crash on fuzzy-key collisions after title
+  changes; persistence errors now isolated per company.
+- Feedback-driven tuning (`tune` command, bounded + audited) and automatic
+  source repair (`companies repair`); both run weekly from the daemon when
+  `scheduler.auto_tune: true`.
+- `CLAUDE.md` added for future Claude Code session continuity.
 
 ## Known gaps / deferred (with reasons)
 
