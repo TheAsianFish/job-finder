@@ -107,6 +107,40 @@ def build_digest(settings: AppSettings, db_url: str | None = None) -> dict | Non
     return payload
 
 
+LAST_MORNING_DIGEST_KEY = "last_morning_digest_date"
+LAST_EVENING_DIGEST_KEY = "last_evening_digest_date"
+
+
+async def send_digest_if_due(
+    settings: AppSettings, notifier: DiscordNotifier, db_url: str | None = None
+) -> bool:
+    """Send the morning/evening digest if its local-time slot has arrived today.
+
+    Used by both the daemon tick and cloud-mode runs (`notify digest --if-due`).
+    Each slot fires at most once per calendar day, tracked in the meta table.
+    """
+    from datetime import datetime
+
+    local_now = datetime.now().astimezone()
+    today = local_now.date().isoformat()
+    scheduler = settings.scheduler
+    sent_any = False
+    for hour, key in (
+        (scheduler.morning_digest_hour, LAST_MORNING_DIGEST_KEY),
+        (scheduler.evening_digest_hour, LAST_EVENING_DIGEST_KEY),
+    ):
+        if local_now.hour < hour:
+            continue
+        with session_scope(db_url) as session:
+            if repo.meta_get(session, key) == today:
+                continue
+            repo.meta_set(session, key, today)
+        sent = await send_digest(settings, notifier, db_url)
+        logger.info("digest_slot", slot_hour=hour, sent=sent)
+        sent_any = sent_any or sent
+    return sent_any
+
+
 async def send_digest(
     settings: AppSettings, notifier: DiscordNotifier, db_url: str | None = None
 ) -> bool:

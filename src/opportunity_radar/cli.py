@@ -701,13 +701,23 @@ def notify_test() -> None:
 
 
 @notify_app.command("digest")
-def notify_digest() -> None:
-    """Send a digest now (normally the daemon schedules this)."""
-    from opportunity_radar.notifications.digest import send_digest
+def notify_digest(
+    if_due: bool = typer.Option(
+        False,
+        "--if-due",
+        help="Only send if a morning/evening slot is due today (used by cloud runs)",
+    ),
+) -> None:
+    """Send a digest now, or only when a scheduled slot is due (--if-due)."""
+    from opportunity_radar.notifications.digest import send_digest, send_digest_if_due
 
     settings = get_settings()
-    ok = asyncio.run(send_digest(settings, _notifier()))
-    console.print("Digest sent." if ok else "Nothing to send (or webhook failed).")
+    if if_due:
+        ok = asyncio.run(send_digest_if_due(settings, _notifier()))
+        console.print("Digest sent." if ok else "No digest slot due (or nothing to send).")
+    else:
+        ok = asyncio.run(send_digest(settings, _notifier()))
+        console.print("Digest sent." if ok else "Nothing to send (or webhook failed).")
 
 
 @app.command()

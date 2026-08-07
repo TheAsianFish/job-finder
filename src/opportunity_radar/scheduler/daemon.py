@@ -9,14 +9,14 @@ are simply scanned once; there is no backlog of duplicate jobs.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import structlog
 
 from opportunity_radar.config import get_settings, load_settings
 from opportunity_radar.db import repositories as repo
 from opportunity_radar.db.engine import session_scope
-from opportunity_radar.notifications.digest import send_digest
+from opportunity_radar.notifications.digest import send_digest_if_due
 from opportunity_radar.notifications.discord import DiscordNotifier
 from opportunity_radar.pipeline.scanner import scan_companies
 from opportunity_radar.scheduler.jobs import build_schedule, due_now
@@ -27,8 +27,6 @@ logger = structlog.get_logger(__name__)
 _TICK_SECONDS = 30
 _SLEEP_GAP_THRESHOLD = timedelta(minutes=10)
 _FAILURE_NOTIFY_THRESHOLD = 3
-LAST_MORNING_DIGEST_KEY = "last_morning_digest_date"
-LAST_EVENING_DIGEST_KEY = "last_evening_digest_date"
 
 
 async def run_daemon() -> None:
@@ -79,25 +77,7 @@ async def run_daemon() -> None:
 
 
 async def _maybe_send_digest(notifier: DiscordNotifier) -> None:
-    settings = get_settings()
-    local_now = datetime.now().astimezone()
-    today = local_now.date().isoformat()
-    scheduler = settings.scheduler
-
-    for hour, key in (
-        (scheduler.morning_digest_hour, LAST_MORNING_DIGEST_KEY),
-        (scheduler.evening_digest_hour, LAST_EVENING_DIGEST_KEY),
-    ):
-        if local_now.hour < hour:
-            continue
-        with session_scope() as session:
-            already = repo.meta_get(session, key) == today
-        if already:
-            continue
-        with session_scope() as session:
-            repo.meta_set(session, key, today)
-        sent = await send_digest(settings, notifier)
-        logger.info("digest_tick", slot_hour=hour, sent=sent)
+    await send_digest_if_due(get_settings(), notifier)
 
 
 LAST_AUTO_TUNE_KEY = "last_auto_tune_at"
