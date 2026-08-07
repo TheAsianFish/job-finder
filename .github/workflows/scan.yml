@@ -43,9 +43,11 @@ jobs:
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           OPPORTUNITY_RADAR_SECRET_KEY: ${{ secrets.OPPORTUNITY_RADAR_SECRET_KEY }}
+          TZ: America/Los_Angeles
         run: |
           uv run opportunity-radar db migrate
           uv run opportunity-radar scan
+          uv run opportunity-radar notify digest --if-due
 
       - name: Persist database
         if: always()
