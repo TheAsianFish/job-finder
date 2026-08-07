@@ -117,6 +117,30 @@ artifact (best-effort). Local mode remains canonical.
 
 ---
 
+## Hands-off maintenance
+
+The system tunes and repairs itself from how you actually use it:
+
+```bash
+uv run opportunity-radar tune            # show recommended parameter nudges
+uv run opportunity-radar tune --apply    # write them to config/scoring.yaml
+uv run opportunity-radar companies repair  # re-discover ATS config for failing sources
+```
+
+- **Tuning** learns from saves/applies/dismissals: role families you dismiss
+  lose a point of weight, families you save gain one; if you dismiss most
+  immediate alerts the alert threshold rises, if you keep saving digest-tier
+  jobs it falls. Changes are bounded (±1 weight / ±2 threshold per run, hard
+  caps), need minimum sample sizes, and every change is written with its
+  reason to `tuning_history` in `config/scoring.yaml`. Company demotions are
+  only ever suggested, never applied automatically.
+- **Repair** re-fingerprints companies whose sources keep failing (stale
+  board token, ATS migration), trial-validates the discovered config against
+  the live API, and only then rewrites `config/companies.yaml`.
+
+With `scheduler.auto_tune: true` in `config/settings.yaml`, the daemon runs
+both weekly and posts a self-maintenance summary to Discord.
+
 ## Adding a company
 
 Edit `config/companies.yaml` (or `opportunity-radar companies add`):
