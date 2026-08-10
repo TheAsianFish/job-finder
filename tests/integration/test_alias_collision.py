@@ -54,6 +54,59 @@ def test_fuzzy_collision_with_other_job_does_not_crash(db):
         assert repo.count_jobs(session) == 2  # still two distinct jobs
 
 
+def test_distinct_requisitions_with_same_title_and_location_stay_separate(db):
+    """Same board, same title+location, different job IDs — two real jobs.
+
+    Boards like Greenhouse post shift/team variants with identical titles and
+    locations. The fuzzy key must not merge them: merging makes the stored
+    description flip-flop between the variants on every scan, flooding the
+    digest with bogus 'description changed' rows.
+    """
+    from opportunity_radar.models.company import CompanySource
+
+    job_a = make_record("100", "Security Software Engineer (Starlink)")
+    job_b = make_record("200", "Security Software Engineer (Starlink)")
+    job_b.description_text = "A different requisition for the same title."
+    job_b.content_hash = "different-content"
+
+    with session_scope(db) as session:
+        repo.sync_companies(session, [CompanySource(id="stripe", name="Stripe")])
+        repo.insert_job(session, job_a, alias_hashes(job_a))
+
+    with session_scope(db) as session:
+        # Fuzzy hash matches job A, but the concrete IDs differ: not the same job.
+        assert deduper.find_existing(session, job_b) is None
+        # Insert must not crash on the fuzzy (kind, hash) already owned by A.
+        repo.insert_job(session, job_b, alias_hashes(job_b))
+
+    with session_scope(db) as session:
+        assert repo.count_jobs(session) == 2
+        # Each job is still findable by its own identity.
+        for rec in (job_a, job_b):
+            found = deduper.find_existing(session, rec)
+            assert found is not None
+            assert found.source_job_id == rec.source_job_id
+
+
+def test_fuzzy_match_still_bridges_different_sources(db):
+    """Cross-source dedup stays intact: same posting via another adapter merges."""
+    from opportunity_radar.models.company import CompanySource
+
+    job_a = make_record("100")
+    with session_scope(db) as session:
+        repo.sync_companies(session, [CompanySource(id="stripe", name="Stripe")])
+        repo.insert_job(session, job_a, alias_hashes(job_a))
+
+    via_jsonld = make_record("100")
+    via_jsonld.source_adapter = "jsonld"
+    via_jsonld.apply_url = "https://stripe.com/jobs/listing/12345"
+    via_jsonld.identity_hash = "jsonld-identity-hash"
+    with session_scope(db) as session:
+        found = deduper.find_existing(session, via_jsonld)
+        assert found is not None
+        assert found.source_job_id == "100"
+
+
 def test_register_is_idempotent(db):
     from opportunity_radar.models.company import CompanySource
 

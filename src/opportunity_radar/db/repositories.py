@@ -75,6 +75,14 @@ def set_company_enabled(session: Session, company_id: str, enabled: bool) -> boo
 
 def find_job_by_alias(session: Session, alias_hashes: dict[str, str]) -> JobRow | None:
     """Look up a job by any identity (kind -> hash), strongest first."""
+    found = find_job_with_alias_kind(session, alias_hashes)
+    return found[0] if found else None
+
+
+def find_job_with_alias_kind(
+    session: Session, alias_hashes: dict[str, str]
+) -> tuple[JobRow, str] | None:
+    """Like find_job_by_alias, but also reports which alias kind matched."""
     for kind in ("identity", "url", "fuzzy"):
         alias_hash = alias_hashes.get(kind)
         if not alias_hash:
@@ -86,7 +94,9 @@ def find_job_by_alias(session: Session, alias_hashes: dict[str, str]) -> JobRow 
         )
         alias = session.scalars(stmt).first()
         if alias is not None:
-            return session.get(JobRow, alias.job_id)
+            row = session.get(JobRow, alias.job_id)
+            if row is not None:
+                return row, kind
     return None
 
 
@@ -165,20 +175,10 @@ def insert_job(
     )
     session.add(row)
     session.flush()
-    now = utcnow()
-    for kind, alias_hash in alias_hashes.items():
-        session.add(
-            JobAliasRow(
-                job_id=row.id,
-                alias_kind=kind,
-                alias_hash=alias_hash,
-                source_adapter=record.source_adapter,
-                source_job_id=record.source_job_id,
-                url=record.apply_url,
-                location=record.primary_location,
-                first_seen_at=now,
-            )
-        )
+    # A sibling job may already own one of these hashes (e.g. two distinct
+    # requisitions sharing a title+location fuzzy key) — skip those instead
+    # of violating the unique (kind, hash) constraint.
+    add_missing_aliases(session, row, alias_hashes, record)
     return row
 
 
