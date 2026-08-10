@@ -66,6 +66,30 @@ high recall, low noise, as designed.
   `scheduler.auto_tune: true`.
 - `CLAUDE.md` added for future Claude Code session continuity.
 
+## Post-launch fixes (2026-08-10)
+
+Root-caused "digests repeat the same items and real openings get missed":
+
+- **Cloud scans never alerted.** `actions/download-artifact@v4` cannot fetch
+  an artifact from a previous run without an explicit `run-id`, so every
+  hourly cloud run restored nothing, auto-baselined an empty database, and
+  sent no new-job alerts (only noise digests). State now persists via
+  `actions/cache` restore/save with a `radar-db-` prefix key (see AD-14).
+- **Distinct requisitions were fuzzy-merged.** Boards post separate
+  requisitions with identical title+location (SpaceX had 22 such pairs);
+  the fuzzy dedup key collapsed them into one row whose description
+  flip-flopped every scan, flooding "Changed / reopened". Fuzzy matches are
+  now rejected when both sides carry different concrete job IDs from the
+  same adapter; cross-source bridging is unchanged (see AD-14).
+- **Digest changes now report once and pass the relevance bar.** The
+  "Changed / reopened" window starts at the previous digest (was: fixed
+  24 h, so morning and evening overlapped), and changed jobs are filtered
+  by `digest_min_score` + active status — senior/non-SWE roles no longer
+  appear. Scanner applies the same score gate to `digest_pending`.
+- **Empty digests say so.** A scheduled digest with nothing to report sends
+  a compact "No new updates since the last digest (N hours ago)" notice, so
+  a quiet channel is distinguishable from a broken monitor.
+
 ## Known gaps / deferred (with reasons)
 
 - **Workday / SmartRecruiters / iCIMS / Eightfold / SuccessFactors / Taleo**:

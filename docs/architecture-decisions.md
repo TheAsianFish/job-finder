@@ -108,3 +108,27 @@ ETag/If-None-Match plumbing between source_state and adapters is scaffolded
 (columns exist) but not wired. The ATS APIs polled here return small JSON
 payloads at 20-120 minute intervals; the politeness win is marginal against
 the complexity of 304-handling in every adapter. Revisit if scan volume grows.
+
+## AD-14: Same-source fuzzy matches never merge distinct requisitions
+
+The fuzzy alias (company + normalized title + location set) exists to bridge
+the *same posting* seen through different sources (e.g. Greenhouse API vs
+JSON-LD). Real boards also post genuinely distinct requisitions with
+identical title and location (shift/team variants — SpaceX's board carried
+22 such pairs at last check). Merging those made the stored description
+flip-flop on every scan, generating perpetual bogus "changed" rows. Rule: a
+fuzzy match is rejected when both records carry different concrete
+`source_job_id`s from the same adapter; only cross-source matches may merge
+on the fuzzy key. Alias registration skips (kind, hash) pairs owned by a
+sibling job, so the first requisition keeps the fuzzy alias.
+
+## AD-15: Cloud scan state lives in the Actions cache, not artifacts
+
+`actions/download-artifact@v4` only sees artifacts of the current run unless
+given an explicit `run-id` + token, so artifact-based restore silently failed
+and every hourly cloud run re-baselined an empty database — the baseline
+no-flood guard then (correctly) suppressed all alerts, forever.
+`actions/cache/restore` with a `radar-db-` prefix restore-key matches the
+most recent prior run's save, giving rolling continuity with first-party
+actions. Cache eviction (10 GB LRU) just causes one silent re-baseline,
+which the no-flood guard already makes safe.
