@@ -67,6 +67,48 @@ def test_build_digest_empty_returns_none(db):
     assert build_digest(AppSettings(), db_url=db) is None
 
 
+def test_changed_section_excludes_low_score_jobs(db):
+    """Senior/non-SWE roles (scored below the digest bar) never reach the digest."""
+    with session_scope(db) as session:
+        repo.sync_companies(session, [CompanySource(id="stripe", name="Stripe")])
+        record = make_record("20", "Senior Software Engineer")
+        row = repo.insert_job(session, record, alias_hashes(record))
+        row.match_score = 0.0  # hard-excluded titles score 0
+        repo.record_change(session, row.id, "description", None, "similarity 66%", True)
+    assert build_digest(AppSettings(), db_url=db) is None
+
+
+def test_changed_section_only_reports_since_last_digest(db):
+    """A change already covered by the previous digest is not repeated."""
+    with session_scope(db) as session:
+        repo.sync_companies(session, [CompanySource(id="stripe", name="Stripe")])
+        record = make_record("30", "Software Engineer Intern - Summer 2027")
+        row = repo.insert_job(session, record, alias_hashes(record))
+        row.match_score = 75.0
+        repo.record_change(session, row.id, "season", "unspecified", "summer 2027", True)
+
+    # No digest yet: the change is reported.
+    assert build_digest(AppSettings(), db_url=db) is not None
+
+    # After a digest has covered it, it must not appear again.
+    with session_scope(db) as session:
+        repo.meta_set(session, "last_digest_at", utcnow().isoformat())
+    assert build_digest(AppSettings(), db_url=db) is None
+
+
+@respx.mock
+async def test_send_digest_empty_sends_quiet_notice(db):
+    """An empty digest still tells the channel 'no new updates'."""
+    route = respx.post(WEBHOOK).mock(return_value=Response(204))
+    ok = await send_digest(AppSettings(), DiscordNotifier(WEBHOOK), db_url=db)
+    assert ok
+    assert route.call_count == 1
+    body = json.loads(route.calls[0].request.content)
+    assert "No new updates" in json.dumps(body)
+    with session_scope(db) as session:
+        assert repo.meta_get(session, "last_digest_at") is not None
+
+
 @respx.mock
 async def test_send_digest_clears_pending(db):
     _seed(db)

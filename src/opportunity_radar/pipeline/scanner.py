@@ -265,7 +265,13 @@ def _persist_company_jobs(
                 if change_detector.has_meaningful_change(changes) or reopened:
                     outcome.changed_count += 1
                     outcome.changed_job_ids.append(existing.id)
-                    if not baseline and alerts.alert_on_changes:
+                    # Changed jobs face the same relevance bar as new ones:
+                    # senior/non-SWE roles never reach the digest.
+                    if (
+                        not baseline
+                        and alerts.alert_on_changes
+                        and existing.match_score >= alerts.digest_min_score
+                    ):
                         summary.changed_job_ids.append(existing.id)
                         existing.digest_pending = True
 

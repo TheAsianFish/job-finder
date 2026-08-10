@@ -141,6 +141,20 @@ def build_digest_payload(
     }
 
 
+def build_quiet_digest_payload(title: str, detail: str) -> dict[str, Any]:
+    """Compact 'nothing new' notice so silence is distinguishable from breakage."""
+    return {
+        "embeds": [
+            {
+                "title": sanitize(title),
+                "description": sanitize(detail),
+                "color": COLOR_LOW,
+            }
+        ],
+        "allowed_mentions": {"parse": []},
+    }
+
+
 def build_baseline_summary(
     total: int, by_source: dict[str, int], by_score_band: dict[str, int]
 ) -> dict[str, Any]:
