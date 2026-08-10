@@ -1,8 +1,9 @@
 # OPTIONAL cloud scanning while your Mac is offline (spec §20).
 # Local mode is canonical. This workflow is disabled unless you set the
 # repository variable ENABLE_CLOUD_SCAN=true and add DISCORD_WEBHOOK_URL
-# to Actions secrets. SQLite state is persisted as a workflow artifact —
-# best-effort continuity, not a primary datastore.
+# to Actions secrets. SQLite state is persisted via the Actions cache —
+# best-effort continuity, not a primary datastore. If the cache is evicted
+# (10 GB repo limit, LRU) the next run re-baselines silently, by design.
 #
 # Note: GitHub scheduled workflows can be delayed several minutes.
 
@@ -32,12 +33,18 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
+      # actions/cache (not artifacts): download-artifact@v4 cannot fetch an
+      # artifact uploaded by a *previous* run without an explicit run-id, so
+      # the old artifact-based restore always failed and every hourly run
+      # re-baselined an empty database — meaning no alerts were ever sent.
+      # Cache restore-keys match across runs by prefix (newest first).
       - name: Restore previous database
-        uses: actions/download-artifact@v4
-        continue-on-error: true
+        uses: actions/cache/restore@v4
         with:
-          name: radar-db
-          path: data/
+          path: data/opportunity_radar.db
+          key: radar-db-${{ github.run_id }}
+          restore-keys: |
+            radar-db-
 
       - name: Initialize and scan
         env:
@@ -51,9 +58,7 @@ jobs:
 
       - name: Persist database
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/cache/save@v4
         with:
-          name: radar-db
           path: data/opportunity_radar.db
-          retention-days: 7
-          overwrite: true
+          key: radar-db-${{ github.run_id }}
