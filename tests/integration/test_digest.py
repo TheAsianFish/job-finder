@@ -109,6 +109,20 @@ def test_non_software_roles_never_reach_digest(db):
     assert build_digest(AppSettings(), db_url=db) is None
 
 
+def test_non_us_roles_never_reach_digest(db):
+    """A Lisbon-based SWE intern is not workable for a US-only candidate."""
+    with session_scope(db) as session:
+        repo.sync_companies(session, [CompanySource(id="stripe", name="Stripe")])
+        record = make_record("60", "Software Engineer Intern - Summer 2027")
+        record.all_locations = ["Lisbon, Portugal"]
+        record.primary_location = "Lisbon, Portugal"
+        row = repo.insert_job(session, record, alias_hashes(record))
+        row.match_score = 78.0
+        row.digest_pending = True
+        repo.record_change(session, row.id, "season", "unspecified", "summer 2027", True)
+    assert build_digest(AppSettings(), db_url=db) is None
+
+
 def test_digest_sections_ordered_by_score(db):
     """Sections truncate to 10 lines, so entries must be best-first."""
     with session_scope(db) as session:

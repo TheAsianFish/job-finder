@@ -32,7 +32,10 @@ _PRODUCTION_SIGNALS = [
 ]
 
 _US_LOCATION_HINTS = re.compile(
-    r"\b(united states|usa|u\.s\.|remote[\s\-]?\(?us|ca|ny|wa|tx|ma|il|co|ga|nc|va|az|or|ut|pa|fl)\b"
+    # State abbreviations only count after a comma ("Portland, OR") — bare
+    # two-letter words collide with English ("London or Dublin" is not Oregon).
+    r"\b(united states|usa|u\.s\.|remote[\s\-]?\(?us)\b"
+    r"|,\s*(ca|ny|wa|tx|ma|il|co|ga|nc|va|az|or|ut|pa|fl)\b"
     r"|california|new york|seattle|austin|boston|chicago|denver|atlanta|san francisco"
     r"|mountain view|palo alto|sunnyvale|san jose|los angeles|san diego|bellevue|redmond"
     r"|portland|salt lake|raleigh|arlington|washington",
@@ -41,9 +44,43 @@ _US_LOCATION_HINTS = re.compile(
 _NON_US_HINTS = re.compile(
     r"london|dublin|toronto|vancouver|bangalore|bengaluru|hyderabad|singapore|sydney"
     r"|amsterdam|berlin|munich|paris|zurich|tokyo|tel aviv|warsaw|krakow|mexico city"
-    r"|s[aã]o paulo|shanghai|beijing|seoul|taipei",
+    r"|s[aã]o paulo|shanghai|beijing|seoul|taipei"
+    r"|lisbon|portugal|madrid|barcelona|spain|france|germany|netherlands|belgium"
+    r"|austria|vienna|switzerland|italy|milan|poland|romania|bucharest|czech|prague"
+    r"|hungary|budapest|bulgaria|sofia|croatia|serbia|ukraine|estonia|tallinn"
+    r"|lithuania|vilnius|sweden|stockholm|denmark|copenhagen|norway|oslo|finland"
+    r"|helsinki|ireland|scotland|edinburgh|glasgow|belfast|united kingdom|\buk\b"
+    r"|england|manchester|hamburg|frankfurt|stuttgart|cologne|eindhoven|rotterdam"
+    r"|india|mumbai|pune|chennai|delhi|noida|gurgaon|gurugram|kolkata|israel"
+    r"|japan|osaka|china|hong kong|taiwan|korea|philippines|manila|vietnam"
+    r"|indonesia|jakarta|thailand|bangkok|malaysia|kuala lumpur|australia"
+    r"|melbourne|brisbane|new zealand|auckland|wellington|canada|montreal|ottawa"
+    r"|calgary|waterloo|quebec|mexico|guadalajara|monterrey|brazil|argentina"
+    r"|buenos aires|chile|santiago|colombia|bogot[aá]|peru|lima|costa rica"
+    r"|uruguay|montevideo|turkey|istanbul|dubai|\buae\b|egypt|cairo|nigeria"
+    r"|lagos|kenya|nairobi|south africa|cape town|johannesburg",
     re.IGNORECASE,
 )
+
+
+def is_us_accessible(
+    locations: list[str],
+    compensation_currency: str | None = None,
+) -> bool:
+    """False when a role is clearly workable only outside the US.
+
+    Conservative on missing data: unknown locations stay accessible and are
+    handled by the location score, never by this gate. Non-USD pay is treated
+    as a non-US signal — US-payroll roles are quoted in dollars.
+    """
+    if compensation_currency and compensation_currency.upper() not in ("USD", "US$", "$"):
+        return False
+    joined = " | ".join(locations or [])
+    if not joined:
+        return True
+    if _US_LOCATION_HINTS.search(joined):
+        return True
+    return not _NON_US_HINTS.search(joined)
 
 
 @dataclass
@@ -112,9 +149,13 @@ def _score_production(text: str) -> float:
 
 
 def _score_location(locations: list[str], remote_type: str, profile: ProfileConfig) -> float:
+    joined = " | ".join(locations)
+    # Clearly non-US scores zero even when remote: "Remote - Portugal" is not
+    # workable from the US, so it earns no remote bonus.
+    if joined and _NON_US_HINTS.search(joined) and not _US_LOCATION_HINTS.search(joined):
+        return 0.0
     if remote_type == "remote" and profile.preferences.allow_remote:
         return 5.0
-    joined = " | ".join(locations)
     if not joined:
         return 2.0
     if _US_LOCATION_HINTS.search(joined):
@@ -122,8 +163,6 @@ def _score_location(locations: list[str], remote_type: str, profile: ProfileConf
             if preferred.lower() in joined.lower():
                 return 5.0
         return 4.0
-    if _NON_US_HINTS.search(joined) and not _US_LOCATION_HINTS.search(joined):
-        return 0.0
     return 2.0  # unknown — willing to relocate keeps it neutral
 
 
@@ -227,6 +266,7 @@ def decide_alert_level(
     thresholds_dashboard: int,
     thresholds_suppress: int,
     now: datetime | None = None,
+    us_accessible: bool = True,
 ) -> str:
     """Return one of: immediate, digest, dashboard, suppress (spec §13.5)."""
     now = now or utcnow()
@@ -237,6 +277,11 @@ def decide_alert_level(
     # push a civil/hardware intern past the digest bar on points alone, but
     # score is a ranking signal, not a role-fit override.
     if not classification.is_software:
+        return "dashboard" if score >= thresholds_dashboard else "suppress"
+
+    # Roles clearly workable only outside the US never notify either — a US
+    # citizen can't take them without foreign work authorization.
+    if not us_accessible:
         return "dashboard" if score >= thresholds_dashboard else "suppress"
 
     if score >= thresholds_immediate:

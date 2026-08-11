@@ -152,6 +152,51 @@ def test_fresh_posting_override():
     assert level == "immediate"
 
 
+def test_is_us_accessible():
+    from opportunity_radar.matching.scorer import is_us_accessible
+
+    assert is_us_accessible(["San Francisco, CA"])
+    assert is_us_accessible(["Portland, OR"])
+    assert is_us_accessible(["Remote"])
+    assert is_us_accessible([])  # unknown location never gates
+    assert is_us_accessible(["Austin, TX; Lisbon, Portugal"])  # US option exists
+    assert not is_us_accessible(["Lisbon, Portugal"])
+    assert not is_us_accessible(["Remote - Portugal"])
+    assert not is_us_accessible(["London or Dublin"])  # 'or' is not Oregon
+    assert not is_us_accessible(["London, UK"])
+    assert not is_us_accessible(["Bangalore, India"])
+    # Non-USD pay marks a non-US payroll even when the location is vague.
+    assert not is_us_accessible(["Remote"], compensation_currency="EUR")
+    assert is_us_accessible(["Remote"], compensation_currency="USD")
+
+
+def test_non_us_role_capped_at_dashboard():
+    """A Lisbon-based role must never notify a US-only candidate, whatever
+    its score (regression: Cloudflare Portugal intern alerted at high score)."""
+    level = decide_alert_level(
+        score=80,
+        season=parse_season("Software Engineer Intern - Summer 2027"),
+        classification=classify("Software Engineer Intern - Summer 2027"),
+        company_tier="core",
+        posted_at=None,
+        deadline=None,
+        thresholds_immediate=82,
+        thresholds_digest=60,
+        thresholds_dashboard=35,
+        thresholds_suppress=20,
+        now=NOW,
+        us_accessible=False,
+    )
+    assert level == "dashboard"
+
+
+def test_non_us_remote_gets_no_remote_bonus():
+    result = _score(
+        "Software Engineer Intern", "Python.", locations=["Remote - Portugal"], remote="remote"
+    )
+    assert result.components["location"] == 0.0
+
+
 def test_non_software_role_capped_at_dashboard():
     """A civil/hardware intern can out-score the digest bar on company tier +
     timing alone; role fit must gate notifications regardless of score."""

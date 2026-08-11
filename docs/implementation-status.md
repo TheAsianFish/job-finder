@@ -100,6 +100,15 @@ Root-caused "digests repeat the same items and real openings get missed":
 - **Digest bar lowered 60 → 50** at Patrick's request (mass-applying):
   on-target SWE roles at broad/exploratory-tier companies now reach the
   digest instead of sitting dashboard-only. Audited in `tuning_history`.
+- **Non-US roles never notify** (regression: a Lisbon-based Cloudflare
+  intern role alerted at high score). `is_us_accessible` gates alerts and
+  every digest section: clearly non-US locations and non-USD pay cap at
+  dashboard regardless of score; unknown locations never gate. The non-US
+  hint list grew from ~20 cities to broad country/city coverage; bare state
+  abbreviations now only count after a comma ("London or Dublin" is no
+  longer Oregon); non-US remote earns no remote bonus. Profile now records
+  `us_citizen: true` / `requires_sponsorship: false`, so citizenship-required
+  roles (SpaceX/Anduril/Palantir) stop taking "uncertain" penalties.
 
 ## Known gaps / deferred (with reasons)
 

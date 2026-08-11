@@ -19,7 +19,7 @@ from opportunity_radar.adapters.registry import fetch_with_fallback
 from opportunity_radar.config import AppSettings
 from opportunity_radar.db import repositories as repo
 from opportunity_radar.db.engine import session_scope
-from opportunity_radar.matching.scorer import decide_alert_level
+from opportunity_radar.matching.scorer import decide_alert_level, is_us_accessible
 from opportunity_radar.models.company import CompanySource
 from opportunity_radar.models.job import JobRecord, RawJob
 from opportunity_radar.models.scan import ScanOutcome
@@ -272,6 +272,9 @@ def _persist_company_jobs(
                         and alerts.alert_on_changes
                         and existing.match_score >= alerts.digest_min_score
                         and existing.role_family not in (None, "irrelevant", "adjacent")
+                        and is_us_accessible(
+                            existing.all_locations or [], existing.compensation_currency
+                        )
                     ):
                         summary.changed_job_ids.append(existing.id)
                         existing.digest_pending = True
@@ -318,6 +321,7 @@ def _classify_alert(
         thresholds_digest=alerts.digest_min_score,
         thresholds_dashboard=alerts.dashboard_min_score,
         thresholds_suppress=alerts.suppress_below_score,
+        us_accessible=is_us_accessible(record.all_locations, record.compensation_currency),
     )
     if level == "immediate":
         summary.immediate_job_ids.append(job_id)

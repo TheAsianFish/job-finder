@@ -7,8 +7,8 @@ candidate:
   school: University of California, San Diego
   country: US
 
-  requires_sponsorship: null
-  us_citizen: null
+  requires_sponsorship: false
+  us_citizen: true
   permanent_resident: null
   clearance_eligible: null
 

@@ -21,6 +21,16 @@ logger = structlog.get_logger(__name__)
 LAST_DIGEST_KEY = "last_digest_at"
 
 
+def _digest_relevant(job: JobRow) -> bool:
+    """Notification bar shared by every digest section: software role that a
+    US citizen can actually work. Score alone never overrides either."""
+    from opportunity_radar.matching.scorer import is_us_accessible
+
+    if job.role_family in (None, "irrelevant", "adjacent"):
+        return False
+    return is_us_accessible(job.all_locations or [], job.compensation_currency)
+
+
 def _job_line(job: JobRow) -> str:
     location = job.primary_location or job.remote_type
     return (
@@ -47,9 +57,10 @@ def build_digest(settings: AppSettings, db_url: str | None = None) -> dict | Non
                 select(JobRow).where(JobRow.digest_pending.is_(True), JobRow.status == "active")
             )
         )
-        # Non-software roles never notify, whatever their score (belt to the
-        # scanner's suspenders: stale pending flags survive rule changes).
-        pending = [j for j in pending if j.role_family not in (None, "irrelevant", "adjacent")]
+        # Non-software and non-US roles never notify, whatever their score
+        # (belt to the scanner's suspenders: stale pending flags survive rule
+        # changes).
+        pending = [j for j in pending if _digest_relevant(j)]
         # Best first: sections truncate to 10 lines, so the cut must keep the
         # top-scored roles, not an arbitrary insertion-order slice.
         pending.sort(key=lambda j: j.match_score, reverse=True)
@@ -95,12 +106,8 @@ def build_digest(settings: AppSettings, db_url: str | None = None) -> dict | Non
             if job is None or job.status != "active":
                 continue
             # Same relevance bar as new-job digest entries: senior/non-SWE
-            # roles score below the digest threshold and stay out.
-            if job.match_score < alerts.digest_min_score:
-                continue
-            # Non-software roles can out-score the bar on company/timing
-            # points alone — never notify for them.
-            if job.role_family in (None, "irrelevant", "adjacent"):
+            # and non-US roles never notify, whatever their score.
+            if job.match_score < alerts.digest_min_score or not _digest_relevant(job):
                 continue
             if change.field == "description":
                 detail = f"description updated ({change.new_value or 'rewritten'})"
