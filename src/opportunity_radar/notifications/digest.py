@@ -47,6 +47,9 @@ def build_digest(settings: AppSettings, db_url: str | None = None) -> dict | Non
                 select(JobRow).where(JobRow.digest_pending.is_(True), JobRow.status == "active")
             )
         )
+        # Best first: sections truncate to 10 lines, so the cut must keep the
+        # top-scored roles, not an arbitrary insertion-order slice.
+        pending.sort(key=lambda j: j.match_score, reverse=True)
         high = [j for j in pending if j.match_score >= alerts.immediate_min_score]
         review = [
             j
@@ -79,7 +82,7 @@ def build_digest(settings: AppSettings, db_url: str | None = None) -> dict | Non
                 .limit(30)
             )
         )
-        changed_lines = []
+        scored_changes: list[tuple[float, str]] = []
         seen_jobs: set[int] = set()
         for change in changed_rows:
             if change.job_id in seen_jobs:
@@ -96,7 +99,9 @@ def build_digest(settings: AppSettings, db_url: str | None = None) -> dict | Non
                 detail = f"description updated ({change.new_value or 'rewritten'})"
             else:
                 detail = f"{change.field}: {change.old_value or '—'} → {change.new_value or '—'}"
-            changed_lines.append(f"[{job.title}]({job.apply_url}) — {detail}")
+            scored_changes.append((job.match_score, f"[{job.title}]({job.apply_url}) — {detail}"))
+        scored_changes.sort(key=lambda pair: pair[0], reverse=True)
+        changed_lines = [line for _, line in scored_changes]
 
         failures = [
             f"{state.company_id}: {state.consecutive_failures} consecutive failures — "

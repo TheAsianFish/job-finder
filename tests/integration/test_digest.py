@@ -96,6 +96,25 @@ def test_changed_section_only_reports_since_last_digest(db):
     assert build_digest(AppSettings(), db_url=db) is None
 
 
+def test_digest_sections_ordered_by_score(db):
+    """Sections truncate to 10 lines, so entries must be best-first."""
+    with session_scope(db) as session:
+        repo.sync_companies(session, [CompanySource(id="stripe", name="Stripe")])
+        for job_id, title, score in (
+            ("40", "Okay Engineer Intern", 62.0),
+            ("41", "Great Engineer Intern", 79.0),
+            ("42", "Good Engineer Intern", 70.0),
+        ):
+            record = make_record(job_id, title)
+            row = repo.insert_job(session, record, alias_hashes(record))
+            row.match_score = score
+            row.digest_pending = True
+    payload = build_digest(AppSettings(), db_url=db)
+    assert payload is not None
+    text = json.dumps(payload)
+    assert text.index("Great") < text.index("Good") < text.index("Okay")
+
+
 @respx.mock
 async def test_send_digest_empty_sends_quiet_notice(db):
     """An empty digest still tells the channel 'no new updates'."""
