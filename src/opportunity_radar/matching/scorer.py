@@ -233,6 +233,12 @@ def decide_alert_level(
     if score < thresholds_suppress:
         return "suppress"
 
+    # Non-software roles never notify: company tier + timing + freshness can
+    # push a civil/hardware intern past the digest bar on points alone, but
+    # score is a ranking signal, not a role-fit override.
+    if not classification.is_software:
+        return "dashboard" if score >= thresholds_dashboard else "suppress"
+
     if score >= thresholds_immediate:
         return "immediate"
 

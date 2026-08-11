@@ -67,6 +67,8 @@ RETRYABLE_STATUS_CODES = frozenset({408, 425, 429, 500, 502, 503, 504})
 
 # Default alert thresholds (overridable in scoring.yaml).
 IMMEDIATE_MIN_SCORE = 82
-DIGEST_MIN_SCORE = 60
+# 50 (was 60): Patrick prefers mass-applying — smaller/lower-tier SWE roles
+# should still reach the digest rather than sit dashboard-only.
+DIGEST_MIN_SCORE = 50
 DASHBOARD_MIN_SCORE = 35
 SUPPRESS_BELOW_SCORE = 20

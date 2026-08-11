@@ -38,6 +38,7 @@ def make_record(source_job_id: str = "123", title: str = "Software Engineer Inte
         company_name="Stripe",
         title=title,
         normalized_title=title,
+        role_family="general_swe",
         description_text="Build payments infrastructure.",
         all_locations=["San Francisco, CA"],
         primary_location="San Francisco, CA",

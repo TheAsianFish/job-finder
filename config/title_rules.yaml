@@ -108,6 +108,8 @@ role_families:
   quant_developer:
     - quantitative developer
     - quant developer
+    - quantitative development
+    - quant development
     - quantitative research engineer
     - trading systems
   ml_systems:
@@ -203,14 +205,32 @@ role_families:
     - software intern
 
 # Words that suggest a non-software role even if "engineer" appears.
+# "engineer" terms also match "engineering" (gerund handled in code), so
+# "civil engineer" covers "Civil Engineering Internship" too.
 non_software_signals:
   - mechanical engineer
   - civil engineer
   - electrical engineer
+  - hardware engineer
   - manufacturing engineer
   - process engineer
   - chemical engineer
+  - industrial engineer
+  - aerospace engineer
+  - structural engineer
+  - materials engineer
+  - thermal engineer
+  - propulsion engineer
+  - rf engineer
+  - optical engineer
+  - avionics engineer
   - quality engineer
-  - test technician
+  - technician
+  - machinist
+  - welder
+  - logistics
+  - supply chain
+  - sourcing
+  - procurement
   - facilities
   - hvac

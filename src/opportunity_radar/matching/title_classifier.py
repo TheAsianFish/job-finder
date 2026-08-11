@@ -48,9 +48,22 @@ class TitleClassification:
 
 
 def _term_to_regex(term: str) -> re.Pattern[str]:
-    """Word-boundary regex where spaces/hyphens in the term are interchangeable."""
+    """Word-boundary regex where spaces/hyphens in the term are interchangeable.
+
+    'engineer' also matches its gerund: boards title the same discipline both
+    ways ('Civil Engineer Intern' / 'Civil Engineering Internship'), and a
+    signal that misses one form silently misclassifies the role.
+    """
     parts = re.split(r"[\s\-]+", term.strip().lower())
-    flexible = r"[\s\-]+".join(re.escape(part) for part in parts if part)
+    pieces = []
+    for part in parts:
+        if not part:
+            continue
+        escaped = re.escape(part)
+        if part == "engineer":
+            escaped += "(?:ing)?"
+        pieces.append(escaped)
+    flexible = r"[\s\-]+".join(pieces)
     return re.compile(rf"(?<![a-z0-9]){flexible}(?![a-z0-9])", re.IGNORECASE)
 
 

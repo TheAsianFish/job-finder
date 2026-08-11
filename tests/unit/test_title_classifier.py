@@ -41,6 +41,30 @@ def test_mechanical_only_irrelevant():
     assert not result.is_software
 
 
+def test_civil_engineering_internship_not_software():
+    """Gerund discipline titles ('Civil Engineering') must match the
+    'civil engineer' non-software signal, not fall through to general_swe."""
+    result = classify("Spring 2027 Civil Engineering Internship")
+    assert not result.is_software
+    assert result.role_family == "irrelevant"
+
+
+def test_hardware_engineer_intern_not_software():
+    result = classify("Hardware Engineer Intern, Summer 2027")
+    assert not result.is_software
+    assert result.role_family == "irrelevant"
+
+
+def test_electrical_engineer_intern_not_software():
+    assert not classify("2027 Electrical Engineer Intern").is_software
+
+
+def test_gerund_family_titles_still_software():
+    result = classify("Backend Engineering Intern")
+    assert result.is_software
+    assert result.role_family == "backend"
+
+
 def test_mixed_hardware_software_kept():
     result = classify("Embedded Software Engineer Intern")
     assert result.is_software

@@ -96,6 +96,19 @@ def test_changed_section_only_reports_since_last_digest(db):
     assert build_digest(AppSettings(), db_url=db) is None
 
 
+def test_non_software_roles_never_reach_digest(db):
+    """Score alone must not carry a non-SWE role into any digest section."""
+    with session_scope(db) as session:
+        repo.sync_companies(session, [CompanySource(id="stripe", name="Stripe")])
+        record = make_record("50", "Civil Engineering Internship")
+        record.role_family = "irrelevant"
+        row = repo.insert_job(session, record, alias_hashes(record))
+        row.match_score = 73.0
+        row.digest_pending = True
+        repo.record_change(session, row.id, "season", "unspecified", "spring 2027", True)
+    assert build_digest(AppSettings(), db_url=db) is None
+
+
 def test_digest_sections_ordered_by_score(db):
     """Sections truncate to 10 lines, so entries must be best-first."""
     with session_scope(db) as session:

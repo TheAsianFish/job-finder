@@ -271,6 +271,7 @@ def _persist_company_jobs(
                         not baseline
                         and alerts.alert_on_changes
                         and existing.match_score >= alerts.digest_min_score
+                        and existing.role_family not in (None, "irrelevant", "adjacent")
                     ):
                         summary.changed_job_ids.append(existing.id)
                         existing.digest_pending = True

@@ -47,6 +47,9 @@ def build_digest(settings: AppSettings, db_url: str | None = None) -> dict | Non
                 select(JobRow).where(JobRow.digest_pending.is_(True), JobRow.status == "active")
             )
         )
+        # Non-software roles never notify, whatever their score (belt to the
+        # scanner's suspenders: stale pending flags survive rule changes).
+        pending = [j for j in pending if j.role_family not in (None, "irrelevant", "adjacent")]
         # Best first: sections truncate to 10 lines, so the cut must keep the
         # top-scored roles, not an arbitrary insertion-order slice.
         pending.sort(key=lambda j: j.match_score, reverse=True)
@@ -94,6 +97,10 @@ def build_digest(settings: AppSettings, db_url: str | None = None) -> dict | Non
             # Same relevance bar as new-job digest entries: senior/non-SWE
             # roles score below the digest threshold and stay out.
             if job.match_score < alerts.digest_min_score:
+                continue
+            # Non-software roles can out-score the bar on company/timing
+            # points alone — never notify for them.
+            if job.role_family in (None, "irrelevant", "adjacent"):
                 continue
             if change.field == "description":
                 detail = f"description updated ({change.new_value or 'rewritten'})"

@@ -89,6 +89,17 @@ Root-caused "digests repeat the same items and real openings get missed":
 - **Empty digests say so.** A scheduled digest with nothing to report sends
   a compact "No new updates since the last digest (N hours ago)" notice, so
   a quiet channel is distinguishable from a broken monitor.
+- **Non-software roles never notify.** Civil/electrical/hardware interns at
+  core companies were out-scoring the digest bar on tier + timing points
+  alone. `decide_alert_level` now caps non-software classifications at
+  dashboard regardless of score, the digest applies the same `role_family`
+  guard to every section, "engineer" signals also match "engineering"
+  (catching e.g. "Civil Engineering Internship"), and the non-software
+  signal list gained hardware/aerospace/industrial/technician/supply-chain
+  disciplines. "Quantitative development" was added to the quant family.
+- **Digest bar lowered 60 → 50** at Patrick's request (mass-applying):
+  on-target SWE roles at broad/exploratory-tier companies now reach the
+  digest instead of sitting dashboard-only. Audited in `tuning_history`.
 
 ## Known gaps / deferred (with reasons)
 

@@ -152,6 +152,25 @@ def test_fresh_posting_override():
     assert level == "immediate"
 
 
+def test_non_software_role_capped_at_dashboard():
+    """A civil/hardware intern can out-score the digest bar on company tier +
+    timing alone; role fit must gate notifications regardless of score."""
+    level = decide_alert_level(
+        score=74,
+        season=parse_season("2027 Electrical Engineer Intern"),
+        classification=classify("2027 Electrical Engineer Intern"),
+        company_tier="core",
+        posted_at=None,
+        deadline=None,
+        thresholds_immediate=82,
+        thresholds_digest=60,
+        thresholds_dashboard=35,
+        thresholds_suppress=20,
+        now=NOW,
+    )
+    assert level == "dashboard"
+
+
 def test_low_score_suppressed():
     level = decide_alert_level(
         score=10,

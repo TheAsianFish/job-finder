@@ -53,7 +53,7 @@ target_windows:
 
 alerts:
   immediate_min_score: 82
-  digest_min_score: 60
+  digest_min_score: 50
   dashboard_min_score: 35
   suppress_below_score: 20
   alert_on_changes: true
