@@ -413,9 +413,9 @@ companies:
   name: Temporal
   domain: temporal.io
   tier: broad
-  adapter: greenhouse
+  adapter: ashby
   adapter_config:
-    board_token: temporaltechnologies
+    job_board_name: temporal
   tags:
   - infrastructure
   - developer-tools
