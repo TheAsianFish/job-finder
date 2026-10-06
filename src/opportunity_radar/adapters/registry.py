@@ -4,22 +4,25 @@ from __future__ import annotations
 
 import structlog
 
+from opportunity_radar.adapters.amazon_jobs import AmazonJobsAdapter
 from opportunity_radar.adapters.ashby import AshbyAdapter, extract_board_name
+from opportunity_radar.adapters.atlassian_careers import AtlassianCareersAdapter
 from opportunity_radar.adapters.base import AdapterContext, AdapterError, BaseAdapter
+from opportunity_radar.adapters.eightfold import EightfoldAdapter
+from opportunity_radar.adapters.github_careers import GitHubCareersAdapter
 from opportunity_radar.adapters.greenhouse import GreenhouseAdapter, extract_board_token
 from opportunity_radar.adapters.html_generic import HtmlGenericAdapter
 from opportunity_radar.adapters.jsonld import JsonLdAdapter
 from opportunity_radar.adapters.lever import LeverAdapter, extract_site
 from opportunity_radar.adapters.playwright_generic import PlaywrightAdapter
 from opportunity_radar.adapters.sitemap import SitemapAdapter
+from opportunity_radar.adapters.smartrecruiters import SmartRecruitersAdapter
 from opportunity_radar.adapters.unsupported import (
-    EightfoldAdapter,
     ICIMSAdapter,
-    SmartRecruitersAdapter,
     SuccessFactorsAdapter,
     TaleoAdapter,
-    WorkdayAdapter,
 )
+from opportunity_radar.adapters.workday import WorkdayAdapter
 from opportunity_radar.discovery.ats_fingerprint import detect_from_url
 from opportunity_radar.models.company import CompanySource
 
@@ -37,8 +40,11 @@ _ADAPTERS: dict[str, BaseAdapter] = {
         PlaywrightAdapter(),
         WorkdayAdapter(),
         SmartRecruitersAdapter(),
-        ICIMSAdapter(),
         EightfoldAdapter(),
+        AmazonJobsAdapter(),
+        GitHubCareersAdapter(),
+        AtlassianCareersAdapter(),
+        ICIMSAdapter(),
         SuccessFactorsAdapter(),
         TaleoAdapter(),
     ]

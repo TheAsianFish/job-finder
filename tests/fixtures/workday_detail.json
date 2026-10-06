@@ -1,0 +1,17 @@
+{
+  "jobPostingInfo": {
+    "id": "abc123",
+    "title": "2027 Software Engineering Intern",
+    "jobDescription": "<p>Join our <b>Summer 2027</b> internship program. You will build production CUDA tooling in <strong>Python</strong> and C++.</p><p>Must be pursuing a Bachelor's degree, graduating December 2027 or later.</p>",
+    "location": "US, CA, Santa Clara",
+    "additionalLocations": ["US, TX, Austin"],
+    "postedOn": "Posted Yesterday",
+    "startDate": "2026-10-05",
+    "timeType": "Full time",
+    "jobReqId": "JR100001",
+    "jobPostingId": "abc123",
+    "country": {"descriptor": "United States of America", "id": "us"},
+    "externalUrl": "https://acme.wd5.myworkdayjobs.com/AcmeCareers/job/US-CA-Santa-Clara/2027-Software-Engineering-Intern_JR100001",
+    "remoteType": "Hybrid"
+  }
+}

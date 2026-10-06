@@ -1,9 +1,10 @@
 """Placeholder adapters for ATS platforms without stable public APIs (spec §8.8).
 
-Workday, SmartRecruiters, iCIMS, Eightfold, SAP SuccessFactors, and Taleo do
-not expose documented public job-board APIs suitable for polling, and their
-internal endpoints change without notice. Rather than build on undocumented
-endpoints, these adapters fail with a clear explanation and pointers.
+iCIMS, SAP SuccessFactors, and Taleo do not expose job-board JSON suitable
+for polling, and their internal endpoints change without notice. Rather than
+build on undocumented endpoints, these adapters fail with a clear
+explanation and pointers. (Workday, SmartRecruiters, and Eightfold moved to
+real adapters once a stable per-site JSON request was verified — AD-16.)
 
 If a specific company's site turns out to expose stable structured data,
 configure it with `adapter: jsonld`, `adapter: sitemap`, `adapter:
@@ -32,24 +33,9 @@ class _UnsupportedAdapter(BaseAdapter):
         raise AdapterError(f"{self.platform} {_GUIDANCE}", category="unsupported", retryable=False)
 
 
-class WorkdayAdapter(_UnsupportedAdapter):
-    name = "workday"
-    platform = "Workday"
-
-
-class SmartRecruitersAdapter(_UnsupportedAdapter):
-    name = "smartrecruiters"
-    platform = "SmartRecruiters"
-
-
 class ICIMSAdapter(_UnsupportedAdapter):
     name = "icims"
     platform = "iCIMS"
-
-
-class EightfoldAdapter(_UnsupportedAdapter):
-    name = "eightfold"
-    platform = "Eightfold"
 
 
 class SuccessFactorsAdapter(_UnsupportedAdapter):

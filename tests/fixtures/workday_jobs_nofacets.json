@@ -1,0 +1,26 @@
+{
+  "total": 2,
+  "jobPostings": [
+    {
+      "title": "2027 Intern - Software Engineer",
+      "externalPath": "/job/San-Jose/2027-Intern---Software-Engineer_R200001",
+      "locationsText": "San Jose",
+      "postedOn": "Posted Today",
+      "bulletFields": ["R200001"]
+    },
+    {
+      "title": "Senior Machine Learning Engineer",
+      "externalPath": "/job/San-Jose/Senior-Machine-Learning-Engineer_R200002",
+      "locationsText": "San Jose",
+      "postedOn": "Posted Today",
+      "bulletFields": ["R200002"]
+    }
+  ],
+  "facets": [
+    {
+      "facetParameter": "timeType",
+      "descriptor": "Time Type",
+      "values": [{"descriptor": "Full time", "id": "ft-id", "count": 2}]
+    }
+  ]
+}

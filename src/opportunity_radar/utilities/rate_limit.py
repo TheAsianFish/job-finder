@@ -10,6 +10,7 @@ import asyncio
 import contextlib
 import time
 from dataclasses import dataclass, field
+from typing import Any
 
 import httpx
 import structlog
@@ -66,8 +67,11 @@ class RateLimiter:
         retries: int = 3,
         backoff_seconds: tuple[float, ...] = (2.0, 8.0, 30.0),
         timeout: float = 30.0,
+        method: str = "GET",
+        json: Any = None,
     ) -> httpx.Response:
-        """GET with per-domain pacing, retry on retryable statuses, Retry-After support.
+        """GET (or read-only POST search) with per-domain pacing, retry on
+        retryable statuses, Retry-After support.
 
         Raises httpx.HTTPError (or the last retryable response is returned as-is
         for the caller to interpret) — callers must check response.status_code.
@@ -80,7 +84,9 @@ class RateLimiter:
         for attempt in range(retries + 1):
             try:
                 async with self._global, self.gate_for(domain):
-                    response = await client.get(url, headers=headers, timeout=timeout)
+                    response = await client.request(
+                        method, url, headers=headers, timeout=timeout, json=json
+                    )
             except (httpx.TransportError, httpx.TimeoutException) as exc:
                 last_exc = exc
                 logger.warning("http_transport_error", url=url, attempt=attempt, error=str(exc))

@@ -1,0 +1,19 @@
+{
+  "id": "744000100000001",
+  "name": "Software Engineer Intern - Summer 2027",
+  "refNumber": "JB0000001",
+  "releasedDate": "2026-10-01T18:00:00.000Z",
+  "location": {"city": "Santa Clara", "region": "California", "country": "us"},
+  "postingUrl": "https://jobs.smartrecruiters.com/AcmeCo/744000100000001-software-engineer-intern-summer-2027",
+  "applyUrl": "https://jobs.smartrecruiters.com/AcmeCo/744000100000001-software-engineer-intern-summer-2027?oga=true",
+  "jobAd": {
+    "sections": {
+      "companyDescription": {"title": "Company Description", "text": "<p>AcmeCo builds platforms.</p>"},
+      "jobDescription": {"title": "Job Description", "text": "<p>Build backend services in <b>Java</b> and Python on Kubernetes during a 12-week Summer 2027 internship.</p>"},
+      "qualifications": {"title": "Qualifications", "text": "<ul><li>Pursuing a BS in Computer Science, graduating by June 2028</li></ul>"},
+      "additionalInformation": {"title": "Additional Information", "text": "<p>Housing stipend provided.</p>"}
+    }
+  },
+  "department": {"id": "1", "label": "Engineering"},
+  "typeOfEmployment": {"id": "internship", "label": "Intern"}
+}

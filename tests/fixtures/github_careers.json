@@ -1,0 +1,40 @@
+{
+  "totalCount": 2,
+  "count": 2,
+  "jobs": [
+    {
+      "data": {
+        "slug": "5901",
+        "req_id": "5901",
+        "title": "Software Engineer Intern - Summer 2027",
+        "description": "<strong>About GitHub</strong><br>Join the Copilot platform team for Summer 2027. You will write Go and TypeScript and ship to production.",
+        "location_name": "US Remote",
+        "country": "United States",
+        "country_code": "US",
+        "location_type": "Remote",
+        "categories": ["Engineering"],
+        "employment_type": "INTERN",
+        "posted_date": "2026-10-02T06:49:00+0000",
+        "create_date": "2026-10-02T06:50:16+0000",
+        "update_date": "2026-10-03T07:12:19+0000",
+        "apply_url": "https://careers-acme.icims.com/jobs/5901/login",
+        "full_location": "United States"
+      }
+    },
+    {
+      "data": {
+        "slug": "5822",
+        "req_id": "5822",
+        "title": "Software Engineer III",
+        "description": "<strong>About GitHub</strong><br>Mid-level role.",
+        "location_name": "US Remote",
+        "country": "United States",
+        "location_type": "Remote",
+        "categories": ["Engineering"],
+        "employment_type": "FULL_TIME",
+        "posted_date": "2026-10-06T06:49:00+0000",
+        "apply_url": "https://careers-acme.icims.com/jobs/5822/login"
+      }
+    }
+  ]
+}

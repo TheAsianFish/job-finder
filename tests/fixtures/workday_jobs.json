@@ -1,0 +1,42 @@
+{
+  "total": 3,
+  "jobPostings": [
+    {
+      "title": "2027 Software Engineering Intern",
+      "externalPath": "/job/US-CA-Santa-Clara/2027-Software-Engineering-Intern_JR100001",
+      "locationsText": "US, CA, Santa Clara",
+      "postedOn": "Posted Yesterday",
+      "bulletFields": ["JR100001"]
+    },
+    {
+      "title": "Software Engineer, New College Grad",
+      "externalPath": "/job/US-TX-Austin/Software-Engineer--New-College-Grad_JR100002",
+      "locationsText": "2 Locations",
+      "postedOn": "Posted 3 Days Ago",
+      "bulletFields": ["JR100002"]
+    },
+    {
+      "title": "Senior Software Engineer, Compilers",
+      "externalPath": "/job/US-CA-Santa-Clara/Senior-Software-Engineer--Compilers_JR100003",
+      "locationsText": "US, CA, Santa Clara",
+      "postedOn": "Posted 30+ Days Ago",
+      "bulletFields": ["JR100003"]
+    }
+  ],
+  "facets": [
+    {
+      "facetParameter": "workerSubType",
+      "descriptor": "Worker Sub-Type",
+      "values": [
+        {"descriptor": "Regular Employee", "id": "regular-id", "count": 2000},
+        {"descriptor": "Intern (Fixed Term)", "id": "intern-id", "count": 120},
+        {"descriptor": "New College Graduate", "id": "ncg-id", "count": 40}
+      ]
+    },
+    {
+      "facetParameter": "locationMainGroup",
+      "descriptor": "Locations",
+      "values": [{"descriptor": "University Park", "id": "loc-id", "count": 3}]
+    }
+  ]
+}

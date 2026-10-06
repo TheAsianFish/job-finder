@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Any
 
 import httpx
 
@@ -51,6 +52,24 @@ class AdapterContext:
     backoff_seconds: tuple[float, ...] = (2.0, 8.0, 30.0)
 
     async def get(self, url: str, headers: dict[str, str] | None = None) -> httpx.Response:
+        return await self._request("GET", url, headers=headers)
+
+    async def post_json(
+        self, url: str, payload: Any, headers: dict[str, str] | None = None
+    ) -> httpx.Response:
+        """Read-only JSON search request (some ATS search APIs are POST-only).
+
+        Same pacing/retry rules as GET; never used to submit anything.
+        """
+        return await self._request("POST", url, headers=headers, json=payload)
+
+    async def _request(
+        self,
+        method: str,
+        url: str,
+        headers: dict[str, str] | None = None,
+        json: Any = None,
+    ) -> httpx.Response:
         merged = {"User-Agent": self.user_agent, **(headers or {})}
         try:
             return await self.limiter.fetch(
@@ -60,6 +79,8 @@ class AdapterContext:
                 retries=self.retries,
                 backoff_seconds=self.backoff_seconds,
                 timeout=self.timeout,
+                method=method,
+                json=json,
             )
         except httpx.HTTPError as exc:
             raise AdapterError(
@@ -88,6 +109,23 @@ class BaseAdapter(ABC):
             detail=f"fetched {len(jobs)} jobs",
             job_count=len(jobs),
         )
+
+    @staticmethod
+    async def require_robots_allowed(ctx: AdapterContext, url: str, source: str) -> None:
+        """Site-hosted JSON (not a vendor's documented API) honours robots.txt."""
+        from opportunity_radar.utilities import robots
+
+        if not await robots.is_allowed(ctx.client, url, ctx.user_agent):
+            raise AdapterError(
+                f"{source}: robots.txt disallows {url}", category="robots", retryable=False
+            )
+
+    @staticmethod
+    def parse_json(response: httpx.Response, source: str) -> Any:
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise AdapterError(f"{source} returned invalid JSON", category="parse") from exc
 
     @staticmethod
     def require_status_ok(response: httpx.Response, source: str) -> None:

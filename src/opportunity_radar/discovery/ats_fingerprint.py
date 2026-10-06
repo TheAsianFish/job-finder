@@ -20,6 +20,7 @@ _URL_PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
     ("ashby", re.compile(r"api\.ashbyhq\.com/posting-api/job-board/([\w.%-]+)"), "job_board_name"),
     ("workday", re.compile(r"([\w-]+)\.(?:wd\d+\.)?myworkdayjobs\.com"), "tenant"),
     ("smartrecruiters", re.compile(r"(?:careers|jobs)\.smartrecruiters\.com/([\w-]+)"), "company"),
+    ("smartrecruiters", re.compile(r"api\.smartrecruiters\.com/v1/companies/([\w-]+)"), "company"),
     ("icims", re.compile(r"([\w-]+)\.icims\.com"), "tenant"),
     ("eightfold", re.compile(r"([\w-]+)\.eightfold\.ai"), "tenant"),
     ("successfactors", re.compile(r"career[\w-]*\.successfactors\.com"), "tenant"),
@@ -45,6 +46,11 @@ class FingerprintResult:
     evidence: str = ""
 
 
+_WORKDAY_SITE_RE = re.compile(
+    r"https?://([\w-]+\.wd\d+\.myworkdayjobs\.com)(?:/[a-z]{2}-[A-Z]{2})?/([\w-]+)"
+)
+
+
 def detect_from_url(url: str) -> FingerprintResult | None:
     for adapter, pattern, config_key in _URL_PATTERNS:
         match = pattern.search(url)
@@ -54,6 +60,13 @@ def detect_from_url(url: str) -> FingerprintResult | None:
                 config[config_key] = match.group(1)
             if adapter == "lever" and ".eu." in match.group(0):
                 config["region"] = "eu"
+            if adapter == "workday":
+                # The adapter needs host + site; both live in the career URL
+                # (https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite).
+                site_match = _WORKDAY_SITE_RE.search(url)
+                if site_match:
+                    config["host"] = site_match.group(1)
+                    config["site"] = site_match.group(2)
             return FingerprintResult(adapter=adapter, config=config, evidence=url)
     return None
 

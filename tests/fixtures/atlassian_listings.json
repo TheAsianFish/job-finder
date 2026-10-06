@@ -1,0 +1,28 @@
+[
+  {
+    "portalJobPost": {"portalId": 17, "portalUrl": "https://globalcareers-acme.icims.com/jobs/25500/x"},
+    "id": "25500",
+    "portalId": "17",
+    "title": "Software Engineer Intern, Summer 2027 (US)",
+    "type": "Intern",
+    "locations": ["Mountain View, United States", "San Francisco, United States"],
+    "category": "Graduates and Interns",
+    "overview": "<p><strong>Working at Atlassian</strong></p><p>Atlassians can choose where they work.</p>",
+    "responsibilities": "<ul><li>Build services in Java and TypeScript on AWS.</li></ul>",
+    "qualifications": "<ul><li>Currently enrolled in a Bachelor's program graduating Dec 2027 - June 2028.</li></ul>",
+    "applyUrl": "https://globalcareers-acme.icims.com/jobs/25500/software-engineer-intern/job?mode=apply"
+  },
+  {
+    "portalJobPost": {"portalId": 17},
+    "id": "25480",
+    "portalId": "17",
+    "title": "Account Executive, Mid Market",
+    "type": "Full-Time",
+    "locations": ["Bengaluru - India - Bengaluru, 560071 India", "Remote - India - Remote"],
+    "category": "Sales",
+    "overview": "<p>Sales role.</p>",
+    "responsibilities": "<ul><li>Sell.</li></ul>",
+    "qualifications": "<ul><li>8+ years of Enterprise Software Sales Experience</li></ul>",
+    "applyUrl": "https://globalcareers-acme.icims.com/jobs/25480/account-executive/job?mode=apply"
+  }
+]

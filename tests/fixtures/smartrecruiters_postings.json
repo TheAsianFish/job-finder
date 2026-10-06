@@ -1,0 +1,38 @@
+{
+  "offset": 0,
+  "limit": 100,
+  "totalFound": 3,
+  "content": [
+    {
+      "id": "744000100000001",
+      "name": "Software Engineer Intern - Summer 2027",
+      "uuid": "u-1",
+      "refNumber": "JB0000001",
+      "company": {"identifier": "AcmeCo", "name": "AcmeCo"},
+      "releasedDate": "2026-10-01T18:00:00.000Z",
+      "location": {"city": "Santa Clara", "region": "California", "country": "us", "remote": false},
+      "department": {"id": "1", "label": "Engineering"},
+      "typeOfEmployment": {"id": "internship", "label": "Intern"},
+      "experienceLevel": {"id": "entry_level", "label": "Entry level"},
+      "ref": "https://api.smartrecruiters.com/v1/companies/AcmeCo/postings/744000100000001"
+    },
+    {
+      "id": "744000100000002",
+      "name": "Senior Staff Software Engineer",
+      "uuid": "u-2",
+      "refNumber": "JB0000002",
+      "releasedDate": "2026-09-01T18:00:00.000Z",
+      "location": {"city": "Mountain View", "region": "California", "country": "us"},
+      "typeOfEmployment": {"id": "permanent", "label": "Full-time"}
+    },
+    {
+      "id": "744000100000003",
+      "name": "New Grad Software Engineer (2027)",
+      "uuid": "u-3",
+      "refNumber": "JB0000003",
+      "releasedDate": "2026-10-03T18:00:00.000Z",
+      "location": {"city": "Kirkland", "region": "Washington", "country": "us"},
+      "typeOfEmployment": {"id": "permanent", "label": "Full-time"}
+    }
+  ]
+}

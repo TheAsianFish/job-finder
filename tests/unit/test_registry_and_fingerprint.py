@@ -30,6 +30,21 @@ def test_detect_ashby():
 def test_detect_workday():
     result = detect_from_url("https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite")
     assert result.adapter == "workday"
+    assert result.config == {
+        "tenant": "nvidia",
+        "host": "nvidia.wd5.myworkdayjobs.com",
+        "site": "NVIDIAExternalCareerSite",
+    }
+    localized = detect_from_url(
+        "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/x"
+    )
+    assert localized.config["site"] == "external_experienced"
+
+
+def test_detect_smartrecruiters_api_url():
+    result = detect_from_url("https://api.smartrecruiters.com/v1/companies/ServiceNow/postings")
+    assert result.adapter == "smartrecruiters"
+    assert result.config["company"] == "ServiceNow"
 
 
 def test_detect_from_html_embedded_link():
@@ -55,8 +70,11 @@ def test_registry_contains_all():
         "playwright",
         "workday",
         "smartrecruiters",
-        "icims",
         "eightfold",
+        "amazon_jobs",
+        "github_careers",
+        "atlassian_careers",
+        "icims",
         "successfactors",
         "taleo",
     ):
@@ -109,8 +127,20 @@ def test_resolve_nothing_raises():
         resolve_adapter(company)
 
 
+def test_resolve_auto_workday_url_carries_site_config():
+    company = CompanySource(
+        id="x",
+        name="X",
+        adapter="auto",
+        career_urls=["https://acme.wd5.myworkdayjobs.com/AcmeCareers"],
+    )
+    assert resolve_adapter(company).name == "workday"
+    assert company.adapter_config["site"] == "AcmeCareers"
+    assert company.adapter_config["host"] == "acme.wd5.myworkdayjobs.com"
+
+
 async def test_unsupported_adapter_message(ctx):
-    company = CompanySource(id="x", name="X", adapter="workday")
+    company = CompanySource(id="x", name="X", adapter="icims")
     adapter = resolve_adapter(company)
     with pytest.raises(AdapterError) as excinfo:
         await adapter.fetch_jobs(company, ctx)

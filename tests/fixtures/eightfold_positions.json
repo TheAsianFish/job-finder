@@ -1,0 +1,40 @@
+{
+  "count": 3,
+  "positions": [
+    {
+      "id": "790300000001",
+      "name": "Software Engineering Intern, Streaming Infrastructure, Summer 2027",
+      "location": "Los Gatos,California,United States of America",
+      "locations": ["Los Gatos,California,United States of America"],
+      "department": "Engineering",
+      "t_create": "1791244800",
+      "t_update": "1791331200",
+      "display_job_id": "JR90001",
+      "type": "ATS",
+      "job_description": "",
+      "work_location_option": "onsite",
+      "canonicalPositionUrl": "https://explore.jobs.acme.net/careers/job/790300000001"
+    },
+    {
+      "id": "790300000002",
+      "name": "Senior Software Engineer, Encoding",
+      "location": "Los Gatos,California,United States of America",
+      "locations": ["Los Gatos,California,United States of America"],
+      "t_create": "1759000000",
+      "display_job_id": "JR90002",
+      "job_description": "",
+      "canonicalPositionUrl": "https://explore.jobs.acme.net/careers/job/790300000002"
+    },
+    {
+      "id": "790300000003",
+      "name": "Machine Learning Intern, Winter 2027",
+      "location": "Remote, United States",
+      "locations": ["Remote, United States"],
+      "t_create": "1759600000",
+      "display_job_id": "JR90003",
+      "job_description": "",
+      "work_location_option": "remote",
+      "canonicalPositionUrl": "https://explore.jobs.acme.net/careers/job/790300000003"
+    }
+  ]
+}
