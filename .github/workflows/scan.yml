@@ -22,7 +22,7 @@ jobs:
   scan:
     if: vars.ENABLE_CLOUD_SCAN == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 50  # ~200 sources + capped Workday detail fetches
     steps:
       - uses: actions/checkout@v4
 

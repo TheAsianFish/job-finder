@@ -2,9 +2,12 @@
 #
 # Fields:
 #   id: unique slug            tier: core | strong | broad | exploratory
-#   adapter: greenhouse | lever | ashby | jsonld | sitemap | html_generic |
-#            playwright | auto (fingerprint from career_urls)
-#   adapter_config: adapter-specific (board_token / site / job_board_name / selectors)
+#   adapter: greenhouse | lever | ashby | workday | smartrecruiters | eightfold |
+#            amazon_jobs | github_careers | atlassian_careers | jsonld | sitemap |
+#            html_generic | playwright | auto (fingerprint from career_urls)
+#   adapter_config: adapter-specific (board_token / site / job_board_name /
+#            host+site (workday) / company (smartrecruiters) / base_url+domain
+#            (eightfold) / selectors)
 #   enabled: false entries are seeds that need adapter work — validate before enabling.
 #
 # Verify any entry with:  uv run opportunity-radar companies validate --company <id>
@@ -35,20 +38,22 @@ companies:
   name: Plaid
   domain: plaid.com
   tier: strong
-  adapter: auto
-  career_urls:
-  - https://plaid.com/careers/
+  adapter: ashby
   tags:
   - fintech
+  adapter_config:
+    job_board_name: plaid
+  notes: Public ashby board, verified 2026-10-06.
 - id: brex
   name: Brex
   domain: brex.com
   tier: strong
-  adapter: auto
-  career_urls:
-  - https://www.brex.com/careers
+  adapter: greenhouse
   tags:
   - fintech
+  adapter_config:
+    board_token: brex
+  notes: Public greenhouse board, verified 2026-10-06.
 - id: robinhood
   name: Robinhood
   domain: robinhood.com
@@ -82,11 +87,12 @@ companies:
   name: Mercury
   domain: mercury.com
   tier: strong
-  adapter: auto
-  career_urls:
-  - https://mercury.com/jobs
+  adapter: greenhouse
   tags:
   - fintech
+  adapter_config:
+    board_token: mercury
+  notes: Public greenhouse board, verified 2026-10-06.
 - id: rippling
   name: Rippling
   domain: rippling.com
@@ -97,6 +103,8 @@ companies:
   tags:
   - fintech
   - hr-tech
+  enabled: false
+  notes: No public Greenhouse/Lever/Ashby board found (probed 2026-10-06) — needs adapter work.
 - id: gusto
   name: Gusto
   domain: gusto.com
@@ -110,11 +118,12 @@ companies:
   name: Modern Treasury
   domain: moderntreasury.com
   tier: broad
-  adapter: auto
-  career_urls:
-  - https://www.moderntreasury.com/careers
+  adapter: ashby
   tags:
   - fintech
+  adapter_config:
+    job_board_name: moderntreasury
+  notes: Public ashby board, verified 2026-10-06.
 - id: openai
   name: OpenAI
   domain: openai.com
@@ -159,14 +168,13 @@ companies:
   name: Snowflake
   domain: snowflake.com
   tier: strong
-  adapter: auto
-  career_urls:
-  - https://careers.snowflake.com/us/en/search-results
-  enabled: false
-  notes: Custom ATS (Eightfold) — needs adapter work before enabling.
+  adapter: ashby
+  notes: Public ashby board, verified 2026-10-06.
   tags:
   - data
   - infrastructure
+  adapter_config:
+    job_board_name: snowflake
 - id: huggingface
   name: Hugging Face
   domain: huggingface.co
@@ -175,7 +183,7 @@ companies:
   career_urls:
   - https://apply.workable.com/huggingface/
   enabled: false
-  notes: Workable ATS — no adapter yet; JSON-LD may work on job pages.
+  notes: Workable ATS (apply.workable.com API returned 404 for 'huggingface') — needs adapter work.
   tags:
   - ai
   - developer-tools
@@ -183,42 +191,46 @@ companies:
   name: xAI
   domain: x.ai
   tier: strong
-  adapter: auto
-  career_urls:
-  - https://x.ai/careers
+  adapter: greenhouse
   tags:
   - ai
+  adapter_config:
+    board_token: xai
+  notes: Public greenhouse board, verified 2026-10-06.
 - id: together-ai
   name: Together AI
   domain: together.ai
   tier: strong
-  adapter: auto
-  career_urls:
-  - https://www.together.ai/careers
+  adapter: greenhouse
   tags:
   - ai
   - infrastructure
+  adapter_config:
+    board_token: togetherai
+  notes: Public greenhouse board, verified 2026-10-06.
 - id: modal
   name: Modal
   domain: modal.com
   tier: strong
-  adapter: auto
-  career_urls:
-  - https://jobs.ashbyhq.com/modal
+  adapter: ashby
   tags:
   - ai
   - infrastructure
   - developer-tools
+  adapter_config:
+    job_board_name: modal
+  notes: Public ashby board, verified 2026-10-06.
 - id: baseten
   name: Baseten
   domain: baseten.co
   tier: broad
-  adapter: auto
-  career_urls:
-  - https://jobs.ashbyhq.com/baseten
+  adapter: ashby
   tags:
   - ai
   - infrastructure
+  adapter_config:
+    job_board_name: baseten
+  notes: Public ashby board, verified 2026-10-06.
 - id: replicate
   name: Replicate
   domain: replicate.com
@@ -231,35 +243,38 @@ companies:
   - developer-tools
   adapter_config: {}
   enabled: false
-  notes: No public ATS fingerprint found — needs adapter work.
+  notes: No public Greenhouse/Lever/Ashby board found (probed 2026-10-06) — needs adapter work.
 - id: perplexity
   name: Perplexity
   domain: perplexity.ai
   tier: strong
-  adapter: auto
-  career_urls:
-  - https://www.perplexity.ai/hub/careers
+  adapter: ashby
   tags:
   - ai
+  adapter_config:
+    job_board_name: perplexity
+  notes: Public ashby board, verified 2026-10-06.
 - id: anysphere
   name: Anysphere (Cursor)
   domain: cursor.com
   tier: strong
-  adapter: auto
-  career_urls:
-  - https://www.cursor.com/careers
+  adapter: ashby
   tags:
   - ai
   - developer-tools
+  adapter_config:
+    job_board_name: cursor
+  notes: Public ashby board, verified 2026-10-06.
 - id: elevenlabs
   name: ElevenLabs
   domain: elevenlabs.io
   tier: broad
-  adapter: auto
-  career_urls:
-  - https://elevenlabs.io/careers
+  adapter: ashby
   tags:
   - ai
+  adapter_config:
+    job_board_name: elevenlabs
+  notes: Public ashby board, verified 2026-10-06.
 - id: wandb
   name: Weights & Biases
   domain: wandb.ai
@@ -270,26 +285,30 @@ companies:
   tags:
   - ai
   - developer-tools
+  enabled: false
+  notes: No public Greenhouse/Lever/Ashby board found (probed 2026-10-06) — needs adapter work.
 - id: pinecone
   name: Pinecone
   domain: pinecone.io
   tier: broad
-  adapter: auto
-  career_urls:
-  - https://www.pinecone.io/careers/
+  adapter: ashby
   tags:
   - ai
   - data
+  adapter_config:
+    job_board_name: pinecone
+  notes: Public ashby board, verified 2026-10-06.
 - id: coreweave
   name: CoreWeave
   domain: coreweave.com
   tier: broad
-  adapter: auto
-  career_urls:
-  - https://www.coreweave.com/careers
+  adapter: greenhouse
   tags:
   - ai
   - infrastructure
+  adapter_config:
+    board_token: coreweave
+  notes: Public greenhouse board, verified 2026-10-06.
 - id: groq
   name: Groq
   domain: groq.com
@@ -300,6 +319,8 @@ companies:
   tags:
   - ai
   - hardware
+  enabled: false
+  notes: No public Greenhouse/Lever/Ashby board found (probed 2026-10-06) — needs adapter work.
 - id: cloudflare
   name: Cloudflare
   domain: cloudflare.com
@@ -333,12 +354,13 @@ companies:
   name: Confluent
   domain: confluent.io
   tier: strong
-  adapter: auto
-  career_urls:
-  - https://careers.confluent.io
+  adapter: ashby
   tags:
   - data
   - infrastructure
+  adapter_config:
+    job_board_name: confluent
+  notes: Public ashby board, verified 2026-10-06.
 - id: elastic
   name: Elastic
   domain: elastic.co
@@ -359,7 +381,8 @@ companies:
   - infrastructure
   - developer-tools
   enabled: false
-  notes: Moved off public Greenhouse after IBM acquisition — needs adapter work.
+  notes: Hiring moved under IBM after the acquisition; hashicorp.com careers page rate-limits (429) —
+    disabled.
 - id: cockroach-labs
   name: Cockroach Labs
   domain: cockroachlabs.com
@@ -373,12 +396,13 @@ companies:
   name: Supabase
   domain: supabase.com
   tier: broad
-  adapter: auto
-  career_urls:
-  - https://supabase.com/careers
+  adapter: ashby
   tags:
   - databases
   - developer-tools
+  adapter_config:
+    job_board_name: supabase
+  notes: Public ashby board, verified 2026-10-06.
 - id: vercel
   name: Vercel
   domain: vercel.com
@@ -423,22 +447,21 @@ companies:
   name: Docker
   domain: docker.com
   tier: broad
-  adapter: auto
-  career_urls:
-  - https://www.docker.com/careers/
+  adapter: ashby
   tags:
   - developer-tools
+  adapter_config:
+    job_board_name: docker
+  notes: Public ashby board, verified 2026-10-06.
 - id: github
   name: GitHub
   domain: github.com
   tier: strong
-  adapter: auto
-  career_urls:
-  - https://www.github.careers/careers-home
-  enabled: false
-  notes: Custom careers portal — needs adapter work.
+  adapter: github_careers
+  notes: github.careers JSON listing, verified 2026-10-06.
   tags:
   - developer-tools
+  adapter_config: {}
 - id: gitlab
   name: GitLab
   domain: gitlab.com
@@ -452,13 +475,11 @@ companies:
   name: Atlassian
   domain: atlassian.com
   tier: strong
-  adapter: auto
-  career_urls:
-  - https://www.atlassian.com/company/careers/all-jobs
-  enabled: false
-  notes: Custom careers site — needs adapter work.
+  adapter: atlassian_careers
+  notes: atlassian.com careers listing JSON, verified 2026-10-06.
   tags:
   - developer-tools
+  adapter_config: {}
 - id: postman
   name: Postman
   domain: postman.com
@@ -468,6 +489,8 @@ companies:
   - https://www.postman.com/company/careers/
   tags:
   - developer-tools
+  enabled: false
+  notes: No public Greenhouse/Lever/Ashby board found (probed 2026-10-06) — needs adapter work.
 - id: twilio
   name: Twilio
   domain: twilio.com
@@ -505,6 +528,8 @@ companies:
   - https://www.digitalocean.com/careers
   tags:
   - infrastructure
+  enabled: false
+  notes: No public Greenhouse/Lever/Ashby board found (probed 2026-10-06) — needs adapter work.
 - id: dbt-labs
   name: dbt Labs
   domain: getdbt.com
@@ -514,6 +539,8 @@ companies:
   - https://www.getdbt.com/careers
   tags:
   - data
+  enabled: false
+  notes: No public Greenhouse/Lever/Ashby board found (probed 2026-10-06) — needs adapter work.
 - id: fivetran
   name: Fivetran
   domain: fivetran.com
@@ -527,11 +554,12 @@ companies:
   name: MotherDuck
   domain: motherduck.com
   tier: exploratory
-  adapter: auto
-  career_urls:
-  - https://motherduck.com/careers/
+  adapter: ashby
   tags:
   - databases
+  adapter_config:
+    job_board_name: motherduck
+  notes: Public ashby board, verified 2026-10-06.
 - id: figma
   name: Figma
   domain: figma.com
@@ -565,11 +593,12 @@ companies:
   name: Airtable
   domain: airtable.com
   tier: broad
-  adapter: auto
-  career_urls:
-  - https://airtable.com/careers
+  adapter: greenhouse
   tags:
   - product
+  adapter_config:
+    board_token: airtable
+  notes: Public greenhouse board, verified 2026-10-06.
 - id: asana
   name: Asana
   domain: asana.com
@@ -598,6 +627,8 @@ companies:
   - https://www.lifeatcanva.com/en/jobs/
   tags:
   - product
+  enabled: false
+  notes: No public Greenhouse/Lever/Ashby board found (probed 2026-10-06) — needs adapter work.
 - id: grammarly
   name: Grammarly
   domain: grammarly.com
@@ -608,6 +639,8 @@ companies:
   tags:
   - product
   - ai
+  enabled: false
+  notes: No public Greenhouse/Lever/Ashby board found (probed 2026-10-06) — needs adapter work.
 - id: airbnb
   name: Airbnb
   domain: airbnb.com
@@ -688,13 +721,12 @@ companies:
   name: Spotify
   domain: spotify.com
   tier: strong
-  adapter: auto
-  career_urls:
-  - https://www.lifeatspotify.com/jobs
-  enabled: false
-  notes: Custom careers site — needs adapter work.
+  adapter: lever
+  notes: Public lever board, verified 2026-10-06.
   tags:
   - consumer
+  adapter_config:
+    site: spotify
 - id: uber
   name: Uber
   domain: uber.com
@@ -720,14 +752,13 @@ companies:
   name: Jane Street
   domain: janestreet.com
   tier: core
-  adapter: auto
-  career_urls:
-  - https://www.janestreet.com/join-jane-street/open-roles/
-  enabled: false
-  notes: Custom site — check JSON-LD; enable after validating.
+  adapter: greenhouse
+  notes: Public greenhouse board, verified 2026-10-06.
   tags:
   - quant
   - trading
+  adapter_config:
+    board_token: janestreet
 - id: hudson-river-trading
   name: Hudson River Trading
   domain: hudsonrivertrading.com
@@ -746,7 +777,7 @@ companies:
   career_urls:
   - https://www.citadel.com/careers/open-opportunities/
   enabled: false
-  notes: Custom careers site — needs adapter work.
+  notes: Careers site sits behind a bot challenge (403) — never bypassed; needs an official feed.
   tags:
   - quant
   - trading
@@ -766,22 +797,24 @@ companies:
   name: IMC Trading
   domain: imc.com
   tier: strong
-  adapter: auto
-  career_urls:
-  - https://www.imc.com/us/careers
+  adapter: greenhouse
   tags:
   - quant
   - trading
+  adapter_config:
+    board_token: imc
+  notes: Public greenhouse board, verified 2026-10-06.
 - id: optiver
   name: Optiver
   domain: optiver.com
   tier: strong
-  adapter: auto
-  career_urls:
-  - https://optiver.com/working-at-optiver/career-opportunities/
+  adapter: greenhouse
   tags:
   - quant
   - trading
+  adapter_config:
+    board_token: optiverus
+  notes: Public greenhouse board, verified 2026-10-06.
 - id: drw
   name: DRW
   domain: drw.com
@@ -800,7 +833,7 @@ companies:
   career_urls:
   - https://careers.sig.com
   enabled: false
-  notes: Custom careers site — needs adapter work.
+  notes: 'Custom careers site (not Workday: ''sig'' tenant answers 422) — needs adapter work.'
   tags:
   - quant
   - trading
@@ -808,12 +841,13 @@ companies:
   name: Akuna Capital
   domain: akunacapital.com
   tier: strong
-  adapter: auto
-  career_urls:
-  - https://akunacapital.com/careers
+  adapter: greenhouse
   tags:
   - quant
   - trading
+  adapter_config:
+    board_token: akunacapital
+  notes: Public greenhouse board (akunacapital), returned 30 jobs 2026-08-06.
 - id: jump-trading
   name: Jump Trading
   domain: jumptrading.com
@@ -839,13 +873,13 @@ companies:
   name: CrowdStrike
   domain: crowdstrike.com
   tier: strong
-  adapter: auto
-  career_urls:
-  - https://www.crowdstrike.com/careers/
-  enabled: false
-  notes: Workday ATS — needs adapter work.
+  adapter: workday
+  notes: Workday CXS JSON, verified 2026-10-06.
   tags:
   - security
+  adapter_config:
+    host: crowdstrike.wd5.myworkdayjobs.com
+    site: crowdstrikecareers
 - id: wiz
   name: Wiz
   domain: wiz.io
@@ -859,41 +893,44 @@ companies:
   name: Snyk
   domain: snyk.io
   tier: broad
-  adapter: auto
-  adapter_config: {}
+  adapter: ashby
+  adapter_config:
+    job_board_name: snyk
   tags:
   - security
   - developer-tools
-  enabled: false
-  notes: No public ATS fingerprint found (custom careers site) — needs adapter work.
+  notes: Public ashby board, verified 2026-10-06.
 - id: vanta
   name: Vanta
   domain: vanta.com
   tier: broad
-  adapter: auto
-  career_urls:
-  - https://www.vanta.com/company/careers
+  adapter: ashby
   tags:
   - security
+  adapter_config:
+    job_board_name: vanta
+  notes: Public ashby board, verified 2026-10-06.
 - id: 1password
   name: 1Password
   domain: 1password.com
   tier: broad
-  adapter: auto
-  career_urls:
-  - https://1password.com/careers
+  adapter: ashby
   tags:
   - security
+  adapter_config:
+    job_board_name: 1password
+  notes: Public ashby board, verified 2026-10-06.
 - id: chainguard
   name: Chainguard
   domain: chainguard.dev
   tier: exploratory
-  adapter: auto
-  career_urls:
-  - https://www.chainguard.dev/careers
+  adapter: greenhouse
   tags:
   - security
   - developer-tools
+  adapter_config:
+    board_token: chainguard
+  notes: Public greenhouse board, verified 2026-10-06.
 - id: palantir
   name: Palantir
   domain: palantir.com
@@ -928,11 +965,12 @@ companies:
   name: Waymo
   domain: waymo.com
   tier: strong
-  adapter: auto
-  career_urls:
-  - https://careers.withwaymo.com/jobs/search
+  adapter: greenhouse
   tags:
   - autonomy
+  adapter_config:
+    board_token: waymo
+  notes: Public greenhouse board, verified 2026-10-06.
 - id: applied-intuition
   name: Applied Intuition
   domain: appliedintuition.com
@@ -948,15 +986,13 @@ companies:
   name: Skydio
   domain: skydio.com
   tier: strong
-  adapter: auto
-  adapter_config: {}
+  adapter: ashby
+  adapter_config:
+    job_board_name: skydio
   tags:
   - robotics
   - autonomy
-  career_urls:
-  - https://www.skydio.com/careers
-  enabled: true
-  notes: Greenhouse board token not publicly discoverable; auto/JSON-LD fallback.
+  notes: Public ashby board, verified 2026-10-06.
 - id: shield-ai
   name: Shield AI
   domain: shield.ai
@@ -982,11 +1018,12 @@ companies:
   name: Figure AI
   domain: figure.ai
   tier: strong
-  adapter: auto
-  career_urls:
-  - https://www.figure.ai/careers
+  adapter: greenhouse
   tags:
   - robotics
+  adapter_config:
+    board_token: figureai
+  notes: Public greenhouse board, verified 2026-10-06.
 - id: astranis
   name: Astranis
   domain: astranis.com
@@ -1000,11 +1037,12 @@ companies:
   name: Rocket Lab
   domain: rocketlabusa.com
   tier: broad
-  adapter: auto
-  career_urls:
-  - https://www.rocketlabusa.com/careers/positions/
+  adapter: greenhouse
   tags:
   - aerospace
+  adapter_config:
+    board_token: rocketlab
+  notes: Public greenhouse board, verified 2026-10-06.
 - id: google
   name: Google
   domain: google.com
@@ -1013,7 +1051,7 @@ companies:
   career_urls:
   - https://www.google.com/about/careers/applications/jobs/results/
   enabled: false
-  notes: Custom careers system — no public polling API; needs adapter work.
+  notes: Custom careers system — no public JSON; needs adapter work (do not scrape).
   tags:
   - faang
   - cloud
@@ -1027,7 +1065,7 @@ companies:
   career_urls:
   - https://www.metacareers.com/jobs
   enabled: false
-  notes: Custom careers system — needs adapter work.
+  notes: Custom careers system (GraphQL) — no public JSON; needs adapter work.
   tags:
   - faang
 - id: apple
@@ -1038,21 +1076,23 @@ companies:
   career_urls:
   - https://jobs.apple.com/en-us/search
   enabled: false
-  notes: Custom careers system — needs adapter work.
+  notes: jobs.apple.com search API requires a session (401) — needs adapter work.
   tags:
   - faang
 - id: amazon
   name: Amazon / AWS
   domain: amazon.jobs
   tier: core
-  adapter: auto
-  career_urls:
-  - https://www.amazon.jobs/en/search
-  enabled: false
-  notes: Custom careers system — needs adapter work.
+  adapter: amazon_jobs
+  notes: amazon.jobs search.json (software-development, US), verified 2026-10-06.
   tags:
   - faang
   - cloud
+  adapter_config:
+    categories:
+    - software-development
+    country_codes:
+    - USA
 - id: microsoft
   name: Microsoft
   domain: microsoft.com
@@ -1061,7 +1101,8 @@ companies:
   career_urls:
   - https://jobs.careers.microsoft.com/global/en/search
   enabled: false
-  notes: Custom careers system — needs adapter work.
+  notes: careers.microsoft.com search API blocked/rate-limited for clients (2026-10-06) — needs adapter
+    work.
   tags:
   - faang
   - cloud
@@ -1069,26 +1110,26 @@ companies:
   name: NVIDIA
   domain: nvidia.com
   tier: core
-  adapter: auto
-  career_urls:
-  - https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite
-  enabled: false
-  notes: Workday ATS — placeholder adapter only.
+  adapter: workday
+  notes: Workday CXS JSON, verified 2026-10-06 (Intern / New College Graduate facets).
   tags:
   - faang
   - ai
   - hardware
+  adapter_config:
+    host: nvidia.wd5.myworkdayjobs.com
+    site: NVIDIAExternalCareerSite
 - id: netflix
   name: Netflix
   domain: netflix.com
   tier: core
-  adapter: auto
-  career_urls:
-  - https://explore.jobs.netflix.net/careers
-  enabled: false
-  notes: Custom (Eightfold) careers system — needs adapter work.
+  adapter: eightfold
+  notes: Eightfold site JSON, verified 2026-10-06 (robots allows /api/apply).
   tags:
   - faang
+  adapter_config:
+    base_url: https://explore.jobs.netflix.net
+    domain: netflix.com
 - id: ibm
   name: IBM
   domain: ibm.com
@@ -1097,7 +1138,7 @@ companies:
   career_urls:
   - https://www.ibm.com/careers/search
   enabled: false
-  notes: Custom careers system — needs adapter work. (Past internship employer.)
+  notes: Custom careers system — needs adapter work.
   tags:
   - enterprise
   - cloud
@@ -1105,25 +1146,25 @@ companies:
   name: Adobe
   domain: adobe.com
   tier: strong
-  adapter: auto
-  career_urls:
-  - https://careers.adobe.com/us/en/search-results
-  enabled: false
-  notes: Workday ATS — placeholder adapter only.
+  adapter: workday
+  notes: Workday CXS JSON, verified 2026-10-06.
   tags:
   - enterprise
+  adapter_config:
+    host: adobe.wd5.myworkdayjobs.com
+    site: external_experienced
 - id: salesforce
   name: Salesforce
   domain: salesforce.com
   tier: strong
-  adapter: auto
-  career_urls:
-  - https://careers.salesforce.com/en/jobs/
-  enabled: false
-  notes: Workday ATS — placeholder adapter only.
+  adapter: workday
+  notes: Workday CXS JSON, verified 2026-10-06.
   tags:
   - enterprise
   - cloud
+  adapter_config:
+    host: salesforce.wd12.myworkdayjobs.com
+    site: External_Career_Site
 - id: benchling
   name: Benchling
   domain: benchling.com
@@ -1145,17 +1186,18 @@ companies:
   - healthcare
   - data
   enabled: false
-  notes: No public ATS fingerprint found (custom careers site) — needs adapter work.
+  notes: No public Greenhouse/Lever/Ashby board found (probed 2026-10-06) — needs adapter work.
 - id: abridge
   name: Abridge
   domain: abridge.com
   tier: exploratory
-  adapter: auto
-  career_urls:
-  - https://www.abridge.com/careers
+  adapter: ashby
   tags:
   - healthcare
   - ai
+  adapter_config:
+    job_board_name: abridge
+  notes: Public ashby board, verified 2026-10-06.
 - id: samsara
   name: Samsara
   domain: samsara.com
@@ -1170,11 +1212,12 @@ companies:
   name: Motive
   domain: gomotive.com
   tier: broad
-  adapter: auto
-  career_urls:
-  - https://gomotive.com/careers/
+  adapter: greenhouse
   tags:
   - iot
+  adapter_config:
+    board_token: gomotive
+  notes: Public greenhouse board, verified 2026-10-06.
 - id: procore
   name: Procore
   domain: procore.com
@@ -1183,7 +1226,7 @@ companies:
   career_urls:
   - https://careers.procore.com/jobs
   enabled: false
-  notes: SmartRecruiters ATS — placeholder adapter only.
+  notes: SmartRecruiters identifier unknown ('Procore' reports 0 postings) — enable once found.
   tags:
   - enterprise
   - construction
@@ -1191,11 +1234,856 @@ companies:
   name: Esri
   domain: esri.com
   tier: broad
-  adapter: auto
-  career_urls:
-  - https://www.esri.com/en-us/about/careers/job-search
-  enabled: false
-  notes: Custom careers site — needs adapter work.
+  adapter: greenhouse
+  notes: Public greenhouse board, verified 2026-10-06.
   tags:
   - gis
   - enterprise
+  adapter_config:
+    board_token: esri
+- id: cerebras
+  name: Cerebras
+  domain: cerebras.ai
+  tier: strong
+  adapter: ashby
+  adapter_config:
+    job_board_name: cerebras
+  tags:
+  - ai
+  - hardware
+  notes: Public ashby board, verified 2026-10-06.
+- id: cohere
+  name: Cohere
+  domain: cohere.com
+  tier: strong
+  adapter: ashby
+  adapter_config:
+    job_board_name: cohere
+  tags:
+  - ai
+  notes: Public ashby board, verified 2026-10-06.
+- id: glean
+  name: Glean
+  domain: glean.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: gleanwork
+  tags:
+  - ai
+  - enterprise
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: harvey
+  name: Harvey
+  domain: harvey.ai
+  tier: strong
+  adapter: ashby
+  adapter_config:
+    job_board_name: harvey
+  tags:
+  - ai
+  - legal
+  notes: Public ashby board, verified 2026-10-06.
+- id: sierra
+  name: Sierra
+  domain: sierra.ai
+  tier: strong
+  adapter: ashby
+  adapter_config:
+    job_board_name: sierra
+  tags:
+  - ai
+  notes: Public ashby board, verified 2026-10-06.
+- id: lambda
+  name: Lambda
+  domain: lambda.ai
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: lambda
+  tags:
+  - ai
+  - infrastructure
+  notes: Public ashby board, verified 2026-10-06.
+- id: runway
+  name: Runway
+  domain: runwayml.com
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: runway
+  tags:
+  - ai
+  notes: Public ashby board, verified 2026-10-06.
+- id: sambanova
+  name: SambaNova
+  domain: sambanova.ai
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: sambanovasystems
+  tags:
+  - ai
+  - hardware
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: crusoe
+  name: Crusoe
+  domain: crusoe.ai
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: crusoe
+  tags:
+  - ai
+  - infrastructure
+  notes: Public ashby board, verified 2026-10-06.
+- id: etched
+  name: Etched
+  domain: etched.com
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: etched
+  tags:
+  - ai
+  - hardware
+  notes: Public ashby board, verified 2026-10-06.
+- id: decagon
+  name: Decagon
+  domain: decagon.ai
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: decagon
+  tags:
+  - ai
+  notes: Public ashby board, verified 2026-10-06.
+- id: c3-ai
+  name: C3 AI
+  domain: c3.ai
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: c3iot
+  tags:
+  - ai
+  - enterprise
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: mercor
+  name: Mercor
+  domain: mercor.com
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: mercor
+  tags:
+  - ai
+  notes: Public ashby board, verified 2026-10-06.
+- id: intel
+  name: Intel
+  domain: intel.com
+  tier: strong
+  adapter: workday
+  adapter_config:
+    host: intel.wd1.myworkdayjobs.com
+    site: External
+  tags:
+  - semiconductors
+  - hardware
+  notes: Workday CXS JSON, verified 2026-10-06.
+- id: servicenow
+  name: ServiceNow
+  domain: servicenow.com
+  tier: strong
+  adapter: smartrecruiters
+  adapter_config:
+    company: ServiceNow
+  tags:
+  - enterprise
+  - cloud
+  notes: SmartRecruiters public Posting API, verified 2026-10-06.
+- id: autodesk
+  name: Autodesk
+  domain: autodesk.com
+  tier: broad
+  adapter: workday
+  adapter_config:
+    host: autodesk.wd1.myworkdayjobs.com
+    site: Ext
+  tags:
+  - enterprise
+  - design
+  notes: Workday CXS JSON, verified 2026-10-06.
+- id: zoom
+  name: Zoom
+  domain: zoom.com
+  tier: broad
+  adapter: workday
+  adapter_config:
+    host: zoom.wd5.myworkdayjobs.com
+    site: Zoom
+  tags:
+  - collaboration
+  notes: Workday CXS JSON, verified 2026-10-06.
+- id: workday-inc
+  name: Workday
+  domain: workday.com
+  tier: broad
+  adapter: workday
+  adapter_config:
+    host: workday.wd5.myworkdayjobs.com
+    site: Workday
+  tags:
+  - enterprise
+  notes: Workday CXS JSON, verified 2026-10-06.
+- id: broadcom
+  name: Broadcom
+  domain: broadcom.com
+  tier: broad
+  adapter: workday
+  adapter_config:
+    host: broadcom.wd1.myworkdayjobs.com
+    site: External_Career
+  tags:
+  - semiconductors
+  notes: Workday CXS JSON, verified 2026-10-06.
+- id: redis
+  name: Redis
+  domain: redis.io
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: redis
+  tags:
+  - databases
+  notes: Public ashby board, verified 2026-10-06.
+- id: planetscale
+  name: PlanetScale
+  domain: planetscale.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: planetscale
+  tags:
+  - databases
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: newrelic
+  name: New Relic
+  domain: newrelic.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: newrelic
+  tags:
+  - observability
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: purestorage
+  name: Pure Storage
+  domain: purestorage.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: purestorage
+  tags:
+  - infrastructure
+  - storage
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: roku
+  name: Roku
+  domain: roku.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: roku
+  tags:
+  - consumer
+  - streaming
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: netlify
+  name: Netlify
+  domain: netlify.com
+  tier: exploratory
+  adapter: greenhouse
+  adapter_config:
+    board_token: netlify
+  tags:
+  - devtools
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: astronomer
+  name: Astronomer
+  domain: astronomer.io
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: astronomer
+  tags:
+  - data-infrastructure
+  notes: Public ashby board, verified 2026-10-06.
+- id: airbyte
+  name: Airbyte
+  domain: airbyte.com
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: airbyte
+  tags:
+  - data-infrastructure
+  notes: Public ashby board, verified 2026-10-06.
+- id: materialize
+  name: Materialize
+  domain: materialize.com
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: materialize
+  tags:
+  - databases
+  notes: Public ashby board, verified 2026-10-06.
+- id: sumologic
+  name: Sumo Logic
+  domain: sumologic.com
+  tier: exploratory
+  adapter: greenhouse
+  adapter_config:
+    board_token: sumologic
+  tags:
+  - observability
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: box
+  name: Box
+  domain: box.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: boxinc
+  tags:
+  - enterprise
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: miro
+  name: Miro
+  domain: miro.com
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: miro
+  tags:
+  - collaboration
+  notes: Public ashby board, verified 2026-10-06.
+- id: smartsheet
+  name: Smartsheet
+  domain: smartsheet.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: smartsheet
+  tags:
+  - collaboration
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: squarespace
+  name: Squarespace
+  domain: squarespace.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: squarespace
+  tags:
+  - consumer
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: quora
+  name: Quora
+  domain: quora.com
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: quora
+  tags:
+  - consumer
+  notes: Public ashby board, verified 2026-10-06.
+- id: nextdoor
+  name: Nextdoor
+  domain: nextdoor.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: nextdoor
+  tags:
+  - consumer
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: twitch
+  name: Twitch
+  domain: twitch.tv
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: twitch
+  tags:
+  - consumer
+  - streaming
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: riot-games
+  name: Riot Games
+  domain: riotgames.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: riotgames
+  tags:
+  - games
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: epic-games
+  name: Epic Games
+  domain: epicgames.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: epicgames
+  tags:
+  - games
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: faire
+  name: Faire
+  domain: faire.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: faire
+  tags:
+  - marketplace
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: flexport
+  name: Flexport
+  domain: flexport.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: flexport
+  tags:
+  - logistics
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: lucid-motors
+  name: Lucid Motors
+  domain: lucidmotors.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: lucidmotors
+  tags:
+  - automotive
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: samsung-research-america
+  name: Samsung Research America
+  domain: sra.samsung.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: samsungresearchamerica
+  tags:
+  - research
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: sony-interactive
+  name: Sony Interactive Entertainment
+  domain: sonyinteractive.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: sonyinteractiveentertainmentglobal
+  tags:
+  - games
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: hudl
+  name: Hudl
+  domain: hudl.com
+  tier: exploratory
+  adapter: greenhouse
+  adapter_config:
+    board_token: hudl
+  tags:
+  - sports-tech
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: chime
+  name: Chime
+  domain: chime.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: chime
+  tags:
+  - fintech
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: sofi
+  name: SoFi
+  domain: sofi.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: sofi
+  tags:
+  - fintech
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: carta
+  name: Carta
+  domain: carta.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: carta
+  tags:
+  - fintech
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: toast
+  name: Toast
+  domain: toasttab.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: toast
+  tags:
+  - fintech
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: bill
+  name: BILL
+  domain: bill.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: billcom
+  tags:
+  - fintech
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: adyen
+  name: Adyen
+  domain: adyen.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: adyen
+  tags:
+  - fintech
+  - payments
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: alloy
+  name: Alloy
+  domain: alloy.com
+  tier: exploratory
+  adapter: greenhouse
+  adapter_config:
+    board_token: alloy
+  tags:
+  - fintech
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: lithic
+  name: Lithic
+  domain: lithic.com
+  tier: exploratory
+  adapter: greenhouse
+  adapter_config:
+    board_token: lithic
+  tags:
+  - fintech
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: tower-research
+  name: Tower Research Capital
+  domain: tower-research.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: towerresearchcapital
+  tags:
+  - quant
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: virtu
+  name: Virtu Financial
+  domain: virtu.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: virtu
+  tags:
+  - quant
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: old-mission
+  name: Old Mission
+  domain: oldmissioncapital.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: oldmissioncapital
+  tags:
+  - quant
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: point72
+  name: Point72
+  domain: point72.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: point72
+  tags:
+  - quant
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: flow-traders
+  name: Flow Traders
+  domain: flowtraders.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: flowtraders
+  tags:
+  - quant
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: ctc
+  name: Chicago Trading Company
+  domain: chicagotrading.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: chicagotrading
+  tags:
+  - quant
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: dv-trading
+  name: DV Trading
+  domain: dvtrading.co
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: dvtrading
+  tags:
+  - quant
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: schonfeld
+  name: Schonfeld
+  domain: schonfeld.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: schonfeld
+  tags:
+  - quant
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: transmarket
+  name: TransMarket Group
+  domain: transmarketgroup.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: transmarketgroup
+  tags:
+  - quant
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: aqr
+  name: AQR Capital
+  domain: aqr.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: aqr
+  tags:
+  - quant
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: geneva-trading
+  name: Geneva Trading
+  domain: genevatrading.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: genevatrading
+  tags:
+  - quant
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: rubrik
+  name: Rubrik
+  domain: rubrik.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: rubrik
+  tags:
+  - security
+  - infrastructure
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: verkada
+  name: Verkada
+  domain: verkada.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: verkada
+  tags:
+  - security
+  - hardware
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: okta
+  name: Okta
+  domain: okta.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: okta
+  tags:
+  - security
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: sentinelone
+  name: SentinelOne
+  domain: sentinelone.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: sentinellabs
+  tags:
+  - security
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: netskope
+  name: Netskope
+  domain: netskope.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: netskope
+  tags:
+  - security
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: abnormal-security
+  name: Abnormal Security
+  domain: abnormalsecurity.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: abnormalsecurity
+  tags:
+  - security
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: zoox
+  name: Zoox
+  domain: zoox.com
+  tier: strong
+  adapter: lever
+  adapter_config:
+    site: zoox
+  tags:
+  - autonomy
+  notes: Public lever board, verified 2026-10-06.
+- id: nuro
+  name: Nuro
+  domain: nuro.ai
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: nuro
+  tags:
+  - autonomy
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: saronic
+  name: Saronic
+  domain: saronic.com
+  tier: strong
+  adapter: ashby
+  adapter_config:
+    job_board_name: saronic
+  tags:
+  - defense
+  - autonomy
+  notes: Public ashby board, verified 2026-10-06.
+- id: neuralink
+  name: Neuralink
+  domain: neuralink.com
+  tier: strong
+  adapter: greenhouse
+  adapter_config:
+    board_token: neuralink
+  tags:
+  - robotics
+  - hardware
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: hermeus
+  name: Hermeus
+  domain: hermeus.com
+  tier: broad
+  adapter: lever
+  adapter_config:
+    site: hermeus
+  tags:
+  - aerospace
+  notes: Public lever board, verified 2026-10-06.
+- id: varda
+  name: Varda Space Industries
+  domain: varda.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: vardaspace
+  tags:
+  - aerospace
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: relativity-space
+  name: Relativity Space
+  domain: relativityspace.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: relativity
+  tags:
+  - aerospace
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: agility-robotics
+  name: Agility Robotics
+  domain: agilityrobotics.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: agilityrobotics
+  tags:
+  - robotics
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: epirus
+  name: Epirus
+  domain: epirusinc.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: epirus
+  tags:
+  - defense
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: flatiron-health
+  name: Flatiron Health
+  domain: flatiron.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: flatironhealth
+  tags:
+  - health
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: veeva
+  name: Veeva
+  domain: veeva.com
+  tier: broad
+  adapter: lever
+  adapter_config:
+    site: veeva
+  tags:
+  - health
+  - enterprise
+  notes: Public lever board, verified 2026-10-06.
+- id: recursion
+  name: Recursion
+  domain: recursion.com
+  tier: exploratory
+  adapter: greenhouse
+  adapter_config:
+    board_token: recursionpharmaceuticals
+  tags:
+  - biotech
+  notes: Public greenhouse board, verified 2026-10-06.
+- id: cedar
+  name: Cedar
+  domain: cedar.com
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: cedar
+  tags:
+  - health
+  - fintech
+  notes: Public ashby board, verified 2026-10-06.

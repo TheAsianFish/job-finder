@@ -132,3 +132,72 @@ no-flood guard then (correctly) suppressed all alerts, forever.
 most recent prior run's save, giving rolling continuity with first-party
 actions. Cache eviction (10 GB LRU) just causes one silent re-baseline,
 which the no-flood guard already makes safe.
+
+## AD-16: Enterprise ATS adapters on verified per-site JSON, not placeholders
+
+Spec §8.8 lists Workday/SmartRecruiters/Eightfold as "placeholder +
+documentation" but explicitly allows "a company-specific adapter or
+configurable fetch strategy with tests" once "a stable public JSON request
+is discovered". Every FAANG+ seed sat disabled behind those placeholders,
+which defeated the registry's purpose. Verified 2026-10-06:
+
+- **Workday**: every tenant serves `POST /wday/cxs/{tenant}/{site}/jobs`
+  (list + facets) and `GET …{externalPath}` (detail) to its own job-list
+  page. The adapter keeps itself narrow: early-career facets
+  (`workerSubType = Intern / New College Graduate`, `jobFamilyGroup = Univ
+  Employment`) are discovered per tenant from the first response, so only
+  that subset is paged; a `searchText` fallback with title filtering covers
+  tenants without such facets; detail GETs are capped; the whole thing
+  honours robots.txt; any shape change raises (never an empty list).
+- **SmartRecruiters**: the Posting API *is* documented and public; the
+  placeholder was simply wrong. Zero `totalFound` is a config error.
+- **Eightfold** (Netflix), **amazon.jobs**, **github.careers**,
+  **atlassian.com/endpoint/careers/listings**: single-site JSON endpoints
+  the pages themselves consume. Each is its own small adapter rather than
+  a "generic JSON mapper" config, because YAML field-mapping DSLs are
+  harder to test and debug than 80 lines of Python with a fixture.
+
+Large boards get an **early-career pre-filter** at the adapter (shared with
+the classifier's title rules) because each posting costs a detail request;
+Greenhouse-style single-payload boards are still stored whole.
+
+## AD-17: Per-source baseline, not just per-database
+
+Spec §14.1 says a first run must never flood. The guard only checked
+"database empty", so adding 80 companies to a live registry would have
+fired hundreds of immediate alerts. A source with no prior successful scan
+and no stored jobs is now baselined on its own (`is_baseline=True`, no
+alert classification) and summarised once in a "new sources imported"
+embed listing its best open matches — the backlog is visible, the channel
+is not flooded.
+
+## AD-18: Digest fairness over pure score order
+
+A core-tier board with 2,400 postings (Anduril) produces more
+above-threshold intern variants per scan than the digest's 10-line section
+could show, so every digest read as "Anduril, Anduril, Anduril". Sections
+now cap each company at three lines (best first) and summarise the rest on
+one line; long sections chunk across embed fields rather than truncating a
+Markdown link mid-URL. Score still orders within the cap.
+
+## AD-19: robots.txt matching follows RFC 9309, not `urllib.robotparser`
+
+The stdlib parser applies rules in file order, so Netflix's
+`Disallow: /` followed by `Allow: /api/apply` read as "disallowed" even
+though the site explicitly opens its job JSON. RFC 9309 (and Google's
+documented behaviour) use longest-match with Allow winning ties; a
+60-line matcher implements exactly that, with tests. Vendor APIs with
+their own documentation (Greenhouse, Lever, Ashby, SmartRecruiters) are
+polled as APIs and not subjected to robots checks, matching the spec's
+distinction between crawling pages and calling public ATS APIs.
+
+## AD-20: Off-season windows are first-class and self-expiring
+
+Target windows gained `fall_2026` and `winter_2027`; the scorer ignores
+any window whose end date has passed, so stale YAML never keeps rewarding
+a season that is over. A Summer-specific immediate-alert override mirrors
+the existing off-season one (core/strong, explicit season, start still
+ahead), and the immediate bar dropped 82→78 (audited in
+`tuning_history`): the user asked for *more* Summer and off-season
+internships, and the data showed strong-tier Summer 2027 SWE intern roles
+with thin descriptions stalling at 78–81.

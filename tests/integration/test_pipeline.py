@@ -266,3 +266,32 @@ async def test_newly_added_source_is_baselined_on_its_own(db, settings):
     summary3 = await scan_companies([newco], settings, db_url=db)
     assert summary3.baselined_company_ids == []
     assert len(summary3.immediate_job_ids) == 1
+
+
+@respx.mock
+async def test_repointed_silent_source_is_baselined_too(db, settings):
+    """A seed that previously scanned 'successfully' with 0 jobs gets a
+    per-source baseline once it finally returns a real board."""
+    payload = gh_payload()
+    respx.get(API_URL).mock(return_value=Response(200, json=payload))
+    await scan_companies([company()], settings, db_url=db)
+    with session_scope(db) as session:
+        repo.update_source_state_success(session, "silentco", 0)  # months of 0 jobs
+
+    silent_url = "https://boards-api.greenhouse.io/v1/boards/silentco/jobs?content=true"
+    fixed = json.loads(
+        json.dumps(payload).replace(
+            "boards.greenhouse.io/acmecorp", "boards.greenhouse.io/silentco"
+        )
+    )
+    respx.get(silent_url).mock(return_value=Response(200, json=fixed))
+    silentco = CompanySource(
+        id="silentco",
+        name="SilentCo",
+        tier="strong",
+        adapter="greenhouse",
+        adapter_config={"board_token": "silentco"},
+    )
+    summary = await scan_companies([silentco], settings, db_url=db)
+    assert summary.baselined_company_ids == ["silentco"]
+    assert summary.immediate_job_ids == [] and summary.digest_job_ids == []

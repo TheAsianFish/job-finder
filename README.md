@@ -167,6 +167,16 @@ Explicit adapters when you know the source:
   adapter: ashby
   adapter_config: { job_board_name: newco }
 
+  adapter: workday                       # host + site from the careers URL
+  adapter_config: { host: newco.wd5.myworkdayjobs.com, site: NewCoCareers }
+  #   optional: search_texts, max_pages, detail_limit (200), early_career_only (true)
+
+  adapter: smartrecruiters               # documented public Posting API
+  adapter_config: { company: NewCo }
+
+  adapter: eightfold                     # Eightfold-hosted career sites
+  adapter_config: { base_url: https://explore.jobs.newco.net, domain: newco.com }
+
   adapter: html_generic                  # CSS-selector scraping
   adapter_config:
     list_url: https://newco.com/careers
@@ -177,7 +187,17 @@ Explicit adapters when you know the source:
 ```
 
 Then check it: `uv run opportunity-radar companies validate --company newco`.
-Not sure what ATS a company uses? `uv run opportunity-radar companies discover newco.com`.
+Not sure what ATS a company uses? `uv run opportunity-radar companies discover newco.com`
+(it fingerprints the careers page and, failing that, probes the public
+Greenhouse/Ashby/Lever APIs with the company's slug). A source that keeps
+returning 0 jobs shows as `0 (silent)` in `sources health`;
+`companies repair` re-discovers and rewrites it when a real board is found.
+
+Enterprise boards (Workday, SmartRecruiters, Eightfold, amazon.jobs) are
+large and need a detail request per posting, so those adapters only pull
+early-career postings by default (`early_career_only: false` to pull all).
+Adding a company to a live registry imports its board as a per-source
+baseline: one "new sources imported" summary, no per-job alert flood.
 
 ## Adding an adapter
 

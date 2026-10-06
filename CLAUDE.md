@@ -63,10 +63,16 @@ spec is `docs/opportunity-radar-master-spec.md`; deviations are recorded in
   `ENABLE_CLOUD_SCAN=true` + `DISCORD_WEBHOOK_URL` Actions secret.
 - Local daemon: `scripts/install_launchd.sh`; weekly self-maintenance
   (`tune` + `companies repair`) runs when `scheduler.auto_tune: true`.
-- Known-disabled seeds (custom ATS, need adapter work): Google, Meta, Apple,
-  Amazon, Microsoft, NVIDIA, Netflix, IBM, Adobe, Salesforce, Snowflake,
-  GitHub, Atlassian, Uber, Spotify, Jane Street, Citadel, Two Sigma, SIG,
-  CrowdStrike, Procore, Esri, Snyk, HashiCorp, Replicate, Tempus.
+- Cloud scans read the committed `config/*.example.yaml` files (local
+  copies are gitignored), so registry/scoring changes must land in the
+  example files to reach the hourly GitHub Actions scan.
+- Adapters beyond Greenhouse/Lever/Ashby: `workday`, `smartrecruiters`,
+  `eightfold`, `amazon_jobs`, `github_careers`, `atlassian_careers` (AD-16).
+  They pre-filter to early-career titles and cap detail fetches.
+- Known-disabled seeds (no public JSON, never scrape around it): Google,
+  Meta, Apple, Microsoft, IBM, Uber, Citadel, Two Sigma, SIG, Hugging Face,
+  Procore, Replicate, HashiCorp, W&B, Groq, Postman, DigitalOcean, dbt Labs,
+  Canva, Grammarly, Tempus, Rippling.
 
 ## Priorities when extending
 

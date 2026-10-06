@@ -224,11 +224,10 @@ def _persist_company_jobs(
     with session_scope(db_url) as session:
         state = repo.get_source_state(session, company.id)
         previous_count = state.last_job_count
-        # A source with no prior successful scan is baselined on its own:
-        # adding 40 companies to a live registry must not fire 400 alerts.
-        source_baseline = baseline or (
-            state.last_success_at is None and repo.count_company_jobs(session, company.id) == 0
-        )
+        # A source with no stored jobs is baselined on its own: adding 40
+        # companies to a live registry must not fire 400 alerts, and neither
+        # must re-pointing a seed that "succeeded" with 0 jobs for months.
+        source_baseline = baseline or repo.count_company_jobs(session, company.id) == 0
         if source_baseline and not baseline and raw_jobs:
             summary.baselined_company_ids.append(company.id)
             logger.info("source_baseline", company_id=company.id, jobs=len(raw_jobs))
