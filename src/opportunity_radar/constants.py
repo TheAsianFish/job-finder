@@ -66,7 +66,10 @@ CLOSURE_MISS_THRESHOLD = 2
 RETRYABLE_STATUS_CODES = frozenset({408, 425, 429, 500, 502, 503, 504})
 
 # Default alert thresholds (overridable in scoring.yaml).
-IMMEDIATE_MIN_SCORE = 82
+# 78 (was 82): Patrick asked for broader coverage of Summer and off-season
+# internships (2026-10-06); strong-tier Summer roles with a thin description
+# were landing just under the old bar.
+IMMEDIATE_MIN_SCORE = 78
 # 50 (was 60): Patrick prefers mass-applying — smaller/lower-tier SWE roles
 # should still reach the digest rather than sit dashboard-only.
 DIGEST_MIN_SCORE = 50

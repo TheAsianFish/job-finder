@@ -288,8 +288,19 @@ def scan(
         if summary.baseline:
             console.print("[yellow]First run detected — imported as baseline, no alerts.[/yellow]")
             return
-        if not no_notify and summary.immediate_job_ids:
-            notifier = _notifier()
+        if summary.baselined_company_ids:
+            console.print(
+                f"[yellow]{len(summary.baselined_company_ids)} new source(s) imported as "
+                f"baseline (no per-job alerts): {', '.join(summary.baselined_company_ids)}[/yellow]"
+            )
+        if no_notify:
+            return
+        notifier = _notifier()
+        if summary.baselined_company_ids and notifier.configured:
+            await notifier.send_new_sources_summary(
+                summary.baselined_company_ids, summary.baselined_job_ids
+            )
+        if summary.immediate_job_ids:
             sent = await notifier.send_immediate_alerts(summary.immediate_job_ids)
             console.print(f"Sent {sent} immediate Discord alert(s).")
 

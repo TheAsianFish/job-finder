@@ -119,7 +119,14 @@ class Preferences(BaseModel):
         ]
     )
     target_seasons: list[str] = Field(
-        default_factory=lambda: ["spring_2027", "summer_2027", "fall_2027", "new_grad_late_2027"]
+        default_factory=lambda: [
+            "fall_2026",
+            "winter_2027",
+            "spring_2027",
+            "summer_2027",
+            "fall_2027",
+            "new_grad_late_2027",
+        ]
     )
 
 
@@ -180,7 +187,11 @@ class ProfileConfig(BaseModel):
     skills: SkillsConfig = Field(default_factory=SkillsConfig)
 
 
+# Off-season windows are deliberately first-class: an off-cycle internship
+# starting late 2026 or early 2027 is exactly what community lists miss.
 DEFAULT_TARGET_WINDOWS = [
+    TargetWindow(name="fall_2026", start=date(2026, 10, 1), end=date(2026, 12, 31), priority=75),
+    TargetWindow(name="winter_2027", start=date(2026, 12, 1), end=date(2027, 3, 31), priority=90),
     TargetWindow(name="spring_2027", start=date(2027, 1, 1), end=date(2027, 6, 15), priority=95),
     TargetWindow(name="summer_2027", start=date(2027, 5, 15), end=date(2027, 9, 15), priority=100),
     TargetWindow(name="fall_2027", start=date(2027, 8, 1), end=date(2027, 12, 31), priority=80),

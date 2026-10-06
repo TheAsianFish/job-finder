@@ -231,3 +231,84 @@ def test_low_score_suppressed():
         now=NOW,
     )
     assert level == "suppress"
+
+
+def _decide(title, description, tier="strong", score=70.0, now=NOW):
+    classification = classify(title, description)
+    season = parse_season(title, description)
+    return decide_alert_level(
+        score=score,
+        season=season,
+        classification=classification,
+        company_tier=tier,
+        posted_at=None,
+        deadline=None,
+        thresholds_immediate=78,
+        thresholds_digest=50,
+        thresholds_dashboard=35,
+        thresholds_suppress=20,
+        now=now,
+    )
+
+
+def test_explicit_summer_swe_intern_at_strong_company_is_immediate():
+    level = _decide("Software Engineer Intern (Summer 2027)", "Join us for 12 weeks.", score=65)
+    assert level == "immediate"
+
+
+def test_summer_override_needs_core_or_strong_tier():
+    level = _decide("Software Engineer Intern (Summer 2027)", "Join us.", tier="broad", score=65)
+    assert level == "digest"
+
+
+def test_summer_override_ignores_past_seasons():
+    # Summer 2026 has already started relative to NOW (Aug 2026): no override.
+    level = _decide("Software Engineer Intern (Summer 2026)", "Join us.", score=65)
+    assert level == "digest"
+
+
+def test_summer_override_still_requires_software_role():
+    level = _decide("Marketing Intern (Summer 2027)", "Campaigns.", score=65)
+    assert level == "dashboard"
+
+
+def test_off_season_windows_reward_winter_and_fall_roles():
+    # Winter 2027 overlaps the winter_2027 / spring_2027 windows.
+    winter = _score("Software Engineer Intern - Winter 2027", "Build backend services.")
+    fall = _score("Software Engineer Intern - Fall 2026", "Build backend services.")
+    off = _score("Software Engineer Intern - Fall 2025", "Build backend services.")
+    assert winter.components["timing"] >= 18.0
+    assert fall.components["timing"] >= 14.0
+    assert off.components["timing"] == 2.0
+
+
+def test_expired_target_windows_are_ignored():
+    from datetime import date
+
+    from opportunity_radar.config import TargetWindow
+
+    expired = ScoringConfig(
+        target_windows=[
+            TargetWindow(name="old", start=date(2025, 5, 15), end=date(2025, 9, 15), priority=100)
+        ]
+    )
+    classification = classify("Software Engineer Intern - Summer 2025", "")
+    season = parse_season("Software Engineer Intern - Summer 2025", "")
+    eligibility = evaluate("", PROFILE.candidate, season.season, season.year)
+    result = score_job(
+        title="Software Engineer Intern - Summer 2025",
+        description_text="",
+        locations=["Austin, TX"],
+        remote_type="onsite",
+        company_tier="core",
+        classification=classification,
+        season=season,
+        eligibility=eligibility,
+        first_seen_at=NOW,
+        profile=PROFILE,
+        scoring=expired,
+        now=NOW,
+    )
+    # No live window left -> treated like "season known, no overlap" (7 pts
+    # for an early-career role), never a stale 20.
+    assert result.components["timing"] <= 7.0

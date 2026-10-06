@@ -365,6 +365,11 @@ def record_scan_run(session: Session, outcome: ScanOutcome) -> ScanRunRow:
     return row
 
 
+def count_company_jobs(session: Session, company_id: str) -> int:
+    stmt = select(func.count(JobRow.id)).where(JobRow.company_id == company_id)
+    return int(session.scalar(stmt) or 0)
+
+
 def get_source_state(session: Session, company_id: str) -> SourceStateRow:
     row = session.get(SourceStateRow, company_id)
     if row is None:

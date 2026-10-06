@@ -33,7 +33,18 @@ role_family_weights:
   adjacent: 5
   irrelevant: 0
 
+# Windows that have already ended are ignored automatically, so stale entries
+# are harmless. Off-season windows are first-class: they are what community
+# lists miss.
 target_windows:
+  - name: fall_2026
+    start: 2026-10-01
+    end: 2026-12-31
+    priority: 75
+  - name: winter_2027
+    start: 2026-12-01
+    end: 2027-03-31
+    priority: 90
   - name: spring_2027
     start: 2027-01-01
     end: 2027-06-15
@@ -52,8 +63,20 @@ target_windows:
     priority: 70
 
 alerts:
-  immediate_min_score: 82
+  immediate_min_score: 78
   digest_min_score: 50
   dashboard_min_score: 35
   suppress_below_score: 20
   alert_on_changes: true
+
+# tuning_history is an audit log of adjustments (automatic and requested).
+tuning_history:
+- at: '2026-10-06T21:00:00+00:00'
+  changes:
+  - key: alerts.immediate_min_score
+    old: 82
+    new: 78
+    reason: Patrick asked for broader Summer + off-season internship coverage; strong-tier
+      Summer 2027 SWE intern roles with thin descriptions scored 78-81 and only reached
+      the digest. Paired with target windows fall_2026/winter_2027 and a Summer
+      immediate-alert override for core/strong companies.

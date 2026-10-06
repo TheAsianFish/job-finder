@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from opportunity_radar.config import ScoringConfig
+from opportunity_radar.constants import IMMEDIATE_MIN_SCORE
 from opportunity_radar.db import repositories as repo
 from opportunity_radar.db.engine import get_engine, reset_engine, session_scope
 from opportunity_radar.db.tables import Base
@@ -46,14 +47,14 @@ def test_threshold_raises_when_alerts_dismissed():
     stats = FeedbackStats(alerted_neg=5, alerted_pos=0, total_events=5)
     report = compute_adjustments(stats, ScoringConfig())
     changes = {a.key: a for a in report.adjustments}
-    assert changes["alerts.immediate_min_score"].new == 84
+    assert changes["alerts.immediate_min_score"].new == IMMEDIATE_MIN_SCORE + 2
 
 
 def test_threshold_lowers_when_digest_jobs_saved():
     stats = FeedbackStats(digest_band_pos=6, total_events=6)
     report = compute_adjustments(stats, ScoringConfig())
     changes = {a.key: a for a in report.adjustments}
-    assert changes["alerts.immediate_min_score"].new == 80
+    assert changes["alerts.immediate_min_score"].new == IMMEDIATE_MIN_SCORE - 2
 
 
 def test_company_suggestions_never_auto_applied():

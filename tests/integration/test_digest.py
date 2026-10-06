@@ -165,3 +165,53 @@ async def test_send_digest_clears_pending(db):
         pending = session.query(JobRow).filter(JobRow.digest_pending).count()
         assert pending == 0
         assert repo.meta_get(session, "last_digest_at") is not None
+
+
+def test_digest_caps_lines_per_company(db):
+    with session_scope(db) as session:
+        repo.sync_companies(
+            session,
+            [
+                CompanySource(id="bigco", name="BigCo", tier="core"),
+                CompanySource(id="smallco", name="SmallCo", tier="broad"),
+            ],
+        )
+        for i in range(6):
+            record = make_record(f"big-{i}", f"Software Engineer Intern {i} - Summer 2027")
+            record = record.model_copy(update={"company_id": "bigco", "company_name": "BigCo"})
+            row = repo.insert_job(session, record, alias_hashes(record))
+            row.match_score = 90.0 - i
+            row.digest_pending = True
+        record = make_record("small-1", "Backend Engineer Intern - Summer 2027")
+        record = record.model_copy(update={"company_id": "smallco", "company_name": "SmallCo"})
+        row = repo.insert_job(session, record, alias_hashes(record))
+        row.match_score = 80.0
+        row.digest_pending = True
+    payload = build_digest(AppSettings(), db_url=db)
+    assert payload is not None
+    section = next(f for f in payload["embeds"][0]["fields"] if f["name"] == "New high-priority")
+    lines = section["value"].splitlines()
+    # 3 BigCo lines + the SmallCo line + one overflow note.
+    assert sum("BigCo" in line and "SmallCo" not in line for line in lines[:-1]) == 3
+    assert any("SmallCo" in line for line in lines)
+    assert "3 more at BigCo" in lines[-1]
+
+
+def test_digest_flags_silent_zero_job_sources(db):
+    with session_scope(db) as session:
+        repo.sync_companies(
+            session,
+            [
+                CompanySource(id="stripe", name="Stripe", tier="core"),
+                CompanySource(id="quietco", name="QuietCo", tier="broad"),
+            ],
+        )
+        repo.update_source_state_success(session, "quietco", 0)
+        record = make_record("q1", "Software Engineer Intern - Summer 2027")
+        row = repo.insert_job(session, record, alias_hashes(record))
+        row.match_score = 70.0
+        row.digest_pending = True
+    payload = build_digest(AppSettings(), db_url=db)
+    text = json.dumps(payload)
+    assert "returning 0 jobs" in text
+    assert "quietco" in text

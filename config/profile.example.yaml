@@ -34,6 +34,8 @@ preferences:
     - fullstack
 
   target_seasons:
+    - fall_2026
+    - winter_2027
     - spring_2027
     - summer_2027
     - fall_2027

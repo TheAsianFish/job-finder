@@ -39,6 +39,11 @@ class ScanSummary:
     digest_job_ids: list[int] = field(default_factory=list)
     changed_job_ids: list[int] = field(default_factory=list)
     baseline: bool = False
+    # Sources scanned successfully for the first time in this run: their
+    # whole board is "new", so they are imported without per-job alerts and
+    # summarised once instead (spec §14.1 applied per source, not just per DB).
+    baselined_company_ids: list[str] = field(default_factory=list)
+    baselined_job_ids: list[int] = field(default_factory=list)
 
     @property
     def total_new(self) -> int:
@@ -217,7 +222,16 @@ def _persist_company_jobs(
     alerts = settings.scoring.alerts
 
     with session_scope(db_url) as session:
-        previous_count = repo.get_source_state(session, company.id).last_job_count
+        state = repo.get_source_state(session, company.id)
+        previous_count = state.last_job_count
+        # A source with no prior successful scan is baselined on its own:
+        # adding 40 companies to a live registry must not fire 400 alerts.
+        source_baseline = baseline or (
+            state.last_success_at is None and repo.count_company_jobs(session, company.id) == 0
+        )
+        if source_baseline and not baseline and raw_jobs:
+            summary.baselined_company_ids.append(company.id)
+            logger.info("source_baseline", company_id=company.id, jobs=len(raw_jobs))
         seen_hashes: set[str] = set()
 
         for raw in raw_jobs:
@@ -230,12 +244,14 @@ def _persist_company_jobs(
                     session,
                     record,
                     normalizer.alias_hashes_for(record),
-                    is_baseline=baseline,
+                    is_baseline=source_baseline,
                 )
                 outcome.new_count += 1
                 outcome.new_job_ids.append(job_row.id)
-                if not baseline:
+                if not source_baseline:
                     _classify_alert(job_row.id, record, company, alerts, summary, session)
+                elif not baseline and _worth_summarising(record, company, alerts):
+                    summary.baselined_job_ids.append(job_row.id)
             else:
                 # Recompute with the original first-seen time so freshness decays.
                 record = normalizer.normalize(
@@ -289,6 +305,34 @@ def _persist_company_jobs(
         repo.update_source_state_success(session, company.id, len(raw_jobs))
         repo.record_scan_run(session, outcome)
     return outcome
+
+
+def _worth_summarising(record: JobRecord, company: CompanySource, alerts) -> bool:
+    """Would this job have reached Discord had the source already been live?"""
+    from opportunity_radar.matching.season_parser import SeasonResult
+    from opportunity_radar.matching.title_classifier import classify
+
+    season = SeasonResult(
+        season=record.season,
+        year=record.season_year,
+        confidence=record.season_confidence,
+        start_min=record.start_date_min,
+        start_max=record.start_date_max,
+    )
+    level = decide_alert_level(
+        score=record.match_score,
+        season=season,
+        classification=classify(record.title, record.description_text),
+        company_tier=company.tier,
+        posted_at=record.posted_at,
+        deadline=None,
+        thresholds_immediate=alerts.immediate_min_score,
+        thresholds_digest=alerts.digest_min_score,
+        thresholds_dashboard=alerts.dashboard_min_score,
+        thresholds_suppress=alerts.suppress_below_score,
+        us_accessible=is_us_accessible(record.all_locations, record.compensation_currency),
+    )
+    return level in ("immediate", "digest")
 
 
 def _classify_alert(

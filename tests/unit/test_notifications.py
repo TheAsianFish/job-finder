@@ -107,3 +107,36 @@ async def test_notifier_gives_up_on_400():
     respx.post(WEBHOOK).mock(return_value=Response(400, text="bad payload"))
     notifier = DiscordNotifier(WEBHOOK)
     assert await notifier.send({"content": "hi"}) is False
+
+
+def test_new_sources_summary_lists_best_matches_once():
+    jobs = [make_job_row(id=i, title=f"SWE Intern {i} - Summer 2027") for i in range(20)]
+    payload = templates.build_new_sources_summary(["Waymo", "xAI"], jobs, hidden_count=5)
+    embed = payload["embeds"][0]
+    assert "2 new source(s)" in embed["title"]
+    assert "Waymo" in embed["description"]
+    value = "\n".join(f["value"] for f in embed["fields"])
+    assert value.count("SWE Intern") == templates.SUMMARY_LINE_LIMIT
+    assert "+ 5 more on the dashboard" in value
+    assert payload["allowed_mentions"] == {"parse": []}
+
+
+def test_new_sources_summary_with_no_matches_says_so():
+    payload = templates.build_new_sources_summary(["QuietCo"], [], hidden_count=0)
+    assert "No early-career software roles" in payload["embeds"][0]["fields"][0]["value"]
+
+
+def test_digest_payload_chunks_long_sections_without_cutting_lines():
+    long_url = "https://example.wd5.myworkdayjobs.com/en-US/Site/job/US-CA-Santa-Clara/" + "x" * 90
+    lines = [
+        f"**80** · [Software Engineer Intern {i} - Summer 2027]({long_url}) — Co" for i in range(12)
+    ]
+    payload = templates.build_digest_payload("t", {"New review-worthy": lines})
+    fields = payload["embeds"][0]["fields"]
+    assert len(fields) >= 2
+    assert fields[0]["name"] == "New review-worthy"
+    assert fields[1]["name"] == "(cont.)"
+    joined = "\n".join(f["value"] for f in fields)
+    assert joined.count("Software Engineer Intern") == 12
+    assert "…" not in joined
+    assert all(len(f["value"]) <= 1024 for f in fields)

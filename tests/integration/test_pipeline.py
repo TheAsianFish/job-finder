@@ -218,3 +218,51 @@ async def test_location_fuzzy_mismatch_creates_separate_job(db, settings):
     )
     summary = await scan_companies([jsonld_company], settings, db_url=db)
     assert summary.total_new == 1  # different location set -> distinct job
+
+
+@respx.mock
+async def test_newly_added_source_is_baselined_on_its_own(db, settings):
+    """Adding a company to a live registry imports its board without alerts."""
+    payload = gh_payload()
+    respx.get(API_URL).mock(return_value=Response(200, json=payload))
+    await scan_companies([company()], settings, db_url=db)  # DB-level baseline
+
+    other_url = "https://boards-api.greenhouse.io/v1/boards/newco/jobs?content=true"
+    # Distinct apply URLs: identical URLs would (correctly) merge across sources.
+    payload = json.loads(
+        json.dumps(payload).replace("boards.greenhouse.io/acmecorp", "boards.greenhouse.io/newco")
+    )
+    respx.get(other_url).mock(return_value=Response(200, json=payload))
+    newco = CompanySource(
+        id="newco",
+        name="NewCo",
+        tier="core",
+        adapter="greenhouse",
+        adapter_config={"board_token": "newco"},
+    )
+    summary = await scan_companies([company(), newco], settings, db_url=db)
+    assert summary.baseline is False
+    assert summary.total_new == 3
+    assert summary.immediate_job_ids == []
+    assert summary.digest_job_ids == []
+    assert summary.baselined_company_ids == ["newco"]
+    # The Summer 2027 intern role is worth summarising once; the rest are not.
+    assert len(summary.baselined_job_ids) >= 1
+    with session_scope(db) as session:
+        rows = [j for j in repo.list_jobs(session, limit=100) if j.company_id == "newco"]
+        assert rows and all(j.is_baseline for j in rows)
+        assert not any(j.digest_pending for j in rows)
+
+    # Once live, a genuinely new posting on that source alerts normally.
+    new_job = dict(payload["jobs"][0])
+    new_job.update(
+        id=5011099,
+        title="Software Engineer Intern - Spring 2027",
+        absolute_url="https://boards.greenhouse.io/newco/jobs/5011099",
+    )
+    grown = dict(payload)
+    grown["jobs"] = [*payload["jobs"], new_job]
+    respx.get(other_url).mock(return_value=Response(200, json=grown))
+    summary3 = await scan_companies([newco], settings, db_url=db)
+    assert summary3.baselined_company_ids == []
+    assert len(summary3.immediate_job_ids) == 1

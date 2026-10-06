@@ -20,6 +20,9 @@ COLOR_ERROR = 0xE74C3C  # red
 
 _EMBED_TITLE_LIMIT = 256
 _FIELD_VALUE_LIMIT = 1024
+_SECTION_LINE_LIMIT = 15
+# Job lines run ~95 chars; 10 keep a summary field under Discord's 1024 limit.
+SUMMARY_LINE_LIMIT = 10
 
 
 def sanitize(text: str | None) -> str:
@@ -120,23 +123,58 @@ def build_job_embed(job: JobRow, *, header: str = "🚨 NEW HIGH-PRIORITY ROLE")
     }
 
 
+_EMBED_TOTAL_LIMIT = 5600  # Discord caps an embed at 6000 chars across all parts.
+
+
+def _chunked_fields(name: str, lines: list[str]) -> list[dict[str, Any]]:
+    """Split lines into as many fields as needed so no line is cut mid-link.
+
+    A single job line (long Workday apply URL) can approach 200 chars, so a
+    fixed line count per field would silently truncate; chunk by size instead.
+    """
+    fields: list[dict[str, Any]] = []
+    current: list[str] = []
+    size = 0
+    for line in lines:
+        clean = truncate(sanitize(line), _FIELD_VALUE_LIMIT)
+        if current and size + len(clean) + 1 > _FIELD_VALUE_LIMIT:
+            fields.append({"name": name, "value": "\n".join(current), "inline": False})
+            name = "(cont.)"
+            current, size = [], 0
+        current.append(clean)
+        size += len(clean) + 1
+    if current:
+        fields.append({"name": name, "value": "\n".join(current), "inline": False})
+    return fields
+
+
+def _fit_embed(fields: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    kept: list[dict[str, Any]] = []
+    total = 0
+    for field in fields:
+        total += len(field["name"]) + len(field["value"])
+        if total > _EMBED_TOTAL_LIMIT or len(kept) >= 25:
+            kept.append({"name": "…", "value": "_more on the dashboard_", "inline": False})
+            break
+        kept.append(field)
+    return kept
+
+
 def build_digest_payload(
     title: str, sections: dict[str, list[str]], color: int = COLOR_MEDIUM
 ) -> dict[str, Any] | None:
-    fields = []
+    fields: list[dict[str, Any]] = []
     for section, lines in sections.items():
         if not lines:
             continue
-        value = "\n".join(sanitize(line) for line in lines[:10])
-        if len(lines) > 10:
-            value += f"\n… and {len(lines) - 10} more"
-        fields.append(
-            {"name": section, "value": truncate(value, _FIELD_VALUE_LIMIT), "inline": False}
-        )
+        shown = list(lines[:_SECTION_LINE_LIMIT])
+        if len(lines) > _SECTION_LINE_LIMIT:
+            shown.append(f"… and {len(lines) - _SECTION_LINE_LIMIT} more")
+        fields.extend(_chunked_fields(section, shown))
     if not fields:
         return None
     return {
-        "embeds": [{"title": sanitize(title), "color": color, "fields": fields}],
+        "embeds": [{"title": sanitize(title), "color": color, "fields": _fit_embed(fields)}],
         "allowed_mentions": {"parse": []},
     }
 
@@ -179,6 +217,41 @@ def build_baseline_summary(
                         "inline": True,
                     },
                 ],
+            }
+        ],
+        "allowed_mentions": {"parse": []},
+    }
+
+
+def build_new_sources_summary(
+    company_names: list[str], jobs: list[JobRow], hidden_count: int
+) -> dict[str, Any]:
+    """One embed when newly added sources are imported for the first time.
+
+    Their whole backlog is 'new' to the database, so per-job alerts would be
+    a flood; instead the best currently-open matches are listed once.
+    """
+    lines = [
+        f"**{job.match_score:.0f}** · [{sanitize(job.title)}]({job.apply_url}) — "
+        f"{sanitize(job.company_name)} ({sanitize(job.primary_location or job.remote_type)})"
+        for job in jobs[:SUMMARY_LINE_LIMIT]
+    ]
+    if not lines:
+        lines = ["_No early-career software roles open right now._"]
+    if hidden_count > 0:
+        lines.append(f"_+ {hidden_count} more on the dashboard_")
+    names = ", ".join(sanitize(n) for n in company_names[:20])
+    if len(company_names) > 20:
+        names += f" … (+{len(company_names) - 20})"
+    return {
+        "embeds": [
+            {
+                "title": f"📡 {len(company_names)} new source(s) imported",
+                "description": truncate(names, 2000),
+                "color": COLOR_MEDIUM,
+                "fields": _fit_embed(
+                    _chunked_fields("Best open matches (not alerted individually)", lines)
+                ),
             }
         ],
         "allowed_mentions": {"parse": []},

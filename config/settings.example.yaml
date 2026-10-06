@@ -20,8 +20,8 @@ scheduler:
   auto_tune_interval_days: 7
 
 alerts:
-  immediate_min_score: 82
-  digest_min_score: 60
+  immediate_min_score: 78
+  digest_min_score: 50
   dashboard_min_score: 35
   suppress_below_score: 20
   alert_on_changes: true

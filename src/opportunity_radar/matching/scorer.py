@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from opportunity_radar.config import ProfileConfig, ScoringConfig, TargetWindow
 from opportunity_radar.matching.eligibility import EligibilityResult
@@ -97,9 +97,18 @@ def _skill_pattern(skill: str) -> re.Pattern[str]:
 
 
 def _score_timing(
-    season: SeasonResult, windows: list[TargetWindow], is_early_career: bool
+    season: SeasonResult,
+    windows: list[TargetWindow],
+    is_early_career: bool,
+    today: date | None = None,
 ) -> float:
-    """0-20 based on overlap between the inferred start window and target windows."""
+    """0-20 based on overlap between the inferred start window and target windows.
+
+    Windows that have already closed (end before today) are ignored, so a
+    static config never keeps rewarding a season that has passed.
+    """
+    today = today or utcnow().date()
+    windows = [w for w in windows if w.end >= today]
     if season.season == "year_round":
         return 14.0
     if season.season == "off_cycle":
@@ -238,7 +247,13 @@ def score_job(
     components["company_quality"] = scoring.company_tier_points.get(company_tier, 8.0)
     components["role_fit"] = scoring.role_family_weights.get(classification.role_family, 0.0)
     components["timing"] = round(
-        _score_timing(season, scoring.target_windows, classification.is_early_career), 2
+        _score_timing(
+            season,
+            scoring.target_windows,
+            classification.is_early_career,
+            today=(now or utcnow()).date(),
+        ),
+        2,
     )
     skill_points, matched_skills = _score_skills(text, profile)
     components["skills"] = round(skill_points, 2)
@@ -293,6 +308,22 @@ def decide_alert_level(
         and classification.is_early_career
         and season.season in ("winter", "spring", "fall", "off_cycle")
         and season.confidence >= 0.9
+        and company_tier in ("core", "strong")
+        and score >= thresholds_digest
+    ):
+        return "immediate"
+
+    # Override: explicit Summer internship/new-grad SWE role at a core/strong
+    # company whose start window is still ahead. Summer is the main season
+    # and these postings close fast, so they are worth an immediate ping even
+    # when a thin description keeps the score under the immediate bar.
+    if (
+        classification.is_software
+        and classification.is_early_career
+        and season.season == "summer"
+        and season.confidence >= 0.9
+        and season.start_min is not None
+        and season.start_min >= now.date() - timedelta(days=30)
         and company_tier in ("core", "strong")
         and score >= thresholds_digest
     ):

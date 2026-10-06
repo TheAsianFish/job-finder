@@ -39,6 +39,30 @@ def _job_line(job: JobRow) -> str:
     )
 
 
+# One prolific board (a core-tier company posting dozens of intern variants)
+# must not crowd every other company out of a section: each company gets at
+# most this many lines, and the rest is summarised on one trailing line.
+DIGEST_PER_COMPANY_CAP = 3
+
+
+def _section_lines(jobs: list[JobRow], per_company: int = DIGEST_PER_COMPANY_CAP) -> list[str]:
+    """Render score-sorted jobs with a per-company cap plus an overflow note."""
+    shown_per_company: dict[str, int] = {}
+    overflow: dict[str, int] = {}
+    lines: list[str] = []
+    for job in jobs:
+        count = shown_per_company.get(job.company_name, 0)
+        if count < per_company:
+            shown_per_company[job.company_name] = count + 1
+            lines.append(_job_line(job))
+        else:
+            overflow[job.company_name] = overflow.get(job.company_name, 0) + 1
+    if overflow:
+        parts = [f"{n} more at {name}" for name, n in sorted(overflow.items(), key=lambda p: -p[1])]
+        lines.append("_+ " + ", ".join(parts[:6]) + " (see dashboard)_")
+    return lines
+
+
 def build_digest(settings: AppSettings, db_url: str | None = None) -> dict | None:
     """Collect digest sections; returns None when there is nothing to say."""
     alerts = settings.scoring.alerts
@@ -123,10 +147,25 @@ def build_digest(settings: AppSettings, db_url: str | None = None) -> dict | Non
             for state in repo.list_source_states(session)
             if state.consecutive_failures >= 3
         ]
+        # A source that "succeeds" with zero jobs is almost always a stale
+        # board token, not an empty company — surface it next to hard failures.
+        silent = sorted(
+            state.company_id
+            for state in repo.list_source_states(session)
+            if state.consecutive_failures < 3
+            and state.last_success_at is not None
+            and state.last_job_count == 0
+        )
+        if silent:
+            failures.append(
+                f"{len(silent)} source(s) returning 0 jobs (run `companies repair`): "
+                + ", ".join(silent[:12])
+                + (" …" if len(silent) > 12 else "")
+            )
 
         sections = {
-            "New high-priority": [_job_line(j) for j in high],
-            "New review-worthy": [_job_line(j) for j in review],
+            "New high-priority": _section_lines(high),
+            "New review-worthy": _section_lines(review),
             "Deadlines approaching": deadline_lines,
             "Changed / reopened": changed_lines,
             "Source failures": failures,

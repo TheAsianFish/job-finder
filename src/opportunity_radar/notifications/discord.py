@@ -88,6 +88,23 @@ class DiscordNotifier:
                 sent += 1
         return sent
 
+    async def send_new_sources_summary(
+        self, company_ids: list[str], job_ids: list[int], db_url: str | None = None
+    ) -> bool:
+        """Single embed listing the best open matches from freshly added sources."""
+        if not company_ids:
+            return False
+        with session_scope(db_url) as session:
+            names = [c.name for c in repo.list_companies(session) if c.id in set(company_ids)]
+            jobs = [j for j in (repo.get_job(session, jid) for jid in job_ids) if j is not None]
+            jobs.sort(key=lambda j: j.match_score, reverse=True)
+            payload = templates.build_new_sources_summary(
+                names or company_ids,
+                jobs,
+                hidden_count=max(len(jobs) - templates.SUMMARY_LINE_LIMIT, 0),
+            )
+        return await self.send(payload)
+
     async def send_baseline_summary(self, db_url: str | None = None) -> bool:
         with session_scope(db_url) as session:
             jobs = repo.list_jobs(session, status="active", limit=100_000)

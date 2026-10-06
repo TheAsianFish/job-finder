@@ -66,6 +66,10 @@ async def run_daemon() -> None:
             for entry in due:
                 entry.reschedule(get_settings().scheduler, now)
             if summary is not None:
+                if summary.baselined_company_ids:
+                    await notifier.send_new_sources_summary(
+                        summary.baselined_company_ids, summary.baselined_job_ids
+                    )
                 if summary.immediate_job_ids:
                     sent = await notifier.send_immediate_alerts(summary.immediate_job_ids)
                     logger.info("immediate_alerts_sent", count=sent)
