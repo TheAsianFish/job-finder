@@ -1,9 +1,11 @@
-"""Self-repair for failing sources.
+"""Self-repair for failing and silent sources.
 
-When a company's source keeps failing (stale board token, ATS migration),
-re-run ATS discovery against its domain and, if a concrete adapter+token is
-found AND validates with real jobs, update config/companies.yaml in place.
-Sources that cannot be repaired are reported, never silently disabled.
+When a company's source keeps failing (stale board token, ATS migration) or
+keeps "succeeding" with zero jobs (an auto/JSON-LD fallback that finds
+nothing on a JS-rendered careers page), re-run ATS discovery against its
+domain and, if a concrete adapter+token is found AND validates with real
+jobs, update config/companies.yaml in place. Sources that cannot be
+repaired are reported, never silently disabled.
 """
 
 from __future__ import annotations
@@ -49,9 +51,12 @@ async def repair_failing_sources(
         failing_ids = [
             state.company_id
             for state in repo.list_source_states(session)
-            if state.consecutive_failures >= min_failures
-            and state.company_id in companies_by_id
+            if state.company_id in companies_by_id
             and companies_by_id[state.company_id].enabled
+            and (
+                state.consecutive_failures >= min_failures
+                or (state.last_success_at is not None and state.last_job_count == 0)
+            )
         ]
 
     if not failing_ids:
@@ -64,7 +69,9 @@ async def repair_failing_sources(
             result.details.append(f"{company_id}: no domain configured, cannot rediscover")
             continue
         try:
-            found = await discover(company.domain, ctx)
+            found = await discover(
+                company.domain, ctx, company_id=company.id, company_name=company.name
+            )
         except Exception as exc:
             result.unrepairable.append(company_id)
             result.details.append(f"{company_id}: discovery failed ({exc})")
@@ -79,10 +86,20 @@ async def repair_failing_sources(
             )
             continue
 
-        # Trial-run the candidate before touching config.
+        # Trial-run the candidate before touching config. A candidate equal
+        # to the current config is not a repair (the board really is empty).
         candidate = company.model_copy(deep=True)
         candidate.adapter = fingerprint.adapter
         candidate.adapter_config = dict(fingerprint.config)
+        if candidate.adapter == company.adapter and candidate.adapter_config == dict(
+            company.adapter_config
+        ):
+            result.unrepairable.append(company_id)
+            result.details.append(
+                f"{company_id}: discovery re-found the current {fingerprint.adapter} config — "
+                "board appears genuinely empty"
+            )
+            continue
         validation = await validate_company(candidate, ctx)
         if not validation.ok or not validation.job_count:
             result.unrepairable.append(company_id)
@@ -128,6 +145,7 @@ def _patch_registry(company_id: str, adapter: str, adapter_config: dict) -> None
         if entry.get("id") == company_id:
             entry["adapter"] = adapter
             entry["adapter_config"] = adapter_config
+            entry["notes"] = f"Auto-repaired to {adapter} {adapter_config} by `companies repair`."
     path.write_text(
         header + yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
         encoding="utf-8",

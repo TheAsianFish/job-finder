@@ -29,7 +29,13 @@ class DiscoveryResult:
     notes: list[str] = field(default_factory=list)
 
 
-async def discover(domain: str, ctx: AdapterContext) -> DiscoveryResult:
+async def discover(
+    domain: str,
+    ctx: AdapterContext,
+    *,
+    company_id: str | None = None,
+    company_name: str | None = None,
+) -> DiscoveryResult:
     result = DiscoveryResult()
     base = f"https://{domain}"
 
@@ -86,4 +92,15 @@ async def discover(domain: str, ctx: AdapterContext) -> DiscoveryResult:
             if fingerprint:
                 result.fingerprint = fingerprint
                 break
+
+    # Last resort that resolves most JS-rendered career sites: the board
+    # token is usually the company's own slug — probe the public APIs.
+    if result.fingerprint is None:
+        from opportunity_radar.discovery.token_guess import guess_board
+
+        label = domain.split(".")[0]
+        guess = await guess_board(ctx, company_id or label, domain, company_name)
+        if guess is not None:
+            result.fingerprint = guess.fingerprint
+            result.notes.append(f"board token guessed from company slug ({guess.job_count} jobs)")
     return result

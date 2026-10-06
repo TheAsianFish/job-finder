@@ -592,7 +592,12 @@ def companies_discover(company_id: str) -> None:
     async def run() -> None:
         client, ctx = _make_ctx_client()
         try:
-            result = await discover(domain, ctx)
+            result = await discover(
+                domain,
+                ctx,
+                company_id=company.id if company else None,
+                company_name=company.name if company else None,
+            )
         finally:
             await client.aclose()
         if result.fingerprint:
@@ -685,15 +690,26 @@ def sources_health() -> None:
         table = Table(title="Source health")
         for column in ("Company", "Last success", "Failures", "Jobs", "Last error"):
             table.add_column(column)
+        silent = 0
         for state in states:
+            jobs = state.last_job_count
+            jobs_text = str(jobs) if jobs is not None else "—"
+            if jobs == 0 and state.last_success_at is not None:
+                jobs_text = "[yellow]0 (silent)[/yellow]"
+                silent += 1
             table.add_row(
                 state.company_id,
                 state.last_success_at.strftime("%m-%d %H:%M") if state.last_success_at else "never",
                 str(state.consecutive_failures),
-                str(state.last_job_count if state.last_job_count is not None else "—"),
+                jobs_text,
                 (state.last_error or "")[:60],
             )
         console.print(table)
+        if silent:
+            console.print(
+                f"[yellow]{silent} source(s) succeed with 0 jobs — usually a stale board "
+                "token. Run `opportunity-radar companies repair`.[/yellow]"
+            )
 
 
 @notify_app.command("test")
