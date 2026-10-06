@@ -14,6 +14,10 @@ from __future__ import annotations
 from opportunity_radar.matching.title_classifier import classify
 from opportunity_radar.models.company import CompanySource
 
+# Adapters that legitimately return zero jobs when a board has no
+# early-career postings; "0 jobs" is not a silent-source symptom for them.
+PREFILTERING_ADAPTERS = frozenset({"workday", "smartrecruiters", "eightfold", "amazon_jobs"})
+
 
 def looks_early_career(title: str) -> bool:
     return classify(title or "").is_early_career

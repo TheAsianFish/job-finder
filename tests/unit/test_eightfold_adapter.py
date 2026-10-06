@@ -78,3 +78,20 @@ async def test_missing_config_raises(ctx):
     with pytest.raises(AdapterError) as excinfo:
         await EightfoldAdapter().fetch_jobs(company(adapter_config={}, domain=None), ctx)
     assert excinfo.value.category == "config"
+
+
+@respx.mock
+async def test_known_positions_skip_detail_requests(ctx):
+    import dataclasses
+
+    _mock_robots()
+    respx.get(url__regex=rf"{BASE}/api/apply/v2/jobs\?.*").mock(
+        return_value=Response(200, text=load_fixture("eightfold_positions.json"))
+    )
+    detail = respx.get(url__regex=rf"{BASE}/api/apply/v2/jobs/\d+\?.*").mock(
+        return_value=Response(200, text=load_fixture("eightfold_detail.json"))
+    )
+    known_ctx = dataclasses.replace(ctx, known_job_ids=frozenset({"790300000001"}))
+    jobs = await EightfoldAdapter().fetch_jobs(company(), known_ctx)
+    assert detail.call_count == 1
+    assert jobs[0].raw["detail_fetched"] is False

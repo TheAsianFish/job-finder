@@ -50,6 +50,12 @@ class AdapterContext:
     timeout: float = 30.0
     retries: int = 3
     backoff_seconds: tuple[float, ...] = (2.0, 8.0, 30.0)
+    # Source job ids already stored for the company being scanned. Adapters
+    # that need one request per posting for the description skip it for
+    # these; the scanner keeps the stored description (see
+    # pipeline/scanner.py). Empty for adapters that get everything in one
+    # payload, and for validation runs.
+    known_job_ids: frozenset[str] = frozenset()
 
     async def get(self, url: str, headers: dict[str, str] | None = None) -> httpx.Response:
         return await self._request("GET", url, headers=headers)

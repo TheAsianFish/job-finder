@@ -295,3 +295,61 @@ async def test_repointed_silent_source_is_baselined_too(db, settings):
     summary = await scan_companies([silentco], settings, db_url=db)
     assert summary.baselined_company_ids == ["silentco"]
     assert summary.immediate_job_ids == [] and summary.digest_job_ids == []
+
+
+@respx.mock
+async def test_detail_skipping_adapter_keeps_stored_description(db, settings):
+    """When a per-posting-detail adapter skips a known posting, the stored
+    description survives and no bogus 'description changed' row appears."""
+    wd_company = CompanySource(
+        id="wdco",
+        name="WdCo",
+        tier="strong",
+        adapter="workday",
+        adapter_config={"host": "acme.wd5.myworkdayjobs.com", "site": "AcmeCareers"},
+    )
+    respx.get("https://acme.wd5.myworkdayjobs.com/robots.txt").mock(
+        return_value=Response(200, text="User-agent: *\nAllow: /\n")
+    )
+    respx.post("https://acme.wd5.myworkdayjobs.com/wday/cxs/acme/AcmeCareers/jobs").mock(
+        return_value=Response(200, text=load_fixture("workday_jobs.json"))
+    )
+    template = json.loads(load_fixture("workday_detail.json"))
+
+    def detail_for(request):
+        # The shared fixture carries one req id; echo the one from the path
+        # so the three postings stay distinct, as on a real tenant.
+        req_id = str(request.url).rsplit("_", 1)[1]
+        body = json.loads(json.dumps(template))
+        info = body["jobPostingInfo"]
+        info["jobReqId"] = req_id
+        # A real tenant's detail title matches its listing title.
+        info["title"] = {
+            "JR100001": "2027 Software Engineering Intern",
+            "JR100002": "Software Engineer, New College Grad",
+            "JR100003": "Senior Software Engineer, Compilers",
+        }[req_id]
+        info["externalUrl"] = f"https://acme.wd5.myworkdayjobs.com/AcmeCareers/job/x/{req_id}"
+        return Response(200, json=body)
+
+    detail = respx.get(url__regex=r".*/wday/cxs/acme/AcmeCareers/job/.*").mock(
+        side_effect=detail_for
+    )
+    await scan_companies([wd_company], settings, db_url=db)
+    first_detail_calls = detail.call_count
+    assert first_detail_calls == 3
+    with session_scope(db) as session:
+        rows = {j.source_job_id: j for j in repo.list_jobs(session, limit=100)}
+        assert "Summer 2027" in rows["JR100001"].description_text
+
+    summary = await scan_companies([wd_company], settings, db_url=db)
+    assert detail.call_count == first_detail_calls  # nothing re-fetched
+    assert summary.total_changed == 0
+    with session_scope(db) as session:
+        rows = {j.source_job_id: j for j in repo.list_jobs(session, limit=100)}
+        assert "Summer 2027" in rows["JR100001"].description_text
+        # Detail-derived fields survive the listing-only re-scan too.
+        assert rows["JR100001"].all_locations == ["US, CA, Santa Clara", "US, TX, Austin"]
+        assert rows["JR100001"].apply_url.endswith("/job/x/JR100001")
+        assert rows["JR100001"].posted_at is not None
+        assert session.query(JobChangeRow).count() == 0

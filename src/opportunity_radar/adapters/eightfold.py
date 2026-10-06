@@ -109,9 +109,11 @@ class EightfoldAdapter(BaseAdapter):
 
         detail_limit = config_int(company, "detail_limit", 100)
         jobs: list[RawJob] = []
-        for index, (position_id, item) in enumerate(positions.items()):
+        fetched = 0
+        for position_id, item in positions.items():
             detail: dict[str, Any] = {}
-            if index < detail_limit:
+            if position_id not in ctx.known_job_ids and fetched < detail_limit:
+                fetched += 1
                 response = await ctx.get(
                     self.detail_url(base_url, domain, position_id),
                     headers={"Accept": "application/json"},

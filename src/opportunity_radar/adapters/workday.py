@@ -123,7 +123,7 @@ class WorkdayAdapter(BaseAdapter):
             # Deterministic subset: page through the early-career facet values
             # only. Workday ORs values within one facet parameter but ANDs
             # across parameters, so each parameter gets its own pass and the
-            # results are unioned (Intern sub-type ∪ "Univ Employment" family).
+            # results are unioned (Intern sub-type plus "Univ Employment" family).
             # Facet passes get a larger page budget than search passes because
             # they are exact, not ranked.
             for parameter, ids in facet_filter.items():
@@ -170,12 +170,21 @@ class WorkdayAdapter(BaseAdapter):
 
         detail_limit = config_int(company, "detail_limit", 200)
         jobs: list[RawJob] = []
-        for index, (external_path, item) in enumerate(postings.items()):
+        fetched = 0
+        for external_path, item in postings.items():
             detail: dict[str, Any] = {}
-            if index < detail_limit:
+            if self._listing_id(item, external_path) not in ctx.known_job_ids and (
+                fetched < detail_limit
+            ):
                 detail = await self._detail(ctx, cfg, source, external_path)
+                fetched += 1
             jobs.append(self._to_raw(cfg, item, detail))
         return jobs
+
+    @staticmethod
+    def _listing_id(item: dict[str, Any], external_path: str) -> str:
+        bullets = [str(b) for b in item.get("bulletFields") or [] if b]
+        return bullets[0] if bullets else external_path
 
     async def _list_page(
         self,
@@ -248,8 +257,7 @@ class WorkdayAdapter(BaseAdapter):
 
     def _to_raw(self, cfg: dict[str, str], item: dict[str, Any], detail: dict[str, Any]) -> RawJob:
         external_path = str(item.get("externalPath") or "")
-        bullets = [str(b) for b in item.get("bulletFields") or [] if b]
-        req_id = str(detail.get("jobReqId") or (bullets[0] if bullets else "") or external_path)
+        req_id = str(detail.get("jobReqId") or self._listing_id(item, external_path))
         locations: list[str] = []
         for candidate in (detail.get("location"), item.get("locationsText")):
             if candidate and str(candidate) not in locations:

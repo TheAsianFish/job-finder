@@ -184,3 +184,21 @@ async def test_paging_uses_first_page_total_only(ctx, monkeypatch):
     jobs = await WorkdayAdapter().fetch_jobs(company(adapter_config=cfg), ctx)
     assert sorted(j.source_job_id for j in jobs) == ["JR1", "JR2", "JR3", "JR4", "JR5"]
     assert route.call_count == 4  # discovery + 3 facet pages
+
+
+@respx.mock
+async def test_known_postings_skip_detail_requests(ctx):
+    import dataclasses
+
+    _mock_robots()
+    respx.post(LIST_URL).mock(return_value=Response(200, text=load_fixture("workday_jobs.json")))
+    detail = respx.get(url__regex=r".*/wday/cxs/acme/AcmeCareers/job/.*").mock(
+        return_value=Response(200, text=load_fixture("workday_detail.json"))
+    )
+    known_ctx = dataclasses.replace(ctx, known_job_ids=frozenset({"JR100001", "JR100003"}))
+    jobs = await WorkdayAdapter().fetch_jobs(company(), known_ctx)
+    assert detail.call_count == 1
+    by_path = {j.raw["external_path"].rsplit("_", 1)[1]: j for j in jobs}
+    assert by_path["JR100002"].raw["detail_fetched"] is True
+    assert by_path["JR100001"].raw["detail_fetched"] is False
+    assert by_path["JR100001"].description_html is None

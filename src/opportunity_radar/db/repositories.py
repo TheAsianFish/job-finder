@@ -365,6 +365,13 @@ def record_scan_run(session: Session, outcome: ScanOutcome) -> ScanRunRow:
     return row
 
 
+def list_company_source_job_ids(session: Session, company_id: str) -> set[str]:
+    stmt = select(JobRow.source_job_id).where(
+        JobRow.company_id == company_id, JobRow.status == "active"
+    )
+    return {str(value) for value in session.scalars(stmt)}
+
+
 def count_company_jobs(session: Session, company_id: str) -> int:
     stmt = select(func.count(JobRow.id)).where(JobRow.company_id == company_id)
     return int(session.scalar(stmt) or 0)

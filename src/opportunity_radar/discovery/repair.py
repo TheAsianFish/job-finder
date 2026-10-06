@@ -16,6 +16,7 @@ import structlog
 import yaml
 
 from opportunity_radar.adapters.base import AdapterContext
+from opportunity_radar.adapters.filters import PREFILTERING_ADAPTERS
 from opportunity_radar.config import config_dir, get_settings, load_settings
 from opportunity_radar.db import repositories as repo
 from opportunity_radar.db.engine import session_scope
@@ -55,7 +56,11 @@ async def repair_failing_sources(
             and companies_by_id[state.company_id].enabled
             and (
                 state.consecutive_failures >= min_failures
-                or (state.last_success_at is not None and state.last_job_count == 0)
+                or (
+                    state.last_success_at is not None
+                    and state.last_job_count == 0
+                    and companies_by_id[state.company_id].adapter not in PREFILTERING_ADAPTERS
+                )
             )
         ]
 

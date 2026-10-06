@@ -8,6 +8,7 @@ is automatically treated as a baseline run and a warning is logged.
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import time
 from dataclasses import dataclass, field
 
@@ -135,8 +136,12 @@ async def _scan_company(
     t0 = time.monotonic()
     adapter_name = company.adapter
     log = logger.bind(company_id=company.id, adapter=adapter_name)
+    async with db_lock:
+        with session_scope(db_url) as session:
+            known_ids = repo.list_company_source_job_ids(session, company.id)
+    company_ctx = dataclasses.replace(ctx, known_job_ids=frozenset(known_ids))
     try:
-        adapter, raw_jobs = await fetch_with_fallback(company, ctx)
+        adapter, raw_jobs = await fetch_with_fallback(company, company_ctx)
         adapter_name = adapter.name
     except AdapterError as exc:
         duration_ms = int((time.monotonic() - t0) * 1000)
@@ -252,6 +257,12 @@ def _persist_company_jobs(
                 elif not baseline and _worth_summarising(record, company, alerts):
                     summary.baselined_job_ids.append(job_row.id)
             else:
+                # Per-posting-detail adapters skip the detail request for
+                # postings we already hold; keep the detail-derived fields
+                # so the record does not degrade (and does not flip-flop as
+                # a "changed" job every scan).
+                if raw.raw.get("detail_fetched") is False:
+                    raw = _reuse_detail_fields(raw, existing)
                 # Recompute with the original first-seen time so freshness decays.
                 record = normalizer.normalize(
                     raw,
@@ -304,6 +315,31 @@ def _persist_company_jobs(
         repo.update_source_state_success(session, company.id, len(raw_jobs))
         repo.record_scan_run(session, outcome)
     return outcome
+
+
+def _reuse_detail_fields(raw: RawJob, existing) -> RawJob:
+    """Fill a listing-only RawJob from the stored row's detail-derived fields.
+
+    Listing payloads carry weaker versions of several fields (Workday's
+    "2 Locations", a constructed URL instead of the canonical one, no
+    description, no posted date). The title stays listing-authoritative.
+    """
+    update: dict = {}
+    if raw.description_html is None and raw.description_text is None:
+        update["description_html"] = existing.description_html
+        update["description_text"] = existing.description_text or None
+    if existing.all_locations:
+        update["locations"] = list(existing.all_locations)
+    if existing.apply_url:
+        update["apply_url"] = existing.apply_url
+    if existing.source_url:
+        update["url"] = existing.source_url
+    for field_name in ("posted_at", "employment_type", "department"):
+        if getattr(raw, field_name) is None and getattr(existing, field_name) is not None:
+            update[field_name] = getattr(existing, field_name)
+    if raw.remote_hint is None and existing.remote_type in ("remote", "hybrid"):
+        update["remote_hint"] = existing.remote_type
+    return raw.model_copy(update=update) if update else raw
 
 
 def _worth_summarising(record: JobRecord, company: CompanySource, alerts) -> bool:

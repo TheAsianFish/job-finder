@@ -82,3 +82,19 @@ async def test_whole_board_when_filter_disabled(ctx):
     cfg = {"company": "AcmeCo", "early_career_only": False}
     jobs = await SmartRecruitersAdapter().fetch_jobs(company(adapter_config=cfg), ctx)
     assert len(jobs) == 3
+
+
+@respx.mock
+async def test_known_postings_skip_detail_requests(ctx):
+    import dataclasses
+
+    respx.get(LIST_URL).mock(
+        return_value=Response(200, text=load_fixture("smartrecruiters_postings.json"))
+    )
+    detail = respx.get(url__regex=r".*/postings/\d+$").mock(
+        return_value=Response(200, text=load_fixture("smartrecruiters_detail.json"))
+    )
+    known_ctx = dataclasses.replace(ctx, known_job_ids=frozenset({"744000100000001"}))
+    jobs = await SmartRecruitersAdapter().fetch_jobs(company(), known_ctx)
+    assert detail.call_count == 1
+    assert jobs[0].raw["detail_fetched"] is False and jobs[1].raw["detail_fetched"] is True

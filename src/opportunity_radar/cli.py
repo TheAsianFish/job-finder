@@ -690,11 +690,20 @@ def sources_health() -> None:
         table = Table(title="Source health")
         for column in ("Company", "Last success", "Failures", "Jobs", "Last error"):
             table.add_column(column)
+        from opportunity_radar.adapters.filters import PREFILTERING_ADAPTERS
+
+        prefiltering = {
+            c.id for c in get_settings().companies if c.adapter in PREFILTERING_ADAPTERS
+        }
         silent = 0
         for state in states:
             jobs = state.last_job_count
             jobs_text = str(jobs) if jobs is not None else "—"
-            if jobs == 0 and state.last_success_at is not None:
+            if (
+                jobs == 0
+                and state.last_success_at is not None
+                and state.company_id not in prefiltering
+            ):
                 jobs_text = "[yellow]0 (silent)[/yellow]"
                 silent += 1
             table.add_row(

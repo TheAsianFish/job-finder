@@ -98,10 +98,12 @@ class SmartRecruitersAdapter(BaseAdapter):
 
         detail_limit = config_int(company, "detail_limit", 200)
         jobs: list[RawJob] = []
-        for index, item in enumerate(postings):
+        fetched = 0
+        for item in postings:
             detail: dict[str, Any] = {}
             posting_id = str(item.get("id") or "")
-            if posting_id and index < detail_limit:
+            if posting_id and posting_id not in ctx.known_job_ids and fetched < detail_limit:
+                fetched += 1
                 response = await ctx.get(self.detail_url(identifier, posting_id))
                 if response.status_code < 400:
                     parsed = self.parse_json(response, source)

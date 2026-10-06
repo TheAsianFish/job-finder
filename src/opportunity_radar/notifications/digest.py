@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import structlog
 from sqlalchemy import select
 
+from opportunity_radar.adapters.filters import PREFILTERING_ADAPTERS
 from opportunity_radar.config import AppSettings
 from opportunity_radar.db import repositories as repo
 from opportunity_radar.db.engine import session_scope
@@ -149,12 +150,14 @@ def build_digest(settings: AppSettings, db_url: str | None = None) -> dict | Non
         ]
         # A source that "succeeds" with zero jobs is almost always a stale
         # board token, not an empty company — surface it next to hard failures.
+        prefiltering = {c.id for c in settings.companies if c.adapter in PREFILTERING_ADAPTERS}
         silent = sorted(
             state.company_id
             for state in repo.list_source_states(session)
             if state.consecutive_failures < 3
             and state.last_success_at is not None
             and state.last_job_count == 0
+            and state.company_id not in prefiltering
         )
         if silent:
             failures.append(
