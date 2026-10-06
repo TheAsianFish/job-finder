@@ -52,7 +52,7 @@ from opportunity_radar.utilities.dates import parse_datetime
 PAGE_SIZE = 20  # Workday rejects larger limits.
 DEFAULT_SEARCH_TEXTS = ["intern", "internship", "new grad", "new college graduate", "university"]
 _EARLY_FACET_RE = re.compile(
-    r"intern|new (?:college )?grad|university|student|early[\s\-]?career|campus|graduate program",
+    r"intern|new (?:college )?grad|\buniv|student|early[\s\-]?career|campus|graduate program",
     re.IGNORECASE,
 )
 _LOCATION_FACETS = {
@@ -121,25 +121,35 @@ class WorkdayAdapter(BaseAdapter):
         facet_filter = self._early_career_facets(first.get("facets") or []) if filter_titles else {}
         if facet_filter:
             # Deterministic subset: page through the early-career facet values
-            # only. Facet passes get a larger page budget than search passes
-            # because they are exact, not ranked.
-            offset = 0
-            for _ in range(max(max_pages, 1) * 5):
-                data = await self._list_page(
-                    ctx, cfg, source, facets=facet_filter, search_text="", offset=offset
-                )
-                items = data.get("jobPostings") or []
-                for item in items:
-                    self._collect(postings, item)
-                offset += PAGE_SIZE
-                if not items or offset >= int(data.get("total") or 0):
-                    break
+            # only. Workday ORs values within one facet parameter but ANDs
+            # across parameters, so each parameter gets its own pass and the
+            # results are unioned (Intern sub-type ∪ "Univ Employment" family).
+            # Facet passes get a larger page budget than search passes because
+            # they are exact, not ranked.
+            for parameter, ids in facet_filter.items():
+                offset = 0
+                pass_total = 0
+                for _ in range(max(max_pages, 1) * 5):
+                    data = await self._list_page(
+                        ctx, cfg, source, facets={parameter: ids}, search_text="", offset=offset
+                    )
+                    items = data.get("jobPostings") or []
+                    for item in items:
+                        self._collect(postings, item)
+                    # Workday reports `total` on the first page only; later
+                    # pages answer 0, so the first value governs the loop.
+                    if offset == 0:
+                        pass_total = int(data.get("total") or 0)
+                    offset += PAGE_SIZE
+                    if not items or offset >= pass_total:
+                        break
         else:
             queries = config_list(company, "search_texts", DEFAULT_SEARCH_TEXTS)
             if not filter_titles:
                 queries = [""]
             for query in queries:
                 offset = 0
+                pass_total = total
                 for _ in range(max(max_pages, 1)):
                     data = (
                         first
@@ -152,8 +162,10 @@ class WorkdayAdapter(BaseAdapter):
                     for item in items:
                         if not filter_titles or looks_early_career(str(item.get("title") or "")):
                             self._collect(postings, item)
+                    if offset == 0:
+                        pass_total = int(data.get("total") or 0)
                     offset += PAGE_SIZE
-                    if not items or offset >= int(data.get("total") or total):
+                    if not items or offset >= pass_total:
                         break
 
         detail_limit = config_int(company, "detail_limit", 200)

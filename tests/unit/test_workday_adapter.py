@@ -56,13 +56,17 @@ async def test_facet_driven_fetch_keeps_only_early_career_facets(ctx):
         )
     jobs = await WorkdayAdapter().fetch_jobs(company(), ctx)
 
-    # First call discovers facets; the second applies the intern + NCG ids only.
-    assert route.call_count == 2
+    # First call discovers facets; then one pass per early-career facet
+    # parameter (Workday ANDs across parameters, so they are never combined).
+    assert route.call_count == 3
     import json
 
-    second_body = json.loads(route.calls[1].request.content)
-    assert second_body["appliedFacets"] == {"workerSubType": ["intern-id", "ncg-id"]}
-    assert second_body["limit"] == 20
+    bodies = [json.loads(call.request.content)["appliedFacets"] for call in route.calls[1:]]
+    assert bodies == [
+        {"workerSubType": ["intern-id", "ncg-id"]},
+        {"jobFamilyGroup": ["univ-id"]},
+    ]
+    assert json.loads(route.calls[1].request.content)["limit"] == 20
 
     assert len(jobs) == 3  # fixture returns the same page for the facet pass
     intern = jobs[0]
@@ -140,3 +144,43 @@ async def test_missing_config_raises(ctx):
     with pytest.raises(AdapterError) as excinfo:
         await WorkdayAdapter().fetch_jobs(company(adapter_config={}), ctx)
     assert excinfo.value.category == "config"
+
+
+@respx.mock
+async def test_paging_uses_first_page_total_only(ctx, monkeypatch):
+    """Workday reports `total` on the first page and 0 afterwards."""
+    import json
+
+    from opportunity_radar.adapters import workday as workday_mod
+
+    monkeypatch.setattr(workday_mod, "PAGE_SIZE", 2)
+    _mock_robots()
+    discovery = json.loads(load_fixture("workday_jobs.json"))
+    discovery["facets"] = discovery["facets"][:1]  # one early-career parameter
+
+    def page(i: int) -> dict:
+        return {
+            "title": f"Software Engineer Intern {i}",
+            "externalPath": f"/job/X/SWE-Intern-{i}_JR{i}",
+            "locationsText": "Remote",
+            "bulletFields": [f"JR{i}"],
+        }
+
+    def respond(request):
+        body = json.loads(request.content)
+        if not body["appliedFacets"]:
+            return Response(200, json=discovery)
+        offset = body["offset"]
+        if offset == 0:
+            return Response(200, json={"total": 5, "jobPostings": [page(1), page(2)]})
+        if offset == 2:
+            return Response(200, json={"total": 0, "jobPostings": [page(3), page(4)]})
+        if offset == 4:
+            return Response(200, json={"total": 0, "jobPostings": [page(5)]})
+        return Response(200, json={"total": 0, "jobPostings": []})
+
+    route = respx.post(LIST_URL).mock(side_effect=respond)
+    cfg = {**company().adapter_config, "detail_limit": 0}
+    jobs = await WorkdayAdapter().fetch_jobs(company(adapter_config=cfg), ctx)
+    assert sorted(j.source_job_id for j in jobs) == ["JR1", "JR2", "JR3", "JR4", "JR5"]
+    assert route.call_count == 4  # discovery + 3 facet pages

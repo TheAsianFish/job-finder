@@ -34,6 +34,14 @@
       ]
     },
     {
+      "facetParameter": "jobFamilyGroup",
+      "descriptor": "Job Family Group",
+      "values": [
+        {"descriptor": "Engineering", "id": "eng-id", "count": 1700},
+        {"descriptor": "Univ Employment", "id": "univ-id", "count": 137}
+      ]
+    },
+    {
       "facetParameter": "locationMainGroup",
       "descriptor": "Locations",
       "values": [{"descriptor": "University Park", "id": "loc-id", "count": 3}]
