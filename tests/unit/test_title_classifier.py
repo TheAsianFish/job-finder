@@ -109,3 +109,41 @@ def test_marketing_excluded():
 
 def test_sre_family():
     assert classify("Site Reliability Engineer Intern").role_family == "infrastructure"
+
+
+import pytest as _pytest  # noqa: E402
+
+
+@_pytest.mark.parametrize(
+    "title",
+    [
+        "PhD Research Intern, Vision Science - Summer 2027",
+        "Ph.D. Software Engineering Intern",
+        "Master's Software Engineering Intern",
+        "Software Engineer Intern (MS/PhD)",
+        "Machine Learning Intern (MS)",
+        "2027 MBA Intern - Corporate Strategy",
+        "Postdoctoral Researcher",
+    ],
+)
+def test_graduate_only_titles_are_excluded(title):
+    result = classify(title, "")
+    assert result.hard_excluded
+    assert "graduate" in (result.exclusion_reason or "")
+
+
+@_pytest.mark.parametrize(
+    "title",
+    [
+        "2027 Summer Intern, BS/MS, Software Engineering",
+        "Software Engineering Intern, BS",
+        "Software Engineer Intern (Bachelor's/Master's)",
+        "Software Engineer Intern - MS Teams Platform",  # 'MS' as product name
+        "Software Engineer Intern - Summer 2027",
+        "Systems Software Intern",  # 'ms' inside a word
+        "Campus Quantitative Researcher, UG/MS (Intern)",
+        "Software Engineer Intern - Southaven, MS",  # Mississippi
+    ],
+)
+def test_undergrad_open_titles_are_kept(title):
+    assert not classify(title, "").hard_excluded

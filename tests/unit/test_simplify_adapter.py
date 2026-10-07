@@ -137,3 +137,14 @@ def test_resolver_matches_by_board_token_and_name_prefix():
     assert resolver.resolve("AQR Capital Management").id == "aqr"
     # Single-word names never prefix-match: "Metaview" is not Meta.
     assert resolver.resolve("Metaview").id == "metaview"
+
+
+@respx.mock
+async def test_graduate_only_degree_listings_are_dropped(ctx):
+    import json
+
+    listings = json.loads(load_fixture("simplify_listings.json"))
+    listings[0]["degrees"] = ["Master's", "PhD"]
+    respx.get(URL).mock(return_value=Response(200, json=listings))
+    jobs = await SimplifyAdapter().fetch_jobs(source(), ctx)
+    assert "Google" not in [j.raw["company_name"] for j in jobs]

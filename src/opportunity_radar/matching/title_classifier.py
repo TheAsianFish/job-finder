@@ -147,6 +147,27 @@ def _first_match(terms: list[_Term], text: str, lowered: str | None = None) -> s
     return None
 
 
+# Graduate-degree-only titles ("PhD Research Intern", "Master's Software
+# Intern", "MS/PhD Intern"). Excluded even on intern titles, unless the title
+# also opens the role to undergraduates ("BS/MS Intern"): a bachelor's
+# candidate cannot apply, so they are never relevant.
+_GRAD_TITLE_RE = re.compile(
+    r"\bph\.?\s?d\b|doctoral|doctorate|post[\s\-]?doc|\bmba\b"
+    # Bare "MS" only inside "(...)" or "/" degree lists ("(MS)", "MS/PhD"):
+    # never "MS Teams" or a Mississippi location ("Southaven, MS").
+    r"|master'?s|\bm\.?s\.?(?=\s*[/)])|(?<=[(/])\s?m\.?s\b",
+    re.IGNORECASE,
+)
+_UNDERGRAD_TITLE_RE = re.compile(
+    r"\bb\.?s\.?(?=[\s/,)\-]|$)|\bb\.?a\.?(?=[\s/,)\-]|$)|bachelor|undergrad|\bug\b",
+    re.IGNORECASE,
+)
+
+
+def graduate_only_title(title: str) -> bool:
+    return bool(_GRAD_TITLE_RE.search(title or "")) and not _UNDERGRAD_TITLE_RE.search(title or "")
+
+
 def classify(title: str, description: str = "") -> TitleClassification:
     rules = load_rules()
     result = TitleClassification()
@@ -190,6 +211,10 @@ def classify(title: str, description: str = "") -> TitleClassification:
             }
             else None
         )
+
+    if not result.hard_excluded and graduate_only_title(title_text):
+        result.hard_excluded = True
+        result.exclusion_reason = "title targets graduate-degree students only (PhD/MS/MBA)"
 
     desc_excluded = _first_match(rules.description_exclusions, desc_text, desc_l)
     if desc_excluded:

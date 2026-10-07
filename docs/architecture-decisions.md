@@ -279,3 +279,16 @@ even when a scan fails, so one bad run does not stop polling; the cron
 restarts the chain if a run dies before reaching that step. One concurrency
 group keeps a single writer for the SQLite state, and old DB caches are
 pruned to the newest three. Stop: `gh variable set CHAIN_SCANS --body false`.
+
+## AD-25: Graduate-degree-only roles are excluded; internships first
+
+Patrick (BS, Dec 2027) cannot apply to PhD/Master's/MBA-only roles, and
+they were reaching notifications because intern titles bypass the normal
+title exclusions. A title naming PhD/doctoral/postdoc/Master's/MBA (or "MS"
+inside a degree list such as "(MS)" or "MS/PhD") is now hard-excluded even
+on intern titles, unless it also opens the role to undergraduates ("BS/MS",
+"Bachelor's", "UG"). Simplify listings whose own degree field lacks
+Bachelor's are dropped at the adapter. Live sample: 230 of 7,541 active
+early-career jobs excluded, no false positives in review ("MS Teams" and
+"Southaven, MS" are kept). `NORMALIZATION_VERSION` 2 re-scores stored jobs.
+The Simplify new-grad feed is disabled while the focus is internships.

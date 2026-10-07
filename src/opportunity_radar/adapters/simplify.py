@@ -100,6 +100,9 @@ class SimplifyAdapter(BaseAdapter):
                 continue
             if not item.get("id") or not item.get("title") or not item.get("url"):
                 continue
+            degrees = [str(d).lower() for d in item.get("degrees") or []]
+            if degrees and not any("bachelor" in d for d in degrees):
+                continue  # Master's/PhD-only per Simplify's own degree field
             jobs.append(self._to_raw(item, kind, terms))
         return jobs
 

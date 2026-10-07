@@ -16,6 +16,7 @@
 
 
 
+
 companies:
 - id: stripe
   name: Stripe
@@ -2115,9 +2116,9 @@ companies:
   tags:
   - secondary
   - simplify
-  notes: 'Secondary source. Exploratory tier: most current new-grad postings target 2026 grads, so only
-    known core/strong employers reach the digest.'
+  notes: 'Disabled 2026-10-07: Patrick is focused on internships. Re-enable for new-grad season.'
   scan_interval_minutes: 20
+  enabled: false
 - id: tesla
   name: Tesla
   domain: tesla.com

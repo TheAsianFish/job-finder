@@ -392,7 +392,7 @@ async def test_simplify_feed_alerts_big_tech_and_skips_direct_employers(db, sett
     new = dict(listings[0])
     new.update(
         id="aaaa0099-0000-0000-0000-000000000099",
-        title="Software Engineering Intern, MS",
+        title="Software Engineering Intern, BS/MS",
         url="https://www.google.com/about/careers/applications/jobs/results/1099",
     )
     route.mock(return_value=Response(200, json=[*listings, new]))
