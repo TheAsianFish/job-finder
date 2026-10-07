@@ -18,6 +18,7 @@ import structlog
 from opportunity_radar.adapters.base import AdapterContext, AdapterError
 from opportunity_radar.adapters.registry import fetch_with_fallback
 from opportunity_radar.config import AppSettings
+from opportunity_radar.constants import NORMALIZATION_VERSION
 from opportunity_radar.db import repositories as repo
 from opportunity_radar.db.engine import session_scope
 from opportunity_radar.matching.scorer import decide_alert_level, is_us_accessible
@@ -27,6 +28,7 @@ from opportunity_radar.models.scan import ScanOutcome
 from opportunity_radar.pipeline import change_detector, closure_detector, deduper, normalizer
 from opportunity_radar.pipeline.company_resolver import CompanyResolver
 from opportunity_radar.utilities.dates import ensure_utc, utcnow
+from opportunity_radar.utilities.hashing import identity_hash
 from opportunity_radar.utilities.rate_limit import RateLimiter, build_user_agent
 
 logger = structlog.get_logger(__name__)
@@ -268,6 +270,8 @@ def _persist_company_jobs(
             summary.baselined_company_ids.append(company.id)
             logger.info("source_baseline", company_id=company.id, jobs=len(raw_jobs))
         seen_hashes: set[str] = set()
+        fingerprint = _scoring_fingerprint(settings, now)
+        unchanged = 0
 
         for raw in raw_jobs:
             job_company = company
@@ -282,31 +286,42 @@ def _persist_company_jobs(
                     if repo.get_company(session, job_company.id) is None:
                         repo.sync_companies(session, [job_company])
                     ensured_company_ids.add(job_company.id)
-            record = _normalize(raw, job_company, company, settings, now=now)
-            seen_hashes.add(record.identity_hash)
-            existing = deduper.find_existing(session, record)
+            identity = identity_hash(raw.source_adapter, job_company.id, raw.source_job_id)
+            existing = repo.get_job_by_identity(session, identity)
+            # Per-posting-detail adapters skip the detail request for
+            # postings we already hold; keep the detail-derived fields so the
+            # record does not degrade (and does not flip-flop as a "changed"
+            # job every scan).
+            if existing is not None and raw.raw.get("detail_fetched") is False:
+                raw = _reuse_detail_fields(raw, existing)
+            payload_hash = _raw_hash(raw, job_company, fingerprint)
+            if (
+                existing is not None
+                and existing.status == "active"
+                and existing.raw_hash == payload_hash
+            ):
+                # Fast path: nothing about the posting or the scoring inputs
+                # changed since it was last normalised.
+                seen_hashes.add(identity)
+                _touch_unchanged(existing, now)
+                unchanged += 1
+                continue
 
+            known_sibling = False
             if existing is None:
-                job_row = repo.insert_job(
-                    session,
-                    record,
-                    normalizer.alias_hashes_for(record),
-                    is_baseline=source_baseline,
-                )
-                outcome.new_count += 1
-                outcome.new_job_ids.append(job_row.id)
-                if not source_baseline:
-                    _classify_alert(job_row.id, record, job_company, alerts, summary, session)
-                elif not baseline and _worth_summarising(record, job_company, alerts):
-                    summary.baselined_job_ids.append(job_row.id)
+                record = _normalize(raw, job_company, company, settings, now=now)
+                # URL / fuzzy aliases bridge the same posting seen elsewhere.
+                existing, known_sibling = deduper.find_existing_or_sibling(session, record)
+                if existing is not None:
+                    record = _normalize(
+                        raw,
+                        job_company,
+                        company,
+                        settings,
+                        first_seen_at=ensure_utc(existing.first_seen_at),
+                        now=now,
+                    )
             else:
-                # Per-posting-detail adapters skip the detail request for
-                # postings we already hold; keep the detail-derived fields
-                # so the record does not degrade (and does not flip-flop as
-                # a "changed" job every scan).
-                if raw.raw.get("detail_fetched") is False:
-                    raw = _reuse_detail_fields(raw, existing)
-                # Recompute with the original first-seen time so freshness decays.
                 record = _normalize(
                     raw,
                     job_company,
@@ -315,7 +330,32 @@ def _persist_company_jobs(
                     first_seen_at=ensure_utc(existing.first_seen_at),
                     now=now,
                 )
-                seen_hashes.add(record.identity_hash)
+            seen_hashes.add(record.identity_hash)
+
+            if existing is None:
+                job_row = repo.insert_job(
+                    session,
+                    record,
+                    normalizer.alias_hashes_for(record),
+                    is_baseline=source_baseline or known_sibling,
+                )
+                job_row.raw_hash = payload_hash
+                if known_sibling:
+                    # Split out of a row it was wrongly merged into earlier:
+                    # already known, so stored quietly rather than as "new".
+                    logger.info(
+                        "split_merged_requisition",
+                        company_id=job_company.id,
+                        source_job_id=raw.source_job_id,
+                    )
+                    continue
+                outcome.new_count += 1
+                outcome.new_job_ids.append(job_row.id)
+                if not source_baseline:
+                    _classify_alert(job_row.id, record, job_company, alerts, summary, session)
+                elif not baseline and _worth_summarising(record, job_company, alerts):
+                    summary.baselined_job_ids.append(job_row.id)
+            else:
                 changes = change_detector.detect_changes(existing, record)
                 for change in changes:
                     repo.record_change(
@@ -328,6 +368,7 @@ def _persist_company_jobs(
                     )
                 reopened = existing.status == "closed"
                 repo.apply_record_to_row(existing, record)
+                existing.raw_hash = payload_hash
                 existing.status = "active"
                 existing.closed_at = None
                 existing.consecutive_misses = 0
@@ -349,6 +390,8 @@ def _persist_company_jobs(
                         summary.changed_job_ids.append(existing.id)
                         existing.digest_pending = True
 
+        if unchanged:
+            logger.debug("unchanged_fast_path", company_id=company.id, unchanged=unchanged)
         if skipped_direct:
             logger.info(
                 "secondary_skipped_direct",
@@ -366,6 +409,62 @@ def _persist_company_jobs(
         repo.update_source_state_success(session, company.id, len(raw_jobs))
         repo.record_scan_run(session, outcome)
     return outcome
+
+
+def _scoring_fingerprint(settings: AppSettings, now) -> str:
+    """Everything besides the payload that changes how a posting scores.
+
+    Includes the UTC date because timing scores ignore target windows that
+    have ended (AD-20): stored jobs are re-scored once a day at most.
+    """
+    from opportunity_radar.matching.title_classifier import rules_fingerprint
+
+    return _sha256_text(
+        "|".join(
+            [
+                str(NORMALIZATION_VERSION),
+                now.date().isoformat(),
+                settings.profile.model_dump_json(),
+                settings.scoring.model_dump_json(),
+                rules_fingerprint(),
+            ]
+        )
+    )
+
+
+def _raw_hash(raw: RawJob, job_company: CompanySource, fingerprint: str) -> str:
+    payload = raw.model_dump_json()
+    return _sha256_text(f"{fingerprint}|{job_company.id}|{job_company.tier}|{payload}")
+
+
+def _sha256_text(text: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _touch_unchanged(row, now) -> None:
+    """Fast-path bookkeeping for an unchanged posting: seen now, freshness
+    points and the "First seen" reason decay exactly as a full re-score would."""
+    from opportunity_radar.matching.scorer import _score_freshness
+    from opportunity_radar.utilities.dates import humanize_age
+
+    row.last_seen_at = now
+    row.consecutive_misses = 0
+    first_seen = ensure_utc(row.first_seen_at)
+    components = dict(row.score_components or {})
+    if first_seen is None or "hard_excluded" in components or "freshness" not in components:
+        return
+    fresh = _score_freshness(first_seen, now)
+    if fresh != components["freshness"]:
+        components["freshness"] = fresh
+        row.score_components = components
+        row.match_score = round(min(max(sum(components.values()), 0.0), 100.0), 1)
+    reasons = list(row.match_reasons or [])
+    label = f"First seen {humanize_age(first_seen, now)}"
+    updated = [label if r.startswith("First seen ") else r for r in reasons]
+    if updated != reasons:
+        row.match_reasons = updated
 
 
 def _normalize(

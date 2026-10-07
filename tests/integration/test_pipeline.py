@@ -426,3 +426,130 @@ async def test_simplify_feed_alerts_big_tech_and_skips_direct_employers(db, sett
             for j in repo.list_jobs(session, limit=500)
             if j.company_id == "acmecorp"
         )
+
+
+@respx.mock
+async def test_unchanged_postings_take_fast_path_and_decay_like_full_rescore(
+    db, settings, monkeypatch
+):
+    from datetime import UTC, datetime, timedelta
+
+    from opportunity_radar.pipeline import normalizer as normalizer_mod
+    from opportunity_radar.pipeline import scanner as scanner_mod
+
+    # Same UTC day: the fingerprint deliberately includes the date (expired
+    # target windows), so crossing midnight would force a full re-score.
+    start = datetime(2026, 10, 7, 1, 0, tzinfo=UTC)
+    monkeypatch.setattr(scanner_mod, "utcnow", lambda: start)
+    respx.get(API_URL).mock(return_value=Response(200, json=gh_payload()))
+    await scan_companies([company()], settings, db_url=db)  # baseline, full normalise
+
+    calls = {"n": 0}
+    real_normalize = normalizer_mod.normalize
+
+    def counting(*args, **kwargs):
+        calls["n"] += 1
+        return real_normalize(*args, **kwargs)
+
+    monkeypatch.setattr(normalizer_mod, "normalize", counting)
+    later = start + timedelta(hours=20)
+    monkeypatch.setattr(scanner_mod, "utcnow", lambda: later)
+    summary = await scan_companies([company()], settings, db_url=db)
+    assert calls["n"] == 0  # nothing re-normalised
+    assert summary.total_changed == 0
+
+    with session_scope(db) as session:
+        rows = repo.list_jobs(session, limit=100)
+        assert all(abs((ensure(j.last_seen_at) - later).total_seconds()) < 1 for j in rows)
+        fast = {j.source_job_id: (j.match_score, j.score_components.get("freshness")) for j in rows}
+        # Same answer as a full re-score at the same moment.
+        for j in rows:
+            raw_payload = next(x for x in gh_payload()["jobs"] if str(x["id"]) == j.source_job_id)
+            from opportunity_radar.adapters.greenhouse import GreenhouseAdapter
+
+            raw = GreenhouseAdapter()._to_raw(raw_payload, "acmecorp")
+            full = real_normalize(
+                raw, company(), settings, first_seen_at=ensure(j.first_seen_at), now=later
+            )
+            assert fast[j.source_job_id] == (
+                full.match_score,
+                full.score_components.get("freshness", fast[j.source_job_id][1]),
+            )
+            assert any(
+                r.startswith("First seen ") and "20 hours" in r for r in j.match_reasons
+            ) or (j.match_score == 0.0)
+
+
+@respx.mock
+async def test_scoring_change_invalidates_fast_path(db, settings, monkeypatch):
+    from opportunity_radar.pipeline import normalizer as normalizer_mod
+
+    respx.get(API_URL).mock(return_value=Response(200, json=gh_payload()))
+    await scan_companies([company()], settings, db_url=db)
+
+    calls = {"n": 0}
+    real_normalize = normalizer_mod.normalize
+
+    def counting(*args, **kwargs):
+        calls["n"] += 1
+        return real_normalize(*args, **kwargs)
+
+    monkeypatch.setattr(normalizer_mod, "normalize", counting)
+    settings.scoring.company_tier_points["core"] = 24.0  # e.g. tune adjusted a weight
+    await scan_companies([company()], settings, db_url=db)
+    assert calls["n"] == 3  # every stored job re-scored once, not twice
+    with session_scope(db) as session:
+        assert all(
+            j.score_components.get("company_quality") in (24.0, None)
+            for j in repo.list_jobs(session, limit=100)
+        )
+
+
+def ensure(value):
+    from opportunity_radar.utilities.dates import ensure_utc
+
+    return ensure_utc(value)
+
+
+@respx.mock
+async def test_legacy_merged_requisitions_split_quietly_and_stop_flip_flopping(db, settings):
+    """Rows merged before AD-14/AD-23 carry a sibling's identity alias. The
+    sibling is split out once, without an alert, and nothing flips after."""
+    from opportunity_radar.db.tables import JobAliasRow
+    from opportunity_radar.utilities.hashing import identity_hash as make_identity
+
+    payload = gh_payload()
+    respx.get(API_URL).mock(return_value=Response(200, json=payload))
+    await scan_companies([company()], settings, db_url=db)
+
+    sibling = dict(payload["jobs"][0])
+    sibling.update(id=4011777, absolute_url="https://boards.greenhouse.io/acmecorp/jobs/4011777")
+    with session_scope(db) as session:
+        merged_into = next(
+            j for j in repo.list_jobs(session, limit=10) if j.source_job_id == "4011001"
+        )
+        session.add(
+            JobAliasRow(
+                job_id=merged_into.id,
+                alias_kind="identity",
+                alias_hash=make_identity("greenhouse", "acmecorp", "4011777"),
+                source_adapter="greenhouse",
+                source_job_id="4011777",
+                url=sibling["absolute_url"],
+                first_seen_at=merged_into.first_seen_at,
+            )
+        )
+    grown = dict(payload)
+    grown["jobs"] = [*payload["jobs"], sibling]
+    respx.get(API_URL).mock(return_value=Response(200, json=grown))
+
+    split = await scan_companies([company()], settings, db_url=db)
+    assert split.total_new == 0 and split.immediate_job_ids == []
+    steady = await scan_companies([company()], settings, db_url=db)
+    assert steady.total_changed == 0
+    with session_scope(db) as session:
+        ids = sorted(j.source_job_id for j in repo.list_jobs(session, limit=10))
+        assert ids == ["4011001", "4011002", "4011003", "4011777"]
+        assert next(
+            j for j in repo.list_jobs(session, limit=10) if j.source_job_id == "4011777"
+        ).is_baseline

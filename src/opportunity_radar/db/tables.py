@@ -53,6 +53,9 @@ class JobRow(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     identity_hash: Mapped[str] = mapped_column(String(64), index=True)
     content_hash: Mapped[str] = mapped_column(String(64))
+    # Fingerprint of the adapter payload + scoring inputs at last full
+    # normalisation; unchanged postings skip re-normalisation (AD-23).
+    raw_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     source_name: Mapped[str] = mapped_column(String(100), index=True)
     source_adapter: Mapped[str] = mapped_column(String(50))

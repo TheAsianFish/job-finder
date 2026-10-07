@@ -239,3 +239,30 @@ took ~14 minutes because ~110 Greenhouse boards shared a one-slot gate on
   employers plus the Simplify feeds. Every run is one job in one
   concurrency group with one SQLite state, so there is no duplicate-alert
   risk from overlapping workers.
+
+## AD-23: Unchanged postings skip re-normalisation; no same-board merges
+
+A cloud full scan took 24 minutes. Profiling showed almost none of it was
+network: every scan fully re-classified, re-scored and re-hashed every
+stored posting (twice for existing ones) while holding the database lock,
+so Anduril's 2,474 unchanged jobs cost 96 s of CPU and every other source
+queued behind it.
+
+- `jobs.raw_hash` fingerprints the adapter payload plus everything that
+  changes scoring (profile, scoring config, title rules, company tier,
+  `NORMALIZATION_VERSION`, UTC date). Equal hash ⇒ fast path: last-seen,
+  miss counter, freshness points and the "First seen" reason are updated
+  exactly as a full re-score would; nothing else is recomputed. Any config
+  or code change, or a new day (target windows can expire), re-scores
+  everything once. Bump `NORMALIZATION_VERSION` when matching code changes.
+- Existing postings are normalised once, not twice; classifier terms use a
+  literal pre-check before the regex (identical results on 5,000 real jobs,
+  6× faster).
+- Profiling also exposed rows merged before AD-14: two Anduril
+  requisitions sharing one row via a stale identity alias, overwriting each
+  other every scan (~50 bogus "changed" rows per scan). The AD-14 rule now
+  applies to every alias kind: the same adapter with different concrete
+  job IDs never merges. Legacy merges are split out once, quietly
+  (`is_baseline`, no alert).
+
+Anduril persist: 96 s → 0.6 s at steady state.

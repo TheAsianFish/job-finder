@@ -67,17 +67,41 @@ def _term_to_regex(term: str) -> re.Pattern[str]:
     return re.compile(rf"(?<![a-z0-9]){flexible}(?![a-z0-9])", re.IGNORECASE)
 
 
+@dataclass(frozen=True)
+class _Term:
+    """A rule term plus a cheap literal pre-check.
+
+    Running ~150 word-boundary regexes over every multi-kilobyte description
+    dominated scan CPU time. Any match of the regex contains the term's
+    longest word (case-insensitively; "engineer" is also inside
+    "engineering"), so a plain substring test on the lowered text skips the
+    regex whenever the word is absent — identical results, a fraction of the
+    work.
+    """
+
+    term: str
+    literal: str
+    pattern: re.Pattern[str]
+
+    def search(self, text: str, lowered: str) -> bool:
+        return self.literal in lowered and self.pattern.search(text) is not None
+
+
+def _term(term: str) -> _Term:
+    parts = [part for part in re.split(r"[\s\-]+", term.strip().lower()) if part]
+    literal = max(parts, key=len) if parts else ""
+    return _Term(term=term, literal=literal, pattern=_term_to_regex(term))
+
+
 class _Rules:
     def __init__(self, raw: dict[str, Any]) -> None:
-        self.positive_titles = [_term_to_regex(t) for t in raw.get("positive_titles", [])]
-        self.early_career = [_term_to_regex(t) for t in raw.get("early_career_signals", [])]
-        self.hard_exclusions = [(t, _term_to_regex(t)) for t in raw.get("hard_exclusions", [])]
-        self.description_exclusions = [
-            (t, _term_to_regex(t)) for t in raw.get("description_exclusions", [])
-        ]
-        self.non_software = [(t, _term_to_regex(t)) for t in raw.get("non_software_signals", [])]
-        self.role_families: dict[str, list[re.Pattern[str]]] = {
-            family: [_term_to_regex(t) for t in terms]
+        self.positive_titles = [_term(t) for t in raw.get("positive_titles", [])]
+        self.early_career = [_term(t) for t in raw.get("early_career_signals", [])]
+        self.hard_exclusions = [_term(t) for t in raw.get("hard_exclusions", [])]
+        self.description_exclusions = [_term(t) for t in raw.get("description_exclusions", [])]
+        self.non_software = [_term(t) for t in raw.get("non_software_signals", [])]
+        self.role_families: dict[str, list[_Term]] = {
+            family: [_term(t) for t in terms]
             for family, terms in raw.get("role_families", {}).items()
         }
 
@@ -99,14 +123,27 @@ def load_rules(path: str | None = None) -> _Rules:
     return _Rules({})
 
 
-def _any_match(patterns: list[re.Pattern[str]], text: str) -> bool:
-    return any(p.search(text) for p in patterns)
+@lru_cache(maxsize=1)
+def rules_fingerprint() -> str:
+    """Hash of the title rules file in effect (part of every job's raw_hash)."""
+    import hashlib
+
+    for candidate in (config_dir() / "title_rules.yaml", _DEFAULT_RULES_PATH):
+        if candidate.exists():
+            return hashlib.sha256(candidate.read_bytes()).hexdigest()
+    return "none"
 
 
-def _first_match(patterns: list[tuple[str, re.Pattern[str]]], text: str) -> str | None:
-    for term, pattern in patterns:
-        if pattern.search(text):
-            return term
+def _any_match(terms: list[_Term], text: str, lowered: str | None = None) -> bool:
+    lowered = text.lower() if lowered is None else lowered
+    return any(term.search(text, lowered) for term in terms)
+
+
+def _first_match(terms: list[_Term], text: str, lowered: str | None = None) -> str | None:
+    lowered = text.lower() if lowered is None else lowered
+    for term in terms:
+        if term.search(text, lowered):
+            return term.term
     return None
 
 
@@ -116,9 +153,12 @@ def classify(title: str, description: str = "") -> TitleClassification:
     title_text = title or ""
     desc_text = description or ""
     combined = f"{title_text}\n{desc_text}"
+    title_l = title_text.lower()
+    desc_l = desc_text.lower()
+    combined_l = f"{title_l}\n{desc_l}"
 
-    early_in_title = _any_match(rules.early_career, title_text)
-    early_in_desc = _any_match(rules.early_career, desc_text)
+    early_in_title = _any_match(rules.early_career, title_text, title_l)
+    early_in_desc = _any_match(rules.early_career, desc_text, desc_l)
     result.is_early_career = early_in_title or early_in_desc
     if early_in_title:
         result.matched_signals.append("early_career_title")
@@ -127,7 +167,7 @@ def classify(title: str, description: str = "") -> TitleClassification:
 
     # Hard exclusion applies only on the title, and never overrides an explicit
     # intern/new-grad signal in the title (spec: exclude only with high confidence).
-    excluded_term = _first_match(rules.hard_exclusions, title_text)
+    excluded_term = _first_match(rules.hard_exclusions, title_text, title_l)
     if excluded_term and not early_in_title:
         result.hard_excluded = True
         result.exclusion_reason = f"title matches exclusion pattern '{excluded_term}'"
@@ -151,22 +191,22 @@ def classify(title: str, description: str = "") -> TitleClassification:
             else None
         )
 
-    desc_excluded = _first_match(rules.description_exclusions, desc_text)
+    desc_excluded = _first_match(rules.description_exclusions, desc_text, desc_l)
     if desc_excluded:
         result.downrank_flags.append(f"description_exclusion:{desc_excluded}")
 
-    positive = _any_match(rules.positive_titles, title_text)
-    non_software_term = _first_match(rules.non_software, title_text)
+    positive = _any_match(rules.positive_titles, title_text, title_l)
+    non_software_term = _first_match(rules.non_software, title_text, title_l)
 
     # Role family: title matches are authoritative; description matches are a fallback.
     family = None
     for candidate in _FAMILY_ORDER:
-        if _any_match(rules.role_families.get(candidate, []), title_text):
+        if _any_match(rules.role_families.get(candidate, []), title_text, title_l):
             family = candidate
             break
     if family is None:
         for candidate in _FAMILY_ORDER:
-            if _any_match(rules.role_families.get(candidate, []), combined):
+            if _any_match(rules.role_families.get(candidate, []), combined, combined_l):
                 family = candidate
                 break
 
@@ -200,3 +240,4 @@ def classify(title: str, description: str = "") -> TitleClassification:
 
 def clear_rules_cache() -> None:
     load_rules.cache_clear()
+    rules_fingerprint.cache_clear()
