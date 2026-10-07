@@ -24,9 +24,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 50  # ~200 sources + capped Workday detail fetches
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v10
         with:
           python-version: "3.12"
 
@@ -39,7 +39,7 @@ jobs:
       # re-baselined an empty database — meaning no alerts were ever sent.
       # Cache restore-keys match across runs by prefix (newest first).
       - name: Restore previous database
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: data/opportunity_radar.db
           key: radar-db-${{ github.run_id }}
@@ -58,7 +58,7 @@ jobs:
 
       - name: Persist database
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: data/opportunity_radar.db
           key: radar-db-${{ github.run_id }}
