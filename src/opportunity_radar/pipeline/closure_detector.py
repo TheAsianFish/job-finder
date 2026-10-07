@@ -24,7 +24,7 @@ _ZERO_DROP_ANOMALY_MIN = 5
 
 def process_closures(
     session: Session,
-    company_id: str,
+    source_name: str,
     seen_identity_hashes: set[str],
     jobs_found: int,
     previous_job_count: int | None,
@@ -40,14 +40,17 @@ def process_closures(
     ):
         logger.warning(
             "zero_job_anomaly",
-            company_id=company_id,
+            source_name=source_name,
             previous_job_count=previous_job_count,
             action="skipping closure processing",
         )
         return 0
 
+    # Scoped by source, not company: a secondary source (Simplify) stores
+    # postings under many companies, and a company can be fed by more than
+    # one source — each source only closes what it itself reported.
     closed = 0
-    for job in repo.active_jobs_for_company(session, company_id):
+    for job in repo.active_jobs_for_source(session, source_name):
         if job.identity_hash in seen_identity_hashes:
             if job.consecutive_misses:
                 job.consecutive_misses = 0
@@ -60,7 +63,8 @@ def process_closures(
             closed += 1
             logger.info(
                 "job_closed",
-                company_id=company_id,
+                company_id=job.company_id,
+                source=source_name,
                 job_id=job.id,
                 title=job.title,
                 misses=job.consecutive_misses,

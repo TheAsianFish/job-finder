@@ -102,6 +102,11 @@ def _window_for(season: str, year: int | None) -> tuple[date | None, date | None
     return date(year, m1, d1), date(year, m2, d2)
 
 
+def season_window(season: str, year: int | None) -> tuple[date | None, date | None]:
+    """Canonical start window for a season label, e.g. ("summer", 2027)."""
+    return _window_for(_SEASON_WORDS.get(season.lower(), season.lower()), year)
+
+
 def _explicit_season(text: str) -> tuple[str, int | None, str] | None:
     match = _SEASON_YEAR_RE.search(text)
     if match:

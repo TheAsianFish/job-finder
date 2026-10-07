@@ -353,3 +353,76 @@ async def test_detail_skipping_adapter_keeps_stored_description(db, settings):
         assert rows["JR100001"].apply_url.endswith("/job/x/JR100001")
         assert rows["JR100001"].posted_at is not None
         assert session.query(JobChangeRow).count() == 0
+
+
+SIMPLIFY_URL = (
+    "https://raw.githubusercontent.com/SimplifyJobs/Summer2027-Internships/dev/"
+    ".github/scripts/listings.json"
+)
+
+
+def _simplify_source() -> CompanySource:
+    return CompanySource(
+        id="simplify-internships",
+        name="Simplify internships list",
+        tier="broad",
+        adapter="simplify",
+        adapter_config={"url": SIMPLIFY_URL},
+    )
+
+
+@respx.mock
+async def test_simplify_feed_alerts_big_tech_and_skips_direct_employers(db, settings):
+    settings.companies = [
+        CompanySource(id="google", name="Google", tier="core", enabled=False),
+        CompanySource(id="stripe", name="Stripe", tier="core", adapter="greenhouse"),
+        CompanySource(id="sig", name="SIG", tier="core", enabled=False),
+        _simplify_source(),
+    ]
+    listings = json.loads(load_fixture("simplify_listings.json"))
+    route = respx.get(SIMPLIFY_URL).mock(return_value=Response(200, json=listings))
+    # Seed the DB so the global first-run guard does not apply.
+    respx.get(API_URL).mock(return_value=Response(200, json=gh_payload()))
+    await scan_companies([company()], settings, db_url=db)
+
+    first = await scan_companies([_simplify_source()], settings, db_url=db)
+    assert first.baselined_company_ids == ["simplify-internships"]  # per-source baseline
+    assert first.immediate_job_ids == []
+
+    new = dict(listings[0])
+    new.update(
+        id="aaaa0099-0000-0000-0000-000000000099",
+        title="Software Engineering Intern, MS",
+        url="https://www.google.com/about/careers/applications/jobs/results/1099",
+    )
+    route.mock(return_value=Response(200, json=[*listings, new]))
+    second = await scan_companies([_simplify_source()], settings, db_url=db)
+    assert second.total_new == 1
+    assert len(second.immediate_job_ids) == 1  # core-tier Summer 2027 intern
+
+    with session_scope(db) as session:
+        rows = [j for j in repo.list_jobs(session, limit=500) if j.source_adapter == "simplify"]
+        by_company = {j.company_id for j in rows}
+        assert "google" in by_company
+        assert "acme-robotics" in by_company and "sig" in by_company
+        assert "stripe" not in by_company  # employer scanned directly: skipped
+        assert all(j.source_name == "simplify-internships" for j in rows)
+        google = next(j for j in rows if j.source_job_id.endswith("99"))
+        assert google.season == "summer" and google.season_year == 2027
+        assert repo.get_company(session, "acme-robotics") is not None
+
+    # Simplify retires the posting -> closed after two clean misses.
+    route.mock(return_value=Response(200, json=listings))
+    await scan_companies([_simplify_source()], settings, db_url=db)
+    await scan_companies([_simplify_source()], settings, db_url=db)
+    with session_scope(db) as session:
+        google = next(
+            j for j in repo.list_jobs(session, limit=500) if j.source_job_id.endswith("99")
+        )
+        assert google.status == "closed"
+        # The primary source's jobs are untouched by the secondary closure pass.
+        assert all(
+            j.status == "active"
+            for j in repo.list_jobs(session, limit=500)
+            if j.company_id == "acmecorp"
+        )

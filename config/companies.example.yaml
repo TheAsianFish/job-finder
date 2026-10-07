@@ -3,8 +3,9 @@
 # Fields:
 #   id: unique slug            tier: core | strong | broad | exploratory
 #   adapter: greenhouse | lever | ashby | workday | smartrecruiters | eightfold |
-#            amazon_jobs | github_careers | atlassian_careers | jsonld | sitemap |
-#            html_generic | playwright | auto (fingerprint from career_urls)
+#            amazon_jobs | github_careers | atlassian_careers | simplify |
+#            jsonld | sitemap | html_generic | playwright |
+#            auto (fingerprint from career_urls)
 #   adapter_config: adapter-specific (board_token / site / job_board_name /
 #            host+site (workday) / company (smartrecruiters) / base_url+domain
 #            (eightfold) / selectors)
@@ -12,6 +13,8 @@
 #
 # Verify any entry with:  uv run opportunity-radar companies validate --company <id>
 # If validation fails, run: uv run opportunity-radar companies discover <domain>
+
+
 
 companies:
 - id: stripe
@@ -2087,3 +2090,131 @@ companies:
   - health
   - fintech
   notes: Public ashby board, verified 2026-10-06.
+- id: simplify-internships
+  name: Simplify internships list
+  domain: github.com/SimplifyJobs
+  tier: broad
+  adapter: simplify
+  adapter_config:
+    url: https://raw.githubusercontent.com/SimplifyJobs/Summer2027-Internships/dev/.github/scripts/listings.json
+    list_kind: internship
+  tags:
+  - secondary
+  - simplify
+  notes: Secondary source (spec §28). Employers the registry scans directly are skipped; others are stored
+    under their own company at this source's tier unless listed below with a tier.
+  scan_interval_minutes: 10
+- id: simplify-new-grad
+  name: Simplify new-grad list
+  domain: github.com/SimplifyJobs
+  tier: exploratory
+  adapter: simplify
+  adapter_config:
+    url: https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/.github/scripts/listings.json
+    list_kind: new_grad
+  tags:
+  - secondary
+  - simplify
+  notes: 'Secondary source. Exploratory tier: most current new-grad postings target 2026 grads, so only
+    known core/strong employers reach the digest.'
+  scan_interval_minutes: 20
+- id: tesla
+  name: Tesla
+  domain: tesla.com
+  tier: strong
+  adapter: auto
+  enabled: false
+  tags:
+  - simplify-tier
+  notes: Not scanned directly (no public JSON found). Listed so postings from the Simplify feed get this
+    tier.
+- id: amd
+  name: AMD
+  domain: amd.com
+  tier: strong
+  adapter: auto
+  enabled: false
+  tags:
+  - simplify-tier
+  notes: Not scanned directly (no public JSON found). Listed so postings from the Simplify feed get this
+    tier.
+- id: intuit
+  name: Intuit
+  domain: intuit.com
+  tier: strong
+  adapter: auto
+  enabled: false
+  tags:
+  - simplify-tier
+  notes: Not scanned directly (no public JSON found). Listed so postings from the Simplify feed get this
+    tier.
+- id: palo-alto-networks
+  name: Palo Alto Networks
+  domain: paloaltonetworks.com
+  tier: strong
+  adapter: auto
+  enabled: false
+  tags:
+  - simplify-tier
+  notes: Not scanned directly (no public JSON found). Listed so postings from the Simplify feed get this
+    tier.
+- id: qualcomm
+  name: Qualcomm
+  domain: qualcomm.com
+  tier: strong
+  adapter: auto
+  enabled: false
+  tags:
+  - simplify-tier
+  notes: Not scanned directly (no public JSON found). Listed so postings from the Simplify feed get this
+    tier.
+- id: bloomberg
+  name: Bloomberg
+  domain: bloomberg.com
+  tier: strong
+  adapter: auto
+  enabled: false
+  tags:
+  - simplify-tier
+  notes: Not scanned directly (no public JSON found). Listed so postings from the Simplify feed get this
+    tier.
+- id: linkedin
+  name: LinkedIn
+  domain: linkedin.com
+  tier: strong
+  adapter: auto
+  enabled: false
+  tags:
+  - simplify-tier
+  notes: Not scanned directly (no public JSON found). Listed so postings from the Simplify feed get this
+    tier.
+- id: oracle
+  name: Oracle
+  domain: oracle.com
+  tier: broad
+  adapter: auto
+  enabled: false
+  tags:
+  - simplify-tier
+  notes: Not scanned directly (no public JSON found). Listed so postings from the Simplify feed get this
+    tier.
+- id: cisco
+  name: Cisco
+  domain: cisco.com
+  tier: broad
+  adapter: auto
+  enabled: false
+  tags:
+  - simplify-tier
+  notes: Not scanned directly (no public JSON found). Listed so postings from the Simplify feed get this
+    tier.
+- id: capital-one
+  name: Capital One
+  domain: capitalone.com
+  tier: broad
+  adapter: auto
+  enabled: false
+  tags:
+  - simplify-tier
+  notes: Not scanned directly (no public JSON found). Listed so postings from the Simplify feed get this
+    tier.

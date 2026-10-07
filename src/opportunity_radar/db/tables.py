@@ -54,7 +54,7 @@ class JobRow(Base):
     identity_hash: Mapped[str] = mapped_column(String(64), index=True)
     content_hash: Mapped[str] = mapped_column(String(64))
 
-    source_name: Mapped[str] = mapped_column(String(100))
+    source_name: Mapped[str] = mapped_column(String(100), index=True)
     source_adapter: Mapped[str] = mapped_column(String(50))
     source_job_id: Mapped[str] = mapped_column(String(200))
     company_id: Mapped[str] = mapped_column(String(100), ForeignKey("companies.id"), index=True)

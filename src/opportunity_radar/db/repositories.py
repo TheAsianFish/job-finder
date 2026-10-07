@@ -372,6 +372,16 @@ def list_company_source_job_ids(session: Session, company_id: str) -> set[str]:
     return {str(value) for value in session.scalars(stmt)}
 
 
+def active_jobs_for_source(session: Session, source_name: str) -> list[JobRow]:
+    stmt = select(JobRow).where(JobRow.source_name == source_name, JobRow.status == "active")
+    return list(session.scalars(stmt))
+
+
+def count_source_jobs(session: Session, source_name: str) -> int:
+    stmt = select(func.count(JobRow.id)).where(JobRow.source_name == source_name)
+    return int(session.scalar(stmt) or 0)
+
+
 def count_company_jobs(session: Session, company_id: str) -> int:
     stmt = select(func.count(JobRow.id)).where(JobRow.company_id == company_id)
     return int(session.scalar(stmt) or 0)

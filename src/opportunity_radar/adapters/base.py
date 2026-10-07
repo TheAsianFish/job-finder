@@ -98,6 +98,10 @@ class BaseAdapter(ABC):
     """Base class for all job source adapters."""
 
     name: str = "base"
+    # Secondary sources (spec §28) list postings from many employers. Their
+    # RawJobs carry raw["company_name"] and the scanner resolves each one
+    # to a company; see pipeline/company_resolver.py.
+    secondary: bool = False
 
     @abstractmethod
     async def fetch_jobs(self, company: CompanySource, ctx: AdapterContext) -> list[RawJob]:

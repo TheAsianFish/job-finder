@@ -15,6 +15,7 @@ from opportunity_radar.adapters.html_generic import HtmlGenericAdapter
 from opportunity_radar.adapters.jsonld import JsonLdAdapter
 from opportunity_radar.adapters.lever import LeverAdapter, extract_site
 from opportunity_radar.adapters.playwright_generic import PlaywrightAdapter
+from opportunity_radar.adapters.simplify import SimplifyAdapter
 from opportunity_radar.adapters.sitemap import SitemapAdapter
 from opportunity_radar.adapters.smartrecruiters import SmartRecruitersAdapter
 from opportunity_radar.adapters.unsupported import (
@@ -44,11 +45,15 @@ _ADAPTERS: dict[str, BaseAdapter] = {
         AmazonJobsAdapter(),
         GitHubCareersAdapter(),
         AtlassianCareersAdapter(),
+        SimplifyAdapter(),
         ICIMSAdapter(),
         SuccessFactorsAdapter(),
         TaleoAdapter(),
     ]
 }
+
+
+SECONDARY_ADAPTERS = frozenset(name for name, adapter in _ADAPTERS.items() if adapter.secondary)
 
 
 def get_adapter(name: str) -> BaseAdapter:

@@ -25,6 +25,7 @@ from opportunity_radar.models.company import CompanySource
 from opportunity_radar.models.job import JobRecord, RawJob
 from opportunity_radar.models.scan import ScanOutcome
 from opportunity_radar.pipeline import change_detector, closure_detector, deduper, normalizer
+from opportunity_radar.pipeline.company_resolver import CompanyResolver
 from opportunity_radar.utilities.dates import ensure_utc, utcnow
 from opportunity_radar.utilities.rate_limit import RateLimiter, build_user_agent
 
@@ -174,7 +175,14 @@ async def _scan_company(
     async with db_lock:
         try:
             outcome = _persist_company_jobs(
-                company, adapter_name, raw_jobs, settings, baseline, db_url, summary
+                company,
+                adapter_name,
+                raw_jobs,
+                settings,
+                baseline,
+                db_url,
+                summary,
+                secondary=adapter.secondary,
             )
         except Exception as exc:
             duration_ms = int((time.monotonic() - t0) * 1000)
@@ -216,7 +224,17 @@ def _persist_company_jobs(
     baseline: bool,
     db_url: str | None,
     summary: ScanSummary,
+    *,
+    secondary: bool = False,
 ) -> ScanOutcome:
+    """Persist one source's jobs.
+
+    A primary source's jobs all belong to ``company``. A secondary source
+    (Simplify) lists many employers: each job is resolved to its company,
+    employers the registry scans directly are skipped, and every stored job
+    carries ``source_name = company.id`` (the source) so closure and
+    baseline accounting stay per source.
+    """
     outcome = ScanOutcome(
         company_id=company.id,
         adapter=adapter_name,
@@ -226,20 +244,45 @@ def _persist_company_jobs(
     now = utcnow()
     alerts = settings.scoring.alerts
 
+    resolver = (
+        CompanyResolver(settings.companies, default_tier=company.tier, source_id=company.id)
+        if secondary
+        else None
+    )
+    ensured_company_ids: set[str] = set()
+    skipped_direct = 0
+
     with session_scope(db_url) as session:
         state = repo.get_source_state(session, company.id)
         previous_count = state.last_job_count
         # A source with no stored jobs is baselined on its own: adding 40
         # companies to a live registry must not fire 400 alerts, and neither
         # must re-pointing a seed that "succeeded" with 0 jobs for months.
-        source_baseline = baseline or repo.count_company_jobs(session, company.id) == 0
+        stored = (
+            repo.count_source_jobs(session, company.id)
+            if secondary
+            else repo.count_company_jobs(session, company.id)
+        )
+        source_baseline = baseline or stored == 0
         if source_baseline and not baseline and raw_jobs:
             summary.baselined_company_ids.append(company.id)
             logger.info("source_baseline", company_id=company.id, jobs=len(raw_jobs))
         seen_hashes: set[str] = set()
 
         for raw in raw_jobs:
-            record = normalizer.normalize(raw, company, settings, now=now)
+            job_company = company
+            if resolver is not None:
+                job_company = resolver.resolve(
+                    str(raw.raw.get("company_name") or ""), raw.apply_url or raw.url
+                )
+                if not resolver.should_ingest(job_company):
+                    skipped_direct += 1
+                    continue
+                if job_company.id not in ensured_company_ids:
+                    if repo.get_company(session, job_company.id) is None:
+                        repo.sync_companies(session, [job_company])
+                    ensured_company_ids.add(job_company.id)
+            record = _normalize(raw, job_company, company, settings, now=now)
             seen_hashes.add(record.identity_hash)
             existing = deduper.find_existing(session, record)
 
@@ -253,8 +296,8 @@ def _persist_company_jobs(
                 outcome.new_count += 1
                 outcome.new_job_ids.append(job_row.id)
                 if not source_baseline:
-                    _classify_alert(job_row.id, record, company, alerts, summary, session)
-                elif not baseline and _worth_summarising(record, company, alerts):
+                    _classify_alert(job_row.id, record, job_company, alerts, summary, session)
+                elif not baseline and _worth_summarising(record, job_company, alerts):
                     summary.baselined_job_ids.append(job_row.id)
             else:
                 # Per-posting-detail adapters skip the detail request for
@@ -264,8 +307,9 @@ def _persist_company_jobs(
                 if raw.raw.get("detail_fetched") is False:
                     raw = _reuse_detail_fields(raw, existing)
                 # Recompute with the original first-seen time so freshness decays.
-                record = normalizer.normalize(
+                record = _normalize(
                     raw,
+                    job_company,
                     company,
                     settings,
                     first_seen_at=ensure_utc(existing.first_seen_at),
@@ -305,6 +349,13 @@ def _persist_company_jobs(
                         summary.changed_job_ids.append(existing.id)
                         existing.digest_pending = True
 
+        if skipped_direct:
+            logger.info(
+                "secondary_skipped_direct",
+                source=company.id,
+                skipped=skipped_direct,
+                reason="employer scanned directly",
+            )
         outcome.closed_count = closure_detector.process_closures(
             session,
             company.id,
@@ -315,6 +366,21 @@ def _persist_company_jobs(
         repo.update_source_state_success(session, company.id, len(raw_jobs))
         repo.record_scan_run(session, outcome)
     return outcome
+
+
+def _normalize(
+    raw: RawJob,
+    job_company: CompanySource,
+    source: CompanySource,
+    settings: AppSettings,
+    *,
+    first_seen_at=None,
+    now=None,
+) -> JobRecord:
+    record = normalizer.normalize(raw, job_company, settings, first_seen_at=first_seen_at, now=now)
+    if job_company.id != source.id:
+        record = record.model_copy(update={"source_name": source.id})
+    return record
 
 
 def _reuse_detail_fields(raw: RawJob, existing) -> RawJob:
