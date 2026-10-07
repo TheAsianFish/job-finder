@@ -135,11 +135,13 @@ Root-caused "only Anduril shows up, no FAANG+":
   override, immediate bar 78 (AD-20).
 - **New sources never flood**: per-source baseline + one summary (AD-17).
 
-Live verification (single polite fetch per source, `companies validate`,
-2026-10-06): see the validation log summary in the commit that landed the
-registry; Workday/SmartRecruiters/Eightfold/amazon/GitHub/Atlassian were
-each exercised end-to-end against their real endpoints with capped detail
-fetches.
+Live verification (`companies validate`, one polite fetch per source,
+2026-10-06): **177 of 178 enabled sources returned jobs**; the one
+zero (Broadcom, Workday) has no intern/new-grad facet or titles today, which
+the pre-filtering adapters report legitimately (they are exempt from the
+silent-source warning). Workday/SmartRecruiters/Eightfold/amazon/GitHub/
+Atlassian were each exercised end-to-end against their real endpoints;
+NVIDIA's facet-driven pass returns 192 early-career postings (47 software).
 
 Still disabled (no public JSON found, never scraped around): Google, Meta,
 Apple (401), Microsoft (blocked), IBM, Uber, Citadel (bot challenge), Two
