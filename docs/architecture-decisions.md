@@ -266,3 +266,16 @@ queued behind it.
   (`is_baseline`, no alert).
 
 Anduril persist: 96 s → 0.6 s at steady state.
+
+## AD-24: Self-chaining cloud scans; cron only as a restart fallback
+
+GitHub delays and drops scheduled workflows on low-activity repos: the
+hourly cron here fired about four times a day, and a new `*/10` cron fired
+zero times in its first 40 minutes. Polling cadence cannot depend on it.
+Each run therefore dispatches the next one when it finishes (the workflow
+token may trigger `workflow_dispatch`), sleeping first so consecutive runs
+start `CHAIN_MIN_INTERVAL_SECONDS` (default 600) apart. The chain step runs
+even when a scan fails, so one bad run does not stop polling; the cron
+restarts the chain if a run dies before reaching that step. One concurrency
+group keeps a single writer for the SQLite state, and old DB caches are
+pruned to the newest three. Stop: `gh variable set CHAIN_SCANS --body false`.

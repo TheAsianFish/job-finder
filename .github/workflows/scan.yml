@@ -1,34 +1,45 @@
-# OPTIONAL cloud scanning while your Mac is offline (spec §20).
-# Local mode is canonical. This workflow is disabled unless you set the
-# repository variable ENABLE_CLOUD_SCAN=true and add DISCORD_WEBHOOK_URL
-# to Actions secrets. SQLite state is persisted via the Actions cache —
-# best-effort continuity, not a primary datastore. If the cache is evicted
-# (10 GB repo limit, LRU) the next run re-baselines silently, by design.
+# Cloud scanning (spec §20). Disabled unless the repository variable
+# ENABLE_CLOUD_SCAN=true and the DISCORD_WEBHOOK_URL Actions secret are set.
+# SQLite state is persisted via the Actions cache — best-effort continuity,
+# not a primary datastore. If the cache is evicted the next run re-baselines
+# silently, by design (the no-flood guard makes that safe).
 #
-# Note: GitHub scheduled workflows can be delayed several minutes.
+# Cadence (AD-24): GitHub delays and drops scheduled runs on quiet repos —
+# an hourly cron fired about four times a day here. So each run dispatches
+# the next one when it finishes, paced so runs start CHAIN_MIN_INTERVAL_SECONDS
+# (default 600) apart, while the cron below only restarts the chain if it
+# ever breaks. Stop the chain with:  gh variable set CHAIN_SCANS --body false
+#
+# Each run decides its own scope (`scan --mode auto`): the full registry when
+# the last full scan is about an hour old, otherwise the hot set (core-tier
+# employers + Simplify feeds).
 
 name: Opportunity Radar Scan
 
 on:
   schedule:
-    # Every 10 minutes. Each run decides for itself (`scan --mode auto`):
-    # the full registry when the last full scan is ~an hour old, otherwise
-    # the hot set (core-tier employers + Simplify feeds), so new big-tech
-    # and Simplify postings reach Discord within minutes. Runs share one
-    # concurrency group, so a superseded pending run is simply replaced.
     - cron: "*/10 * * * *"
   workflow_dispatch:
 
+# One run at a time against one SQLite state; a newer pending run replaces
+# an older pending one, which is exactly the right behaviour for a poller.
 concurrency:
   group: opportunity-radar-scan
   cancel-in-progress: false
+
+permissions:
+  actions: write    # dispatch the next run in the chain; prune old DB caches
+  contents: read
 
 jobs:
   scan:
     if: vars.ENABLE_CLOUD_SCAN == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 50  # ~200 sources + capped Workday detail fetches
+    timeout-minutes: 60
     steps:
+      - name: Record start time
+        run: echo "RUN_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v7
 
       - uses: astral-sh/setup-uv@v10.2.0  # no floating major tag is published
@@ -38,10 +49,8 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
-      # actions/cache (not artifacts): download-artifact@v4 cannot fetch an
-      # artifact uploaded by a *previous* run without an explicit run-id, so
-      # the old artifact-based restore always failed and every hourly run
-      # re-baselined an empty database — meaning no alerts were ever sent.
+      # actions/cache (not artifacts): download-artifact cannot fetch an
+      # artifact uploaded by a *previous* run without an explicit run-id.
       # Cache restore-keys match across runs by prefix (newest first).
       - name: Restore previous database
         uses: actions/cache/restore@v6
@@ -67,3 +76,29 @@ jobs:
         with:
           path: data/opportunity_radar.db
           key: radar-db-${{ github.run_id }}
+
+      # Only the newest state matters; keep three for safety, drop the rest
+      # instead of letting ~100 MB snapshots fill the 10 GB cache quota.
+      - name: Prune old database caches
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh cache list --key radar-db- --sort created_at --order desc --limit 100 \
+            --json id --jq '.[3:][].id' | xargs -r -n1 gh cache delete || true
+
+      - name: Chain the next scan
+        if: always() && vars.CHAIN_SCANS == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          MIN_GAP: ${{ vars.CHAIN_MIN_INTERVAL_SECONDS || '600' }}
+        run: |
+          elapsed=$(( $(date +%s) - RUN_STARTED ))
+          wait=$(( MIN_GAP - elapsed ))
+          if [ "$wait" -gt 0 ]; then
+            echo "Run took ${elapsed}s; next scan in ${wait}s."
+            sleep "$wait"
+          fi
+          gh workflow run "${{ github.workflow }}" --ref "${{ github.ref_name }}"
