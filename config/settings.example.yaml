@@ -6,7 +6,7 @@ scheduler:
   strong_interval_minutes: 45
   broad_interval_minutes: 120
   exploratory_interval_minutes: 360
-  max_concurrency_global: 8
+  max_concurrency_global: 12
   max_concurrency_per_domain: 1
   request_timeout_seconds: 30
   retries: 3

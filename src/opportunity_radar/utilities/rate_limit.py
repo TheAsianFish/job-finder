@@ -25,23 +25,45 @@ def build_user_agent(contact: str | None = None) -> str:
     return USER_AGENT_TEMPLATE.format(contact=contact_part)
 
 
+# Public, documented job-board APIs served from CDN-backed hosts built for
+# programmatic polling. One request at a time across ~110 Greenhouse boards
+# made every scan wait ~13 minutes in a single queue; a few parallel slots
+# with a short start-to-start gap is still far below any published limit.
+# Employer-hosted sites (Workday tenants, careers pages) keep 1 slot / 1 s.
+API_HOST_LIMITS: dict[str, tuple[int, float]] = {
+    "boards-api.greenhouse.io": (4, 0.25),
+    "api.ashbyhq.com": (4, 0.25),
+    "api.lever.co": (3, 0.34),
+    "api.smartrecruiters.com": (3, 0.34),
+    "raw.githubusercontent.com": (2, 0.5),
+}
+
+
 @dataclass
 class DomainGate:
-    """One-at-a-time access per domain with a minimum gap between requests."""
+    """Bounded concurrent access per domain with a minimum gap between
+    request *starts* (so N slots never burst N requests at once)."""
 
     min_interval_seconds: float = 1.0
-    _semaphore: asyncio.Semaphore = field(default_factory=lambda: asyncio.Semaphore(1))
-    _last_request_at: float = 0.0
+    max_concurrent: int = 1
+    _semaphore: asyncio.Semaphore = field(init=False)
+    _start_lock: asyncio.Lock = field(init=False)
+    _last_start_at: float = 0.0
+
+    def __post_init__(self) -> None:
+        self._semaphore = asyncio.Semaphore(max(self.max_concurrent, 1))
+        self._start_lock = asyncio.Lock()
 
     async def __aenter__(self) -> DomainGate:
         await self._semaphore.acquire()
-        elapsed = time.monotonic() - self._last_request_at
-        if elapsed < self.min_interval_seconds:
-            await asyncio.sleep(self.min_interval_seconds - elapsed)
+        async with self._start_lock:
+            elapsed = time.monotonic() - self._last_start_at
+            if elapsed < self.min_interval_seconds:
+                await asyncio.sleep(self.min_interval_seconds - elapsed)
+            self._last_start_at = time.monotonic()
         return self
 
     async def __aexit__(self, *exc_info: object) -> None:
-        self._last_request_at = time.monotonic()
         self._semaphore.release()
 
 
@@ -55,7 +77,10 @@ class RateLimiter:
 
     def gate_for(self, domain: str) -> DomainGate:
         if domain not in self._domains:
-            self._domains[domain] = DomainGate(self._min_domain_interval)
+            slots, interval = API_HOST_LIMITS.get(domain, (1, self._min_domain_interval))
+            # Tests pass min_domain_interval=0; never slow them down.
+            interval = min(interval, self._min_domain_interval)
+            self._domains[domain] = DomainGate(interval, slots)
         return self._domains[domain]
 
     async def fetch(

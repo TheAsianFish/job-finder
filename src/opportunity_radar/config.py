@@ -60,7 +60,7 @@ class SchedulerSettings(BaseModel):
     strong_interval_minutes: int = 45
     broad_interval_minutes: int = 120
     exploratory_interval_minutes: int = 360
-    max_concurrency_global: int = 8
+    max_concurrency_global: int = 12
     max_concurrency_per_domain: int = 1
     request_timeout_seconds: int = 30
     retries: int = 3
