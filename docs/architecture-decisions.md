@@ -201,3 +201,41 @@ ahead), and the immediate bar dropped 82→78 (audited in
 `tuning_history`): the user asked for *more* Summer and off-season
 internships, and the data showed strong-tier Summer 2027 SWE intern roles
 with thin descriptions stalling at 78–81.
+
+## AD-21: Simplify lists as a secondary source, employer boards stay primary
+
+Spec §28 allows public GitHub internship lists as secondary signals. The
+SimplifyJobs lists are published as structured JSON
+(`.github/scripts/listings.json`) on raw.githubusercontent.com, which serves
+no robots.txt and a 5-minute CDN cache, so they are polled as data files,
+not scraped pages. Their value is coverage we cannot reach directly
+(Google, Meta, Apple, Microsoft, Tesla, Citadel, SIG, ~1,600 long-tail
+employers), not speed on employers we already poll.
+
+- Each posting is resolved to a company: apply-link board token first
+  (immune to naming differences), then normalised name / alias / multi-word
+  prefix, else a synthetic `enabled: false` company at the source's tier.
+- **Employers the registry scans directly are skipped**, so a posting never
+  alerts twice and the employer board remains the source of truth.
+- Listings have no description; the adapter writes one sentence per listing
+  field (terms, category, degrees, sponsorship). Nothing is inferred, and
+  "Summer 2027" in the terms reaches the season parser at 0.9 confidence.
+- Stored jobs carry `source_name = <list id>`; closure and per-source
+  baseline are scoped by source, so retiring a Simplify row closes only
+  that row, and a company fed by two sources never has one close the
+  other's jobs.
+
+## AD-22: Ten-minute hot cadence; parallel slots for documented API hosts
+
+GitHub schedules fire at best every few minutes, and a full registry scan
+took ~14 minutes because ~110 Greenhouse boards shared a one-slot gate on
+`boards-api.greenhouse.io`. Two changes:
+
+- Documented job-board API hosts (Greenhouse, Ashby, Lever,
+  SmartRecruiters, raw.githubusercontent) get 2–4 concurrent slots with a
+  0.25–0.5 s start-to-start gap; employer-hosted sites keep one slot / 1 s.
+- `scan --mode auto` (cloud, every 10 minutes) runs the full registry when
+  the last full scan is about an hour old, otherwise the hot set: core-tier
+  employers plus the Simplify feeds. Every run is one job in one
+  concurrency group with one SQLite state, so there is no duplicate-alert
+  risk from overlapping workers.

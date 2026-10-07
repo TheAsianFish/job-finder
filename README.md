@@ -199,6 +199,19 @@ early-career postings by default (`early_career_only: false` to pull all).
 Adding a company to a live registry imports its board as a per-source
 baseline: one "new sources imported" summary, no per-job alert flood.
 
+## Simplify feeds and scan cadence
+
+Two registry entries (`simplify-internships`, `simplify-new-grad`) poll the
+SimplifyJobs lists' published JSON. Postings from employers the registry
+already scans directly are skipped; everything else is stored under its own
+company (Google, Meta, Tesla, … get their registry tier; unknown employers
+get the list's tier). Disable either entry to turn it off.
+
+`scan --mode hot` scans core-tier employers plus the Simplify feeds;
+`--mode auto` runs a full scan when the last one is older than
+`scheduler.full_scan_interval_minutes` (60) and a hot scan otherwise. The
+GitHub Actions workflow runs `--mode auto` every 10 minutes.
+
 ## Adding an adapter
 
 1. Subclass `BaseAdapter` in `src/opportunity_radar/adapters/`, implement

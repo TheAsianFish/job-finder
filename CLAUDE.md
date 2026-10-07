@@ -60,7 +60,13 @@ spec is `docs/opportunity-radar-master-spec.md`; deviations are recorded in
 - Discord webhook configured in `.env`; alerts verified working live.
 - GitHub remote: https://github.com/TheAsianFish/job-finder (push to main).
 - Cloud scanning: `.github/workflows/scan.yml`, gated on the repo variable
-  `ENABLE_CLOUD_SCAN=true` + `DISCORD_WEBHOOK_URL` Actions secret.
+  `ENABLE_CLOUD_SCAN=true` + `DISCORD_WEBHOOK_URL` Actions secret. Runs
+  every 10 min with `scan --mode auto` (hot set: core tier + Simplify
+  feeds; full registry hourly). The cloud DB is the live one; the local
+  `data/*.db` is not kept in sync with it.
+- Simplify lists are ingested as a secondary source (`simplify` adapter,
+  AD-21); employers we scan directly are skipped to avoid double alerts.
+  Patrick explicitly approved using the Simplify lists (2026-10-07).
 - Local daemon: `scripts/install_launchd.sh`; weekly self-maintenance
   (`tune` + `companies repair`) runs when `scheduler.auto_tune: true`.
 - Cloud scans read the committed `config/*.example.yaml` files (local

@@ -20,7 +20,7 @@ Last updated: 2026-10-06
 | 14 | CLI: scan, daemon, status, companies, job status changes | ✅ | Full command tree per spec §17 |
 | 15 | Daemon survives transient network failures | ✅ | Per-scan exception isolation; failures recorded, never crash the loop |
 | 16 | launchd installer works | ✅ | `scripts/install_launchd.sh`, KeepAlive, logs to ~/Library/Logs/OpportunityRadar |
-| 17 | Tests pass | ✅ | 225 tests, offline (respx fixtures) |
+| 17 | Tests pass | ✅ | 247 tests, offline (respx fixtures) |
 | 18 | Type checking and linting pass | ✅ | ruff format+lint, mypy clean |
 | 19 | Secrets not committed | ✅ | `.env`, local yaml configs, and DB gitignored; log redaction for webhook keys |
 | 20 | No auto-application functionality | ✅ | Read-only GETs only; apply URLs surfaced for manual use |
@@ -149,6 +149,20 @@ Sigma (Avature), SIG, Hugging Face (Workable), Procore (SmartRecruiters id
 unknown), Replicate, HashiCorp (IBM), W&B, Groq, Postman, DigitalOcean,
 dbt Labs, Canva, Grammarly, Tempus, Rippling.
 
+## Freshness + Simplify (2026-10-07)
+
+- **Simplify feeds ingested** (AD-21): Summer 2027 internships and new-grad
+  lists, ~4,300 relevant live postings. Live dry run: 361 + 213 postings
+  skipped because the employer is scanned directly; Google, Meta, Apple,
+  Microsoft, Citadel, Two Sigma, SIG, Tesla, AMD, Intuit and Palo Alto
+  Networks postings now arrive at their registry tiers. Baseline
+  classification of the live internship list: 83 immediate-grade, 941
+  digest-grade, so steady state is a handful of pings a day.
+- **Cloud cadence** (AD-22): every 10 minutes in `--mode auto`; full
+  registry hourly. Greenhouse/Ashby/Lever get parallel API slots.
+- **Dependencies upgraded** (SQLAlchemy 2.1, FastAPI 0.142, ...), Actions
+  bumped to checkout v7 / cache v6 / setup-uv v10.
+
 ## Known gaps / deferred (with reasons)
 
 - **iCIMS / SuccessFactors / Taleo**: placeholder adapters by spec §8.8 (no
@@ -158,8 +172,8 @@ dbt Labs, Canva, Grammarly, Tempus, Rippling.
   deferred — see AD-13.
 - **Optional local-LLM features (spec §27)**: not built; deterministic app is
   complete without them, per spec ordering.
-- **Secondary sources (spec §28, GitHub lists/YC/Wellfound)**: not built;
-  employer source-of-truth ingestion is complete. Highest-value next add.
+- **Secondary sources (spec §28)**: Simplify lists done (AD-21). YC /
+  Wellfound still open; see `docs/proposals/yc-spring-radar.md`.
 - **Some seed board tokens are best-effort**: run
   `opportunity-radar companies validate` after install; `companies discover`
   re-fingerprints failures.
