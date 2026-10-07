@@ -272,18 +272,76 @@ def _print_scan_summary(summary) -> None:
         console.print(f"  [red]FAILED[/red] {failure.company_id}: {failure.error}")
 
 
+LAST_FULL_SCAN_KEY = "last_full_scan_at"
+
+
+def _hot_companies(companies):
+    """Core-tier employers plus secondary feeds: what must be seen in minutes."""
+    from opportunity_radar.adapters.registry import SECONDARY_ADAPTERS
+
+    return [c for c in companies if c.tier == "core" or c.adapter in SECONDARY_ADAPTERS]
+
+
+def _resolve_scan_mode(mode: str, interval_minutes: int) -> str:
+    if mode != "auto":
+        return mode
+    from datetime import datetime, timedelta
+
+    from opportunity_radar.db import repositories as repo
+    from opportunity_radar.db.engine import session_scope
+    from opportunity_radar.utilities.dates import ensure_utc, utcnow
+
+    with session_scope() as session:
+        raw = repo.meta_get(session, LAST_FULL_SCAN_KEY)
+    if not raw:
+        return "full"
+    try:
+        last = ensure_utc(datetime.fromisoformat(raw))
+    except ValueError:
+        return "full"
+    assert last is not None
+    # Small grace so a schedule that fires every 10 min lands a full scan
+    # on the run nearest the hour instead of slipping a whole cycle.
+    due = utcnow() - last >= timedelta(minutes=max(interval_minutes - 5, 0))
+    return "full" if due else "hot"
+
+
 @app.command()
 def scan(
     company: str = typer.Option(None, "--company", help="Scan a single company id"),
     adapter: str = typer.Option(None, "--adapter", help="Scan companies using this adapter"),
     no_notify: bool = typer.Option(False, "--no-notify", help="Skip Discord alerts"),
+    mode: str = typer.Option(
+        "full",
+        "--mode",
+        help="full | hot (core tier + Simplify feeds) | auto (full when the last full "
+        "scan is older than scheduler.full_scan_interval_minutes, else hot)",
+    ),
 ) -> None:
     """Scan sources for new/changed/closed jobs and send alerts."""
+    if mode not in ("full", "hot", "auto"):
+        console.print("[red]--mode must be full, hot, or auto.[/red]")
+        raise typer.Exit(1)
     settings, companies = _select_companies(company, adapter)
+    resolved_mode = (
+        _resolve_scan_mode(mode, settings.scheduler.full_scan_interval_minutes)
+        if not (company or adapter)
+        else "full"
+    )
+    if resolved_mode == "hot":
+        companies = _hot_companies(companies)
+    console.print(f"Scan mode: [bold]{resolved_mode}[/bold] ({len(companies)} sources)")
     from opportunity_radar.pipeline.scanner import scan_companies
 
     async def run() -> None:
         summary = await scan_companies(companies, settings)
+        if resolved_mode == "full" and not (company or adapter):
+            from opportunity_radar.db import repositories as repo
+            from opportunity_radar.db.engine import session_scope
+            from opportunity_radar.utilities.dates import utcnow
+
+            with session_scope() as session:
+                repo.meta_set(session, LAST_FULL_SCAN_KEY, utcnow().isoformat())
         _print_scan_summary(summary)
         if summary.baseline:
             console.print("[yellow]First run detected — imported as baseline, no alerts.[/yellow]")

@@ -18,6 +18,8 @@ scheduler:
   # audited in config/scoring.yaml) + auto-repair of failing sources.
   auto_tune: true
   auto_tune_interval_days: 7
+  # Cloud `scan --mode auto`: full registry at most this often, hot set otherwise.
+  full_scan_interval_minutes: 60
 
 alerts:
   immediate_min_score: 78

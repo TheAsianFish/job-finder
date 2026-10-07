@@ -71,6 +71,10 @@ class SchedulerSettings(BaseModel):
     # Weekly feedback-driven tuning + source self-repair in the daemon.
     auto_tune: bool = False
     auto_tune_interval_days: int = 7
+    # `scan --mode auto` (cloud): run the full registry when the last full
+    # scan is older than this, otherwise only the hot set (core tier +
+    # secondary feeds such as Simplify).
+    full_scan_interval_minutes: int = 60
 
     def tier_intervals(self) -> dict[str, int]:
         return {

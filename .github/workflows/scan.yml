@@ -11,7 +11,12 @@ name: Opportunity Radar Scan
 
 on:
   schedule:
-    - cron: "17 * * * *"   # non-round minute to avoid scheduler congestion
+    # Every 10 minutes. Each run decides for itself (`scan --mode auto`):
+    # the full registry when the last full scan is ~an hour old, otherwise
+    # the hot set (core-tier employers + Simplify feeds), so new big-tech
+    # and Simplify postings reach Discord within minutes. Runs share one
+    # concurrency group, so a superseded pending run is simply replaced.
+    - cron: "*/10 * * * *"
   workflow_dispatch:
 
 concurrency:
@@ -53,7 +58,7 @@ jobs:
           TZ: America/Los_Angeles
         run: |
           uv run opportunity-radar db migrate
-          uv run opportunity-radar scan
+          uv run opportunity-radar scan --mode auto
           uv run opportunity-radar notify digest --if-due
 
       - name: Persist database
