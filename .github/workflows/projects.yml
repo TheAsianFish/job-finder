@@ -23,9 +23,9 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "auto (next step) | scout | study | approve | pause | reject"
+        description: "auto (next step) | scout | study | keycheck | approve | pause | reject"
         type: choice
-        options: [auto, scout, study, approve, pause, reject]
+        options: [auto, scout, study, keycheck, approve, pause, reject]
         default: auto
       project:
         description: "Project slug (required for approve/pause/reject; optional for auto)"
@@ -39,8 +39,31 @@ permissions:
   contents: read
 
 jobs:
+  keycheck:
+    # Verifies PROJECTS_ANTHROPIC_API_KEY with one 1-token Haiku call. Prints
+    # HTTP status and error type only; never the key or the response text.
+    if: vars.ENABLE_PROJECT_BUILDER == 'true' && github.event_name == 'workflow_dispatch' && inputs.action == 'keycheck'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check the projects API key
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.PROJECTS_ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then echo "PROJECTS_ANTHROPIC_API_KEY is not set"; exit 1; fi
+          code=$(curl -s -o /tmp/r.json -w '%{http_code}' https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d '{"model":"claude-haiku-5-5","max_tokens":1,"messages":[{"role":"user","content":"ok"}]}')
+          echo "HTTP $code"
+          if [ "$code" != "200" ]; then
+            python3 -c "import json; print('error type:', json.load(open('/tmp/r.json')).get('error', {}).get('type'))" || true
+            exit 1
+          fi
+          echo "Key works: model calls succeed and billing is active."
+
   control:
-    if: vars.ENABLE_PROJECT_BUILDER == 'true' && (github.event_name == 'workflow_dispatch' && inputs.action != 'scout' && inputs.action != 'study' || github.event.schedule == '17 */3 * * *')
+    if: vars.ENABLE_PROJECT_BUILDER == 'true' && (github.event_name == 'workflow_dispatch' && inputs.action != 'scout' && inputs.action != 'study' && inputs.action != 'keycheck' || github.event.schedule == '17 */3 * * *')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
