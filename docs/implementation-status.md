@@ -176,6 +176,11 @@ dbt Labs, Canva, Grammarly, Tempus, Rippling.
 - Weekly review and project plans written to the private repo and posted to
   Discord.
 
+- Resume rules v2 (AD-31): experience fixed, projects reshuffled per role,
+  ATS-first writer that may drop/replace weak bullets; bullets needing an
+  unwritten fact become an approval PR in the private repo with an interview
+  prep sheet; merged ones live in `verified.yaml` and feed every later resume.
+
 ## Known gaps / deferred (with reasons)
 
 - **iCIMS / SuccessFactors / Taleo**: placeholder adapters by spec §8.8 (no

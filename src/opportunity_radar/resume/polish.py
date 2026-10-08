@@ -19,6 +19,14 @@ Truth is enforced by the guard, not by asking nicely. Per entry:
 An entry whose rewrite fails any check keeps its original bullets (all or
 nothing, so a story is never half rewritten); the reason is recorded.
 
+The writer may drop an entry's weakest bullet (writing one fewer) and may
+build a bullet from any fact of that entry, including reserve and verified
+ones. When it believes a stronger bullet exists but needs a fact that is not
+written down (a number, scale, tool), it returns that bullet as a
+*proposal* instead; bullets rejected by the guard for the same reason become
+proposals too. Proposals never reach a resume until Patrick approves them
+(proposals.py -> pull request -> verified.yaml).
+
 Claude Code runs headless (`claude -p --model opus`): the Max plan locally
 or CLAUDE_CODE_OAUTH_TOKEN in CI; no API key.
 """
@@ -104,11 +112,32 @@ DESCRIPTION_EXCERPT = 3500
 Runner = Callable[[str], str]  # prompt -> model text
 
 
+MAX_PROPOSALS = 4
+_FACT_FAILURES = ("numbers not in", "skill not in resume", "name or term not in resume")
+
+
+@dataclass
+class Proposal:
+    """A bullet Claude thinks is stronger but that needs Patrick's confirmation."""
+
+    entry_id: str
+    entry_name: str
+    text: str
+    confirm: list[str]  # the specific facts Patrick must confirm
+    why: str = ""
+
+
 @dataclass
 class PolishOutcome:
     accepted: dict[str, list[str]] = field(default_factory=dict)  # entry id -> LaTeX bullets
     rejected: dict[str, str] = field(default_factory=dict)  # entry id -> reason
+    proposals: list[Proposal] = field(default_factory=list)
     skipped_reason: str | None = None
+
+
+def min_bullets(shown: int) -> int:
+    """The writer may drop one weak bullet from an entry showing three or more."""
+    return shown - 1 if shown >= 3 else shown
 
 
 def entry_char_limit(entry: Entry) -> int:
@@ -204,6 +233,7 @@ def build_prompt(
                 "dates": entry.dates,
                 "tech": list(entry.tech),
                 "bullets_to_write": len(shown),
+                "min_bullets": min_bullets(len(shown)),
                 "max_chars_per_bullet": entry_char_limit(entry),
                 "max_total_chars": int(sum(len(b.text) for b in shown) * TOTAL_GROWTH),
                 "facts": [b.text for b in entry.bullets],
@@ -220,7 +250,8 @@ def build_prompt(
         )
     return f"""You are an expert technical resume writer for software engineering internships and
 new-grad roles at top companies. Rewrite each entry below for a candidate applying to
-"{title}" at {company}.
+"{title}" at {company}. The resume must first pass the company's ATS keyword screen, then
+impress the engineer who reads it.
 
 What great looks like:
 - Each bullet tells a compact technical story (STAR / Google XYZ): what was built or
@@ -232,9 +263,8 @@ What great looks like:
   incremental indexing, rank fusion, page-replacement policy). Specific beats generic.
 - Lead with strong ownership verbs (Architected, Engineered, Owned, Diagnosed, Optimized,
   Shipped). No "helped", "worked on", "responsible for", no first person.
-- Emphasise what THIS role and company value, judging from the job description below, and
-  mirror its terminology wherever the facts genuinely support it. Order each entry's
-  bullets so the most relevant story comes first.
+- Emphasise what THIS role and company value, judging from the job description below.
+  Order each entry's bullets so the most relevant story comes first.
 - Restructure, don't paraphrase. A rewrite that only swaps synonyms is a failure. Re-lead
   each bullet with the part of the story this role cares most about, cut jargon that
   doesn't serve the role, and replace a generic summary bullet with a more specific fact
@@ -243,6 +273,17 @@ What great looks like:
     before: "Worked on the billing service and fixed several bugs in it."
     after:  "Diagnosed duplicate charges in the billing service to non-idempotent retries
              and added request-key deduplication, eliminating repeat charges."
+- You have editorial control: you may drop an entry's weakest bullet (write min_bullets
+  instead of bullets_to_write) and you may build a bullet from ANY fact listed for the entry,
+  not only the ones currently shown. Prefer the strongest stories for this role.
+
+ATS (this matters as much as the story):
+- Use the job description's exact terms for skills and concepts the facts support (if it
+  says "LLM orchestration", don't write "AI pipeline"; if it says "distributed systems",
+  say that where true). Spell out a key acronym once with its expansion when the
+  description uses the long form, e.g. "retrieval-augmented generation (RAG)".
+- Put the role's most important terms in the first words of the bullets that support them.
+- Never stuff keywords the facts don't support; a recruiter reads this next.
 
 Truth rules (a strict automated check rejects any violation, and the original wording is
 kept instead):
@@ -252,11 +293,18 @@ kept instead):
   in that entry's facts or in the candidate's skills: {skills_line}.
 - Do not inflate scope (no "led a team", "company-wide", "millions of users" unless stated).
 
-Format: for each entry write exactly bullets_to_write bullets, each one sentence, at most
-max_chars_per_bullet characters, and all of the entry's bullets together at most
-max_total_chars characters (the page must stay one page: tighter wording, not more of it).
-Plain text (no LaTeX, no markdown). Reply with only JSON:
-{{"entries": [{{"id": "...", "bullets": ["...", "..."]}}]}}
+Proposals: if you are confident a clearly stronger bullet for this role exists for an entry
+but it needs a fact that is not written down (a metric, scale, tool, or outcome the
+candidate would know), do NOT put it in "entries". Put it in "proposals" (at most
+{MAX_PROPOSALS} overall, only for high-value gaps), with "confirm" listing each specific fact
+the candidate must confirm, phrased as a question. The candidate reviews these by hand.
+
+Format: for each entry write between min_bullets and bullets_to_write bullets, each one
+sentence, at most max_chars_per_bullet characters, and all of the entry's bullets together
+at most max_total_chars characters (the page must stay one page: tighter wording, not more
+of it). Plain text (no LaTeX, no markdown). Reply with only JSON:
+{{"entries": [{{"id": "...", "bullets": ["...", "..."]}}],
+ "proposals": [{{"id": "entry id", "bullet": "...", "confirm": ["...?"], "why": "..."}}]}}
 
 Job description excerpt:
 \"\"\"{excerpt}\"\"\"
@@ -331,17 +379,20 @@ def rewrite_entries(
     except Exception as exc:  # network, auth, timeout: never fail the resume
         outcome.skipped_reason = f"rewrite failed: {exc}"
         return outcome
-    reply = parse_json_object(raw).get("entries")
+    data = parse_json_object(raw)
+    reply = data.get("entries")
     if not isinstance(reply, list):
         outcome.skipped_reason = "model reply was not the requested JSON"
         return outcome
     by_id = {str(item.get("id")): item.get("bullets") for item in reply if isinstance(item, dict)}
+    names = {entry.id: entry.name for entry, _ in entries}
+    derived: list[Proposal] = []
     corpus_lower = bank.plain_corpus().lower()
     for entry, shown in entries:
         bullets = by_id.get(entry.id)
         if not isinstance(bullets, list) or not bullets:
             continue
-        if len(bullets) != len(shown):
+        if not min_bullets(len(shown)) <= len(bullets) <= len(shown):
             outcome.rejected[entry.id] = f"wrote {len(bullets)} bullets, expected {len(shown)}"
             continue
         entry_text = (
@@ -363,6 +414,44 @@ def rewrite_entries(
             failed = f"entry length {total} over budget {budget}"
         if failed:
             outcome.rejected[entry.id] = failed
+            # A bullet that failed only for an unconfirmed fact is exactly what
+            # Patrick can settle: ask him instead of silently dropping it.
+            for text, reason in zip(bullets, reasons, strict=True):
+                if reason and reason.startswith(_FACT_FAILURES):
+                    derived.append(
+                        Proposal(
+                            entry_id=entry.id,
+                            entry_name=entry.name,
+                            text=" ".join(str(text).split()),
+                            confirm=[f"Is this accurate? (the check flagged {reason})"],
+                            why="rewrite for this role needed a fact not in your resume",
+                        )
+                    )
             continue
         outcome.accepted[entry.id] = [to_tex(str(text), metrics) for text in bullets]
+    for item in data.get("proposals") or []:
+        if not isinstance(item, dict) or str(item.get("id")) not in names:
+            continue
+        text = " ".join(str(item.get("bullet") or "").split())
+        if not MIN_CHARS // 2 <= len(text) <= MAX_CHARS:
+            continue
+        confirm = item.get("confirm")
+        outcome.proposals.append(
+            Proposal(
+                entry_id=str(item["id"]),
+                entry_name=names[str(item["id"])],
+                text=text,
+                confirm=[str(c) for c in confirm] if isinstance(confirm, list) else [],
+                why=str(item.get("why") or ""),
+            )
+        )
+    seen: set[str] = set()
+    unique = []
+    # Deliberate (model-suggested) proposals first, guard-derived ones after.
+    for proposal in outcome.proposals + derived:
+        key = proposal.text.lower()
+        if key not in seen:
+            seen.add(key)
+            unique.append(proposal)
+    outcome.proposals = unique[:MAX_PROPOSALS]
     return outcome

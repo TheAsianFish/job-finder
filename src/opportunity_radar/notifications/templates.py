@@ -381,3 +381,38 @@ def build_resume_check_message(job: Any, fit, rev, tailored_summary: str) -> dic
         ],
         "allowed_mentions": {"parse": []},
     }
+
+
+def build_proposals_message(
+    title: str, company: str, proposals: list[Any], pr_url: str | None, saved: str | None
+) -> dict[str, Any]:
+    """Bullets that need Patrick's word before any resume may use them."""
+    lines = [
+        "These would strengthen the resume but need a fact only you know. "
+        + (
+            f"[Review the PR]({pr_url}): merge = true, edit to correct, close = reject."
+            if pr_url
+            else f"Saved for review in the private repo: `{saved}`."
+        ),
+        "",
+    ]
+    for proposal in proposals[:4]:
+        lines.append(f"**{proposal.entry_name}**")
+        lines.append(f"> {proposal.text}")
+        for question in proposal.confirm[:2]:
+            lines.append(f"• {question}")
+    return {
+        "content": sanitize(
+            f"📝 {len(proposals)} bullet proposal(s) need your OK: **{title}** at **{company}**"
+        ),
+        "embeds": [
+            {
+                "title": "Approve, correct, or reject",
+                **({"url": pr_url} if pr_url else {}),
+                "color": COLOR_MEDIUM,
+                "description": truncate(sanitize("\n".join(lines)), 4000),
+                "footer": {"text": "Interview prep for each bullet is in the PR's prep/ file"},
+            }
+        ],
+        "allowed_mentions": {"parse": []},
+    }

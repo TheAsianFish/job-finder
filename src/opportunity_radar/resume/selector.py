@@ -1,17 +1,14 @@
 """Pick and order true resume content for one posting (no model calls).
 
-Rules, in order of priority:
-1. Work experience (internships, jobs) always stays; dropping a real job to
-   game a keyword match reads as a gap to a recruiter.
-2. The first live project is the anchor (people list their flagship first)
-   and always stays. Other flexible experience slots (fellowships, programs)
-   and project slots go to
-   the bank entries that best match the posting. A reserve (commented-out)
-   entry must beat the live one by a margin to displace it, so curated
-   choices win ties.
+Rules, in order of priority (Patrick's call, AD-31):
+1. Experience is fixed: every live entry in resume.tex appears, in date
+   order; commented-out experience never swaps in. Only its bullets vary.
+2. Projects are reshuffled per posting: every project slot goes to the live
+   or reserve (commented-out) project that best matches. A reserve must beat
+   a live one by a margin to displace it, so curated choices win ties.
 3. Bullets inside an entry are reordered by relevance (a live entry's
-   opening summary bullet stays first); near-duplicate
-   wordings of the same accomplishment never both appear.
+   opening summary bullet stays first); verified extras (verified.yaml) may
+   replace weaker live bullets; near-duplicate wordings never both appear.
 4. Skills lines keep every item but put the posting's skills first.
 5. The total bullet count never exceeds the master resume's (one page).
 """
@@ -223,47 +220,31 @@ def _apply_preferences(
 
 
 def select(bank: Bank, posting: Posting, prefer: list[str] | None = None) -> Selection:
-    """prefer: reserve entries a reviewer recommended (free text, loosely matched);
-    they replace the weakest unprotected live entries of the same kind."""
-    live_exp = [e for e in bank.experiences if e.active]
-    pinned = [e for e in live_exp if e.is_work]
-    flexible_live = [e for e in live_exp if not e.is_work]
-    reserves_exp = [e for e in bank.experiences if not e.active]
-    flex_chosen, exp_in, exp_out = _fill_slots(
-        flexible_live, reserves_exp, len(flexible_live), posting
+    """prefer: reserve projects a reviewer recommended (free text, loosely
+    matched); they replace the weakest live projects."""
+    experiences = sorted(
+        (e for e in bank.experiences if e.active), key=lambda e: e.start, reverse=True
     )
-
     live_proj = [e for e in bank.projects if e.active]
     reserves_proj = [e for e in bank.projects if not e.active]
-    anchor = live_proj[:1]
-    taken = frozenset(_entity(e) for e in pinned + flex_chosen + anchor)
-    rest_chosen, proj_in, proj_out = _fill_slots(
-        live_proj[1:], reserves_proj, max(len(live_proj) - 1, 0), posting, exclude_entities=taken
+    taken = frozenset(_entity(e) for e in experiences)
+    proj_chosen, proj_in, proj_out = _fill_slots(
+        live_proj, reserves_proj, len(live_proj), posting, exclude_entities=taken
     )
-    proj_chosen = anchor + rest_chosen
     if prefer:
-        exp_in += _apply_preferences(flex_chosen, reserves_exp, prefer, [], posting)
-        forced = _apply_preferences(rest_chosen, reserves_proj, prefer, [], posting)
-        proj_in += forced
-        proj_chosen = anchor + rest_chosen
+        proj_in += _apply_preferences(proj_chosen, reserves_proj, prefer, [], posting)
         proj_out = [e.name for e in live_proj if e not in proj_chosen]
-        exp_out = [e.name for e in flexible_live if e not in flex_chosen]
 
-    budget = sum(len(e.bullets) for e in live_exp + live_proj)
+    budget = sum(len(e.live_bullets) for e in experiences + live_proj)
 
     def limit_for(entry: Entry) -> int:
         if entry.active:
-            return len(entry.bullets)
-        displaced = [
-            e
-            for e in live_exp + live_proj
-            if e.kind == entry.kind and e not in flex_chosen + proj_chosen + pinned
-        ]
-        return max((len(e.bullets) for e in displaced), default=2)
+            return len(entry.live_bullets)
+        displaced = [e for e in live_proj if e not in proj_chosen]
+        return max((len(e.live_bullets) for e in displaced), default=2)
 
-    experiences = sorted(pinned + flex_chosen, key=lambda e: e.start, reverse=True)
     exp_sel = [(e, _pick_bullets(e, posting, limit_for(e))) for e in experiences]
-    proj_order = anchor + sorted(rest_chosen, key=lambda e: entry_score(e, posting), reverse=True)
+    proj_order = sorted(proj_chosen, key=lambda e: entry_score(e, posting), reverse=True)
     proj_sel = [(e, _pick_bullets(e, posting, limit_for(e))) for e in proj_order]
     _enforce_budget(exp_sel, proj_sel, budget, posting)
 
@@ -287,8 +268,8 @@ def select(bank: Bank, posting: Posting, prefer: list[str] | None = None) -> Sel
         projects=proj_sel,
         skills=skills,
         matched_skills=matched,
-        swapped_in=exp_in + proj_in,
-        swapped_out=exp_out + proj_out,
+        swapped_in=proj_in,
+        swapped_out=proj_out,
     )
 
 

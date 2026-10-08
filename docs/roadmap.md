@@ -22,7 +22,9 @@ real skill gaps. Every agent working in this repo should read this file and
 ## Ground rules for every agent
 
 1. **Truthful only.** Rewording and reordering real experience is fine.
-   Inventing skills, metrics, titles or projects is never acceptable.
+   Inventing skills, metrics, titles or projects is never acceptable. A
+   stronger bullet that needs an unwritten fact is *proposed* to Patrick (a
+   PR in the private repo); merging it means "this happened" (AD-31).
 2. **No auto-applying** and no logging in to job sites (spec hard rule).
 3. **Changes land as pull requests** for Patrick to review; agents never
    push to `main` or touch `.env` / secrets.

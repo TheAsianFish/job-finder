@@ -98,7 +98,7 @@ def assess(bank: Bank, posting: Posting, master_text: str) -> FitAssessment:
         b
         for e in bank.entries
         if e.active
-        for b in e.bullets
+        for b in e.live_bullets
         if not (b.skills & set(wanted)) and not b.has_metric and bullet_score(b, posting) < 1.0
     ]
 

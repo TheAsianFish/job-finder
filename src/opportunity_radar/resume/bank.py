@@ -58,6 +58,7 @@ class Bullet:
     skills: frozenset[str]
     bold: tuple[str, ...]
     has_metric: bool
+    verified: bool = False  # approved via a proposal PR (verified.yaml), not in resume.tex
 
 
 @dataclass
@@ -83,6 +84,11 @@ class Entry:
         word = match.group(1).lower()
         month = _MONTHS.get(word) or _MONTHS.get(word[:3], 1)
         return date(int(match.group(2)), month, 1)
+
+    @property
+    def live_bullets(self) -> list[Bullet]:
+        """The bullets resume.tex itself shows for this entry (not verified extras)."""
+        return [b for b in self.bullets if not b.verified]
 
     @property
     def is_work(self) -> bool:

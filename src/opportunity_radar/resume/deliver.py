@@ -10,7 +10,9 @@ the standing resume, and stay silent when it fits. When it doesn't:
 - a tailored resume is built with technical STAR rewrites behind the guard,
 - Discord gets one message: verdict + flags + the PDF + the full review,
 - everything is archived in the private repo; project proposals are also
-  appended to reports/project-queue.md for the weekly agent.
+  appended to reports/project-queue.md for the weekly agent,
+- bullets the writer could not back with written facts become a proposal
+  pull request in the private repo plus a Discord ping (proposals.py).
 Every checked job is marked (jobs.resume_sent_at) so it is never re-checked.
 """
 
@@ -170,7 +172,36 @@ async def run_check(
     sent = await notifier.send_files(payload, files)
     if not sent and notifier.configured:
         return "failed", fit
+    if result.polish and result.polish.proposals:
+        await _propose(result.polish.proposals, notifier, bank, title, company, url, runner)
     return "flagged", fit
+
+
+async def _propose(proposals, notifier, bank, title, company, url, runner) -> None:
+    from opportunity_radar.resume.proposals import submit
+
+    outcome = submit(
+        proposals,
+        repo=private_dir(),
+        bank=bank,
+        title=title,
+        company=company,
+        url=url,
+        runner=runner,
+    )
+    logger.info(
+        "bullet_proposals",
+        count=len(outcome.proposals),
+        pr=bool(outcome.pr_url),
+        error=(outcome.error or "")[:80] or None,
+    )
+    if outcome.proposals:
+        saved = str(outcome.saved.relative_to(private_dir())) if outcome.saved else None
+        await notifier.send(
+            templates.build_proposals_message(
+                title, company, outcome.proposals, outcome.pr_url, saved
+            )
+        )
 
 
 async def check_job(

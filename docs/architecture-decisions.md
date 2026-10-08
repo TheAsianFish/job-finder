@@ -413,3 +413,41 @@ export or API; logged-in scraping is out of scope.
   "Posted" -> "Posted (per ATS)".
 - Tests run against an empty private dir by default (autouse fixture), so a
   developer's real resume never influences results.
+
+## AD-31: Fixed experience, free projects; stronger bullets need Patrick's word
+
+Patrick's direction (2026-10-08): keep experience as written, reshuffle
+projects per role, prioritise passing the ATS, and let the writer drop a
+weak bullet or write a brand-new, stronger one. When a stronger bullet needs
+a fact that is not written down, ask him instead of either inventing it or
+silently giving up.
+
+- **Selector.** Every live experience entry appears, in date order, and
+  commented-out experience never swaps in (only bullets vary). Projects have
+  no protected anchor any more: every slot goes to the best live or reserve
+  project (reserves still need a margin), ordered by relevance.
+- **Writer.** May write one bullet fewer than shown for entries with 3+
+  bullets, may use any fact of the entry (reserve and verified included),
+  and is told to mirror the posting's exact terms (acronym plus expansion
+  where the posting uses the long form, key terms first). No keyword
+  stuffing: the guard and a human reader both check.
+- **Proposals.** The writer returns bullets it believes are stronger but
+  that need an unwritten fact as `proposals`, each with the specific facts
+  to confirm; bullets the guard rejects for an unknown number, skill or name
+  become proposals too. They never reach a resume directly. Per role,
+  fresh ones (never proposed before, not already verified:
+  `proposals/log.yaml`) go to one pull request in the private repo that adds
+  them to `verified.yaml` plus an interview prep sheet (`prep/`: how it
+  works, trade-offs, likely follow-ups, numbers to know). Merge = true (edit
+  first to correct; delete a block to reject one); close = reject all, never
+  asked again. Discord gets a ping with the PR link. Without a token or `gh`
+  the same content is saved to `proposals/pending/`.
+- **Verified bullets** load beside `resume.tex` as extra facts of their
+  entry: the selector may show one in place of a weaker live bullet (never
+  growing the page budget) and the guard accepts their numbers and names.
+- **Approval means "this happened"**, not "I could do this". Skills not yet
+  practised go through the project builders (AD-32) first.
+- **Token.** `AGENT_GH_TOKEN` (fine-grained PAT, TheAsianFish, all repos:
+  administration, contents, pull requests, issues, workflows) is passed to
+  the resume steps as `CAREER_GH_TOKEN` for `gh pr create` in the private
+  repo. Pushes still use the deploy key.

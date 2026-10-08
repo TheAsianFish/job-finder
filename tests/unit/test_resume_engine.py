@@ -83,20 +83,24 @@ def test_bank_structure(bank):
 # ---------------------------------------------------------------- selector
 
 
-def test_ml_posting_swaps_in_reserve_ml_content(bank):
+def test_ml_posting_reshuffles_projects_but_never_experience(bank):
     posting = Posting.from_text(
         "Machine Learning Engineer Intern",
         "Train PyTorch deep learning models for computer vision. Python data pipelines.",
     )
     selection = select(bank, posting)
     names = [e.name for e, _ in selection.experiences]
-    assert "Research Assistant @ Example Vision Lab" in names
-    assert "Open Source Fellow @ Example Fellowship" not in names  # flexible slot swapped
-    assert "Software Engineering Intern @ Acme Cloud" in names  # real jobs always stay
-    assert "Student IT Worker @ Springfield City Hall" in names
+    # Experience is fixed (AD-31): every live entry, no reserve swaps.
+    assert names == [
+        e.name
+        for e in sorted(
+            (e for e in bank.experiences if e.active), key=lambda e: e.start, reverse=True
+        )
+    ]
+    assert "Research Assistant @ Example Vision Lab" not in names
     projects = [e.name for e, _ in selection.projects]
-    assert projects[0] == "Indexer — Code Search Engine"  # flagship anchor stays first
-    assert "VisionLab — Defect Detector" in projects
+    assert "VisionLab — Defect Detector" in projects  # projects reshuffle freely
+    assert projects[0] == "VisionLab — Defect Detector"  # most relevant first
     assert "PyTorch" in selection.matched_skills
     total_master = sum(len(e.bullets) for e in bank.entries if e.active)
     assert len(selection.bullets) <= total_master
@@ -249,7 +253,8 @@ def test_render_reuses_template_and_only_bank_content(bank):
     tex = render(bank, select(bank, posting))
     assert tex.startswith(bank.preamble.rstrip()[:200])
     assert "\\section{Experience}" in tex and tex.rstrip().endswith("\\end{document}")
-    assert "Example Vision Lab" in tex
+    assert "VisionLab" in tex  # reserve project swapped in
+    assert "Example Vision Lab" not in tex  # reserve experience never is
     assert "Did some ML stuff" not in tex
     assert r"C\#" in tex  # skills re-escaped
 
@@ -282,7 +287,8 @@ def test_tailor_writes_outputs_without_compiler(bank, tmp_path):
     assert (tmp_path / "resume.tex").exists() and (tmp_path / "ats.md").exists()
     meta = json.loads((tmp_path / "meta.json").read_text())
     assert meta["company"] == "Acme AI"
-    assert "Research Assistant @ Example Vision Lab" in meta["swapped_in"]
+    assert meta["swapped_in"] == ["VisionLab — Defect Detector"]
+    assert meta["proposals"] == []
     assert meta["polish_skipped"] == "not requested"
     assert result.pdf_path is None
 
@@ -305,18 +311,17 @@ def test_tailor_compiles_one_page_pdf(bank, tmp_path):
     )
 
 
-def test_reviewer_swaps_replace_the_weakest_unprotected_entries(bank):
+def test_reviewer_swaps_replace_the_weakest_project_only(bank):
     posting = Posting.from_text("Backend Intern", "Python PostgreSQL REST APIs Docker Kubernetes")
     plain = select(bank, posting)
     assert "VisionLab — Defect Detector" not in [e.name for e, _ in plain.projects]
     swapped = select(bank, posting, prefer=["Swap the dashboard for the VisionLab defect detector"])
     names = [e.name for e, _ in swapped.projects]
     assert "VisionLab — Defect Detector" in names
-    assert names[0] == "Indexer — Code Search Engine"  # the anchor is never swapped out
+    assert len(names) == len(plain.projects)
     assert "VisionLab — Defect Detector" in swapped.swapped_in
     lab = select(bank, posting, prefer=["Example Vision Lab research assistant role"])
-    assert "Research Assistant @ Example Vision Lab" in [e.name for e, _ in lab.experiences]
-    assert "Software Engineering Intern @ Acme Cloud" in [e.name for e, _ in lab.experiences]
+    assert "Research Assistant @ Example Vision Lab" not in [e.name for e, _ in lab.experiences]
 
 
 def test_rewrite_rejects_entries_that_grow_the_page(bank):

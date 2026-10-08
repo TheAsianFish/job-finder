@@ -72,7 +72,9 @@ class TailorResult:
         if self.selection.swapped_in:
             parts.append("swapped in " + ", ".join(self.selection.swapped_in))
         if self.polish and self.polish.accepted:
-            parts.append(f"{len(self.polish.accepted)} bullets reworded")
+            parts.append(f"{len(self.polish.accepted)} entries rewritten")
+        if self.polish and self.polish.proposals:
+            parts.append(f"{len(self.polish.proposals)} bullet proposal(s) for your review")
         return "; ".join(parts)
 
 
@@ -81,12 +83,17 @@ def slug(text: str, limit: int = 40) -> str:
 
 
 def load_bank(path: Path | None = None) -> Bank:
+    """resume.tex plus the bullets Patrick verified (verified.yaml beside it)."""
+    from opportunity_radar.resume.verified import apply_verified, load_verified
+
     source = path or resume_source()
     if not source.exists():
         raise FileNotFoundError(
             f"resume source not found at {source} (clone the private career repo there)"
         )
-    return build_bank(source.read_text(encoding="utf-8"))
+    bank = build_bank(source.read_text(encoding="utf-8"))
+    apply_verified(bank, load_verified(source.parent / "verified.yaml"))
+    return bank
 
 
 def master_text(bank: Bank) -> str:
@@ -99,7 +106,7 @@ def master_text(bank: Bank) -> str:
     live = [e for e in bank.entries if e.active]
     return "\n".join(
         [to_plain(bank.preamble), to_plain(bank.education_tex)]
-        + [f"{e.name} {' '.join(e.tech)} " + " ".join(b.text for b in e.bullets) for e in live]
+        + [f"{e.name} {' '.join(e.tech)} " + " ".join(b.text for b in e.live_bullets) for e in live]
         + [", ".join(v) for v in bank.skills.values()]
     )
 
@@ -218,6 +225,7 @@ def tailor(
         "polish_accepted": sorted(outcome.accepted) if outcome else [],
         "polish_rejected": outcome.rejected if outcome else {},
         "polish_skipped": outcome.skipped_reason if outcome else "not requested",
+        "proposals": [asdict(p) for p in outcome.proposals] if outcome else [],
         "trimmed": trimmed,
         "rewrites_reverted": reverted,
         "rewrites_kept": sorted(overrides),

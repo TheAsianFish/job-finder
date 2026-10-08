@@ -247,7 +247,7 @@ def resume_bank() -> None:
 
     bank = load_bank()
     table = Table(title=f"Bullet bank: {bank.candidate_name}")
-    for column in ("", "Kind", "Entry", "Dates", "Bullets", "Skills evidenced"):
+    for column in ("", "Kind", "Entry", "Dates", "Bullets (+verified)", "Skills evidenced"):
         table.add_column(column)
     for entry in bank.entries:
         table.add_row(
@@ -255,7 +255,12 @@ def resume_bank() -> None:
             entry.kind,
             entry.name[:48],
             entry.dates,
-            str(len(entry.bullets)),
+            f"{len(entry.live_bullets)}"
+            + (
+                f" (+{len(entry.bullets) - len(entry.live_bullets)})"
+                if entry.live_bullets != entry.bullets
+                else ""
+            ),
             ", ".join(sorted(entry.skills))[:60],
         )
     console.print(table)
@@ -271,6 +276,9 @@ def resume_tailor(
     description_file: Path = typer.Option(None, "--description-file", exists=True),
     polish: bool = typer.Option(True, "--polish/--no-polish", help="Reword with Claude (guarded)"),
     out: Path = typer.Option(None, "--out", help="Output directory"),
+    propose: bool = typer.Option(
+        True, "--propose/--no-propose", help="Open a review PR for bullets needing your OK"
+    ),
 ) -> None:
     """Tailor your resume to one posting: PDF + ATS report in the private repo."""
     from datetime import date
@@ -327,6 +335,23 @@ def resume_tailor(
     console.print(f"  ATS: {out_dir / 'ats.md'}")
     if result.report.true_gaps:
         console.print(f"  Real gaps (don't claim): {', '.join(result.report.true_gaps)}")
+    if result.polish and result.polish.proposals:
+        for proposal in result.polish.proposals:
+            console.print(f"  [cyan]proposal[/cyan] {proposal.entry_name}: {proposal.text}")
+        if propose:
+            from opportunity_radar.resume.proposals import submit
+
+            submitted = submit(
+                result.polish.proposals,
+                repo=private_dir(),
+                bank=bank,
+                title=title,
+                company=company,
+                url=meta.get("apply_url"),
+                runner=_runner(True),
+            )
+            where = submitted.pr_url or submitted.saved or "already proposed before"
+            console.print(f"  Proposals for your review: {where}")
 
 
 @resume_app.command("variants")

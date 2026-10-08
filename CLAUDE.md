@@ -83,8 +83,11 @@ roles are excluded. Skill demand: `uv run opportunity-radar insights skills`
 - Private career repo `TheAsianFish/career-private` is cloned at
   `resume/private/` (git-ignored; `CAREER_DEPLOY_KEY` deploy key for CI).
   Resume engine: `src/opportunity_radar/resume/` (AD-28, AD-29: assessment-gated
-  checks, STAR story rewrites behind the guard, Simplify CSV import). Never copy resume
-  or application content into the public repo, PRs, or CI logs.
+  checks, STAR story rewrites behind the guard, Simplify CSV import; AD-31:
+  experience fixed, projects reshuffled, bullets needing Patrick's word become
+  approval PRs in the private repo -> `verified.yaml`). `AGENT_GH_TOKEN` secret
+  (fine-grained PAT, all repos) opens those PRs and the project builders' repos.
+  Never copy resume or application content into the public repo, PRs, or CI logs.
 - pdfLaTeX via TinyTeX (`scripts/install_tinytex.sh`); resume tests that
   compile are skipped when it is absent.
 - Simplify lists are ingested as a secondary source (`simplify` adapter,
