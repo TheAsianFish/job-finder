@@ -1,0 +1,200 @@
+%-------------------------
+% Resume in Latex
+% Author : Jake Gutierrez
+% Based off of: https://github.com/sb2nov/resume
+% License : MIT
+%------------------------
+
+\documentclass[letterpaper,11pt]{article}
+
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\input{glyphtounicode}
+\usepackage{hyperref}
+
+
+
+
+%----------FONT OPTIONS----------
+% sans-serif
+% \usepackage[sfdefault]{FiraSans}
+% \usepackage[sfdefault]{roboto}
+% \usepackage[sfdefault]{noto-sans}
+% \usepackage[default]{sourcesanspro}
+
+% serif
+% \usepackage{CormorantGaramond}
+% \usepackage{charter}
+
+
+\pagestyle{fancy}
+\fancyhf{} % clear all header and footer fields
+\fancyfoot{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+% Adjust margins
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1in}
+\addtolength{\topmargin}{-.5in}
+\addtolength{\textheight}{1.0in}
+
+\urlstyle{same}
+
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+% Sections formatting
+\titleformat{\section}{
+  \vspace{-6pt}\scshape\raggedright\large
+}{}{0em}{}[\color{black}\titlerule \vspace{-6pt}]
+
+% Ensure that generate pdf is machine readable/ATS parsable
+\pdfgentounicode=1
+
+%-------------------------
+% Custom commands
+\newcommand{\resumeItem}[1]{
+  \item\small{
+    {#1 \vspace{-2pt}}
+  }
+}
+
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+    \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{#1} & #2 \\
+      \textit{\small#3} & \textit{\small #4} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubSubheading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \textit{\small#1} & \textit{\small #2} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeProjectHeading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \small#1 & #2 \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace{-4pt}}
+
+\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
+
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-6pt}}
+
+%-------------------------------------------
+%%%%%%  RESUME STARTS HERE  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+\begin{document}
+
+\begin{center}
+    \textbf{\Huge \scshape Alex Example} \\ \vspace{1pt}
+    \small 555-010-0199 $|$ \href{mailto:alex@example.com}{\underline{alex@example.com}} $|$
+    \href{https://github.com/alex-example}{\underline{github.com/alex-example}}
+\end{center}
+
+%-----------EDUCATION-----------
+\section{Education}
+  \resumeSubHeadingListStart
+    \resumeSubheading
+      {Example State University -- GPA: 3.80}{Expected May 2028}
+      {Bachelor of Science in Computer Science}{Springfield, IL}
+  \resumeSubHeadingListEnd
+
+%-----------EXPERIENCE-----------
+\section{Experience}
+  \resumeSubHeadingListStart
+\resumeSubheading
+  {Software Engineering Intern}{June 2026 -- August 2026}
+  {Acme Cloud}{Remote}
+\resumeItemListStart
+  \resumeItem{Built a Python and PostgreSQL billing service exposing REST APIs to 40 internal teams.}
+  \resumeItem{Containerized deployments with Docker and Kubernetes, \textbf{cutting release time 60\%}.}
+  \resumeItem{Wrote unit tests and fixed a race condition in the invoice queue.}
+\resumeItemListEnd
+\resumeSubheading
+  {Student IT Worker}{Sept. 2025 -- Present}
+  {Springfield City Hall}{Springfield, IL}
+\resumeItemListStart
+  \resumeItem{Maintained a C\# and SQL Server permit portal serving \textbf{12{,}000+ residents}.}
+  \resumeItem{Reduced report generation from 30s to 4s by rewriting SQL queries.}
+\resumeItemListEnd
+\resumeSubheading
+  {Open Source Fellow}{Jan. 2026 -- Apr. 2026}
+  {Example Fellowship}{Remote}
+\resumeItemListStart
+  \resumeItem{Selected for a 12-week mentorship focused on code review and data structures.}
+  \resumeItem{Practiced algorithms and system design in weekly sessions.}
+\resumeItemListEnd
+% \resumeSubheading
+%   {Research Assistant}{May 2025 -- Aug. 2025}
+%   {Example Vision Lab}{Springfield, IL}
+% \resumeItemListStart
+%   \resumeItem{Trained PyTorch deep learning models for computer vision defect detection, reaching \textbf{94\%} accuracy.}
+%   \resumeItem{Built Python data pipelines to label 50{,}000 images.}
+%   %\resumeItem{Did some ML stuff in the lab.}
+% \resumeItemListEnd
+  \resumeSubHeadingListEnd
+
+%-----------PROJECTS-----------
+\section{Projects}
+    \resumeSubHeadingListStart
+  \resumeProjectHeading
+  {\textbf{Indexer --- Code Search Engine} $|$ \emph{Python, FastAPI, ChromaDB}}{}
+  \resumeItemListStart
+    \resumeItem{Published an open-source code search engine that answers questions with LLM-grounded citations.}
+    \resumeItem{Implemented hybrid vector and keyword retrieval in Python.}
+  \resumeItemListEnd
+  \resumeProjectHeading
+  {\textbf{Toy OS Kernel} $|$ \emph{C}}{}
+  \resumeItemListStart
+    \resumeItem{Implemented virtual memory with page fault handling and a clock page replacement policy.}
+    \resumeItem{Added a priority scheduler and synchronization primitives for concurrent processes.}
+  \resumeItemListEnd
+  \resumeProjectHeading
+  {\textbf{Budget Dashboard} $|$ \emph{React, TypeScript}}{}
+  \resumeItemListStart
+    \resumeItem{Built a React and TypeScript budgeting dashboard with charts and CSV import.}
+    \resumeItem{Deployed on Vercel with CI/CD through GitHub Actions.}
+  \resumeItemListEnd
+% \resumeProjectHeading
+% {\textbf{VisionLab --- Defect Detector} $|$ \emph{Python, PyTorch}}{}
+% \resumeItemListStart
+%   \resumeItem{Trained a PyTorch convolutional neural network for computer vision defect detection.}
+%   \resumeItem{Served model predictions through a FastAPI endpoint.}
+% \resumeItemListEnd
+    \resumeSubHeadingListEnd
+
+%-----------PROGRAMMING SKILLS-----------
+\section{Technical Skills}
+ \begin{itemize}[leftmargin=0.15in, label={}]
+    \small{\item{
+     \textbf{Languages}{: Python, C\#, C, SQL, TypeScript, JavaScript.} \\
+     \textbf{Frameworks/DB}{: FastAPI, React, PostgreSQL, SQL Server, ChromaDB.} \\
+     \textbf{DevOps/Tools}{: Docker, Kubernetes, Git, CI/CD.}
+    }}
+ \end{itemize}
+
+\end{document}

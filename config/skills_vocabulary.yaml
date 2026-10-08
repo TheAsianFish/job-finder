@@ -30,7 +30,7 @@ skills:
   - {name: REST APIs, category: backend, patterns: ['rest(?:ful)? api', '\brest\b']}
   - {name: GraphQL, category: backend, patterns: ['graphql']}
   - {name: gRPC, category: backend, patterns: ['grpc']}
-  - {name: Microservices, category: backend, patterns: ['microservice']}
+  - {name: Microservices, category: backend, patterns: ['microservices?']}
   - {name: Django, category: backend, patterns: ['django']}
   - {name: Flask, category: backend, patterns: ['flask']}
   - {name: FastAPI, category: backend, patterns: ['fastapi']}
@@ -60,15 +60,15 @@ skills:
   - {name: Machine learning, category: ml, patterns: ['machine learning', '\bml\b']}
   - {name: PyTorch, category: ml, patterns: ['pytorch']}
   - {name: TensorFlow, category: ml, patterns: ['tensorflow']}
-  - {name: LLMs/GenAI, category: ml, patterns: ['llm', 'large language model', 'generative ai', 'genai']}
-  - {name: Deep learning, category: ml, patterns: ['deep learning', 'neural network']}
+  - {name: LLMs/GenAI, category: ml, patterns: ['llms?', 'large language models?', 'generative ai', 'genai']}
+  - {name: Deep learning, category: ml, patterns: ['deep learning', 'neural networks?']}
   - {name: Computer vision, category: ml, patterns: ['computer vision']}
   - {name: CUDA/GPU, category: ml, patterns: ['cuda', '\bgpu']}
   # CS fundamentals / concepts (frequent ATS phrases)
-  - {name: Data structures & algorithms, category: concept, patterns: ['data structure', 'algorithm']}
+  - {name: Data structures & algorithms, category: concept, patterns: ['data structures?', 'algorithms?']}
   - {name: Object-oriented programming, category: concept, patterns: ['object[- ]oriented', '\boop\b']}
-  - {name: Distributed systems, category: concept, patterns: ['distributed system']}
-  - {name: Operating systems, category: concept, patterns: ['operating system']}
+  - {name: Distributed systems, category: concept, patterns: ['distributed systems?']}
+  - {name: Operating systems, category: concept, patterns: ['operating systems?', 'os kernel', '\bkernel\b', 'virtual memory', 'page (?:faults?|tables?|replacement)', 'process schedul']}
   - {name: Networking, category: concept, patterns: ['computer network', 'tcp/ip', 'network protocol', 'networking protocol', 'network(?:ing)? stack', 'network engineering']}
   - {name: Concurrency/multithreading, category: concept, patterns: ['concurren', 'multithread', 'multi-thread', 'parallel programming']}
   - {name: System design, category: concept, patterns: ['system design', 'software architecture', 'scalab']}

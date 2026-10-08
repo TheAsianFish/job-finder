@@ -26,6 +26,7 @@ dependencies = [
     "python-multipart>=0.0.9",
     "python-dotenv>=1.0",
     "feedparser>=6.0",
+    "pypdf>=6.19.0",
 ]
 
 [project.optional-dependencies]
