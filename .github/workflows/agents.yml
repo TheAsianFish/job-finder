@@ -129,7 +129,13 @@ jobs:
           if ! git diff --cached --quiet; then
             git -c user.name=TheAsianFish -c user.email=jmchung2006@gmail.com \
               commit -q -m "agent: ${TASK} $(date -u +%Y-%m-%d)"
-            git push -q && echo "private repo updated"
+            # Other writers (scan deliveries, local `apply`) may have pushed
+            # meanwhile: rebase onto them and retry instead of failing.
+            for attempt in 1 2 3; do
+              if git pull -q --rebase && git push -q; then echo "private repo updated"; break; fi
+              [ "$attempt" = 3 ] && { echo "private push failed"; exit 1; }
+              sleep 5
+            done
           fi
 
       - name: Open pull request with the agent's changes
