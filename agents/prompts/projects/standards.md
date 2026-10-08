@@ -17,10 +17,13 @@ The bar (non-negotiable):
 - **Measured, not claimed.** Every quality or performance claim comes from an
   evaluation or benchmark the repo can re-run (`make eval`, `make bench`), with
   the dataset, method and raw output recorded in RESULTS.md. Never write a
-  number you did not measure. If a measurement needs credentials or hardware
-  the CI runner lacks (an LLM API key, a GPU), build the harness, run what you
-  can (small local models, mocked baselines clearly labelled), and list the
-  exact command for Patrick to run in RESULTS.md under "To measure".
+  number you did not measure. Evals and benchmarks run against **real
+  models**: when `ANTHROPIC_API_KEY` is in your environment, run them for real
+  (keep runs small and cheap: sample sizes that give a meaningful number, the
+  cheapest model that answers the question, caching, no runaway loops) and
+  record cost alongside results. Mocks are for unit tests only, never for a
+  reported number. If a key or hardware (GPU) is missing, build the harness,
+  say so plainly, and list the exact command under "To measure" in RESULTS.md.
 - **Production engineering.** Typed code (mypy/pyright strict or TypeScript
   strict), formatted and linted, unit + integration tests (offline, fast,
   deterministic; network mocked), CI on GitHub Actions, Dockerfile where it
@@ -31,8 +34,10 @@ The bar (non-negotiable):
 - **AI stack, used well.** Prefer: Anthropic Claude API (default model
   `claude-opus-5-5`, via the official `anthropic` SDK), local models through
   Ollama as an offline fallback, embeddings + a vector store, tool use /
-  agents, structured outputs, evals. Make the model provider pluggable and
-  keep every test runnable without any API key.
+  agents, structured outputs, evals. The product calls real models in real
+  use. Keep the provider pluggable; unit tests stay offline (mocked, fast,
+  free) and a separate, clearly marked integration/eval suite exercises the
+  real API (CI job runs it only when the `ANTHROPIC_API_KEY` secret exists).
 - **Patrick's strengths first**: Python, TypeScript/React, SQL/PostgreSQL,
   FastAPI, Docker, AWS, plus whatever new skill the project exists to prove.
 
@@ -45,8 +50,11 @@ Process rules:
   scaffolds. Review their output before committing it.
 - Keep PLAN.md as the single source of truth: tick a milestone's checkbox only
   when its definition of done is met and tests pass.
-- Never sign up for services, buy anything, publish packages, deploy, or use
-  credentials. Prepare releases (build config, workflow with `if:` guards,
+- Never sign up for services, buy anything, publish packages, or deploy.
+  The only credential you may use is `ANTHROPIC_API_KEY` (a capped key for
+  evals/integration tests); never print it, write it to files, or commit it.
+  Hosted services (Supabase, Vercel, Fly.io, ...) are chosen in PLAN.md's
+  Release section with the exact secrets Patrick must add. Prepare releases (build config, workflow with `if:` guards,
   RELEASE.md with exact steps and the secrets Patrick must add).
 - Patrick's resume and private data are not in this repo and must never be;
   you only get a short summary of his skills.
