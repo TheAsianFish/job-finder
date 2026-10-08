@@ -393,3 +393,23 @@ Export CSV is imported (`applications import-simplify`, or drop it in the
 private repo's `imports/`; every scan merges it). Matching is by link,
 else company + title; status only moves forward. MyGreenhouse has no
 export or API; logged-in scraping is out of scope.
+
+## AD-30: Every alert carries a resume verdict; reviews on demand; strong tier hot
+
+- Alerts gain a "Resume" line computed deterministically at send time:
+  ✅ fits (apply as-is), ⚠️ worth tuning, 🛠️ gap, or ❔ not assessed (no
+  full description stored). Silence after an alert used to be ambiguous
+  ("fits" vs "never checked"); now the decision is on the alert itself.
+- `resume review-url <link>` and the `review-role` agents task (runnable from
+  the GitHub mobile app) give a forced, brutally honest review + tailored PDF
+  for any Greenhouse/Lever/Ashby/Workday posting, tracked or not.
+- Strong-tier companies join the 10-minute hot set (core was there already).
+  Observed 2026-10-08: DoorDash's "Software Engineer, Intern - Labs (Summer
+  2027)" has Greenhouse first_published 02:50 UTC but was absent from the
+  public board API at 06:29 and present at 07:30 (detected then). ATS
+  "published" timestamps can precede public visibility; "Detected" in alerts
+  is when we first saw it publicly, now within ~10 minutes for core/strong.
+- Alert fields renamed: "First seen" -> "Detected" (our detection time),
+  "Posted" -> "Posted (per ATS)".
+- Tests run against an empty private dir by default (autouse fixture), so a
+  developer's real resume never influences results.

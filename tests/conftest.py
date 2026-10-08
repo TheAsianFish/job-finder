@@ -17,6 +17,12 @@ def load_fixture(name: str) -> str:
 
 
 @pytest.fixture(autouse=True)
+def _isolated_private_dir(tmp_path_factory, monkeypatch):
+    """Never read the developer's real private career repo during tests."""
+    monkeypatch.setenv("OPPORTUNITY_RADAR_PRIVATE_DIR", str(tmp_path_factory.mktemp("no-private")))
+
+
+@pytest.fixture(autouse=True)
 def _clear_robots_cache():
     robots.clear_cache()
     yield

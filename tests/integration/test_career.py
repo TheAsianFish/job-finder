@@ -189,3 +189,32 @@ async def test_deliver_without_resume_source_skips_cleanly(db, tmp_path, monkeyp
     _insert(db, "31", "Backend Engineer Intern", alerted=True)
     report = await deliver_pending(DiscordNotifier(None), db_url=db, push=False)
     assert report.pending == 1 and report.skipped_reason.startswith("no resume source")
+
+
+@respx.mock
+async def test_review_any_link_on_demand(db, private):
+    from opportunity_radar.resume.deliver import check_url
+
+    url = "https://boards.greenhouse.io/someco/jobs/999"
+    respx.get("https://boards-api.greenhouse.io/v1/boards/someco/jobs/999").mock(
+        return_value=Response(200, json={"content": "&lt;p&gt;" + FIT_DESCRIPTION + "&lt;/p&gt;"})
+    )
+    route = respx.post(WEBHOOK).mock(return_value=Response(204))
+    outcome, fit = await check_url(
+        url,
+        notifier=DiscordNotifier(WEBHOOK),
+        runner=_runner,
+        title="Backend Intern",
+        company="SomeCo",
+        db_url=db,
+    )
+    # On demand means forced: even a fitting resume gets the full review.
+    assert outcome == "flagged" and fit.severity == "fits"
+    assert b"SomeCo" in route.calls[0].request.content
+    unsupported = await check_url(
+        "https://careers.example.com/1",
+        notifier=DiscordNotifier(WEBHOOK),
+        runner=_runner,
+        db_url=db,
+    )
+    assert unsupported[0] == "skipped"

@@ -411,6 +411,31 @@ def resume_deliver(
     )
 
 
+@resume_app.command("review-url")
+def resume_review_url(
+    url: str = typer.Argument(..., help="Any posting link (Greenhouse/Lever/Ashby/Workday)"),
+    title: str = typer.Option(None, "--title"),
+    company: str = typer.Option(None, "--company"),
+) -> None:
+    """Brutally honest review + tailored resume for any posting, sent to Discord."""
+    from opportunity_radar.config import get_settings
+    from opportunity_radar.notifications.discord import DiscordNotifier
+    from opportunity_radar.resume.deliver import check_url
+
+    notifier = DiscordNotifier(get_settings().discord_webhook_url)
+    outcome, fit = asyncio.run(
+        check_url(url, notifier=notifier, runner=_runner(True), title=title, company=company)
+    )
+    if outcome == "skipped":
+        console.print(
+            "[yellow]Couldn't get the full description from that link "
+            "(company career sites aren't supported); pass a Greenhouse/Lever/Ashby/Workday link.[/yellow]"
+        )
+        raise typer.Exit(1)
+    # Counts only: may run in public CI logs.
+    console.print(f"Review {outcome}; severity {fit.severity if fit else 'n/a'}.")
+
+
 @resume_app.command("assess")
 def resume_assess(
     target: str = typer.Argument(..., help="Job id (local DB) or apply URL"),

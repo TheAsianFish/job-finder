@@ -30,13 +30,18 @@ def _set_last_full(minutes_ago: int) -> None:
         )
 
 
-def test_hot_set_is_core_tier_plus_secondary_feeds():
+def test_hot_set_is_core_and_strong_plus_secondary_feeds():
     companies = [
         CompanySource(id="google-ish", name="Core", tier="core", adapter="greenhouse"),
         CompanySource(id="strongco", name="Strong", tier="strong", adapter="greenhouse"),
+        CompanySource(id="broadco", name="Broad", tier="broad", adapter="greenhouse"),
         CompanySource(id="simplify-internships", name="S", tier="broad", adapter="simplify"),
     ]
-    assert [c.id for c in _hot_companies(companies)] == ["google-ish", "simplify-internships"]
+    assert [c.id for c in _hot_companies(companies)] == [
+        "google-ish",
+        "strongco",
+        "simplify-internships",
+    ]
 
 
 def test_explicit_modes_pass_through(db):

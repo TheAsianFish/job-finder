@@ -276,10 +276,15 @@ LAST_FULL_SCAN_KEY = "last_full_scan_at"
 
 
 def _hot_companies(companies):
-    """Core-tier employers plus secondary feeds: what must be seen in minutes."""
+    """Core + strong employers plus secondary feeds: what must be seen in minutes.
+
+    With the unchanged-posting fast path (AD-23) a scan of this set takes a
+    few minutes, so FAANG-tier and strong companies are polled every run
+    (~10 min); broad/exploratory companies wait for the hourly full scan.
+    """
     from opportunity_radar.adapters.registry import SECONDARY_ADAPTERS
 
-    return [c for c in companies if c.tier == "core" or c.adapter in SECONDARY_ADAPTERS]
+    return [c for c in companies if c.tier in ("core", "strong") or c.adapter in SECONDARY_ADAPTERS]
 
 
 def _resolve_scan_mode(mode: str, interval_minutes: int) -> str:

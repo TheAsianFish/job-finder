@@ -98,29 +98,29 @@ def _queue_project(rev: Review, title: str, company: str) -> None:
         )
 
 
-async def check_job(
-    job_id: int,
+@dataclass
+class PostingRef:
+    """What a resume check needs to know about a posting (DB row or bare URL)."""
+
+    title: str
+    company_name: str
+    apply_url: str
+    description: str
+    job_id: int | None = None
+
+
+async def run_check(
+    ref: PostingRef,
     *,
     notifier: DiscordNotifier,
     bank,
     baseline: str,
     runner: Runner | None,
-    db_url: str | None = None,
     force: bool = False,
 ) -> tuple[str, FitAssessment | None]:
-    """Assess one job; returns (outcome, fit). outcome: flagged|quiet|skipped|failed."""
-    with session_scope(db_url) as session:
-        job = session.get(JobRow, job_id)
-        if job is None:
-            return "skipped", None
-        company_row = session.get(CompanyRow, job.company_id)
-        tier = company_row.tier if company_row else "broad"
-        title, company, url = job.title, job.company_name, job.apply_url
-        description = job.description_text or ""
-        family = job.role_family
-    targets = set(get_settings().profile.preferences.role_families) | {"general_swe"}
-    if not force and (tier not in IMPORTANT_TIERS or family not in targets):
-        return "skipped", None
+    """Assess -> (if flagged or forced) review + tailor + one Discord message."""
+    title, company, url = ref.title, ref.company_name, ref.apply_url
+    description = ref.description
     if len(description) < MIN_DESCRIPTION:
         description = fetch_description(url) or description
     if len(description) < MIN_DESCRIPTION:
@@ -149,7 +149,12 @@ async def check_job(
         out_dir=out_dir,
         runner=runner,
         baseline_text=baseline,
-        meta={"job_id": job_id, "apply_url": url, "severity": fit.severity, "reasons": fit.reasons},
+        meta={
+            "job_id": ref.job_id,
+            "apply_url": url,
+            "severity": fit.severity,
+            "reasons": fit.reasons,
+        },
         guidance=[f"{w.get('bullet', '')[:90]}: {w.get('fix', '')}" for w in rev.weak_bullets[:6]]
         + [f"Swap in: {s}" for s in rev.swaps[:2]],
         prefer=rev.swaps[:3],
@@ -158,10 +163,7 @@ async def check_job(
     (out_dir / "review.md").write_text(review_md, encoding="utf-8")
     _queue_project(rev, title, company)
 
-    with session_scope(db_url) as session:
-        job = session.get(JobRow, job_id)
-        assert job is not None
-        payload = templates.build_resume_check_message(job, fit, rev, result.summary)
+    payload = templates.build_resume_check_message(ref, fit, rev, result.summary)
     files = [("review.md", review_md.encode("utf-8"), "text/markdown")]
     if result.pdf_path is not None:
         files.insert(0, (result.pdf_path.name, result.pdf_path.read_bytes(), "application/pdf"))
@@ -169,6 +171,76 @@ async def check_job(
     if not sent and notifier.configured:
         return "failed", fit
     return "flagged", fit
+
+
+async def check_job(
+    job_id: int,
+    *,
+    notifier: DiscordNotifier,
+    bank,
+    baseline: str,
+    runner: Runner | None,
+    db_url: str | None = None,
+    force: bool = False,
+) -> tuple[str, FitAssessment | None]:
+    """Check one stored job; non-priority roles are skipped unless forced."""
+    with session_scope(db_url) as session:
+        job = session.get(JobRow, job_id)
+        if job is None:
+            return "skipped", None
+        company_row = session.get(CompanyRow, job.company_id)
+        tier = company_row.tier if company_row else "broad"
+        ref = PostingRef(
+            title=job.title,
+            company_name=job.company_name,
+            apply_url=job.apply_url,
+            description=job.description_text or "",
+            job_id=job.id,
+        )
+        family = job.role_family
+    targets = set(get_settings().profile.preferences.role_families) | {"general_swe"}
+    if not force and (tier not in IMPORTANT_TIERS or family not in targets):
+        return "skipped", None
+    return await run_check(
+        ref, notifier=notifier, bank=bank, baseline=baseline, runner=runner, force=force
+    )
+
+
+async def check_url(
+    url: str,
+    *,
+    notifier: DiscordNotifier,
+    runner: Runner | None,
+    title: str | None = None,
+    company: str | None = None,
+    db_url: str | None = None,
+) -> tuple[str, FitAssessment | None]:
+    """On-demand brutal review of any posting by link (tracked or not)."""
+    from opportunity_radar.resume.ledger import find_job
+
+    bank = load_bank()
+    baseline = master_text(bank)
+    with session_scope(db_url) as session:
+        job = find_job(session, url)
+        if job is not None:
+            ref = PostingRef(
+                title=title or job.title,
+                company_name=company or job.company_name,
+                apply_url=job.apply_url,
+                description=job.description_text or "",
+                job_id=job.id,
+            )
+        else:
+            host = url.split("//")[-1].split("/")[0]
+            ref = PostingRef(
+                title=title or "Role",
+                company_name=company or host,
+                apply_url=url,
+                description="",
+            )
+    return await run_check(
+        ref, notifier=notifier, bank=bank, baseline=baseline, runner=runner, force=True
+    )
 
 
 async def deliver_pending(

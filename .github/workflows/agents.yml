@@ -16,11 +16,14 @@ on:
   workflow_dispatch:
     inputs:
       task:
-        description: "weekly-review | project-plan | custom (prompt file in agents/prompts)"
+        description: "weekly-review | project-plan | review-role | custom"
         default: weekly-review
         required: true
       prompt:
-        description: "Custom prompt (used when task = custom)"
+        description: "Custom prompt (task = custom)"
+        required: false
+      url:
+        description: "Posting link to review brutally (task = review-role)"
         required: false
 
 concurrency:
@@ -85,7 +88,16 @@ jobs:
           npm install -g @anthropic-ai/claude-code >/dev/null
           bash scripts/install_tinytex.sh
 
+      - name: Brutally honest review of one role
+        if: inputs.task == 'review-role'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          ROLE_URL: ${{ inputs.url }}
+        run: uv run opportunity-radar resume review-url "$ROLE_URL"
+
       - name: Run agent
+        if: inputs.task != 'review-role'
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           TASK: ${{ inputs.task || 'weekly-review' }}
@@ -114,7 +126,7 @@ jobs:
         run: uv run opportunity-radar resume variants --polish > /dev/null && echo "variants built"
 
       - name: Save private outputs and post to Discord
-        if: env.HAS_CAREER_KEY == 'true'
+        if: always() && env.HAS_CAREER_KEY == 'true'
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           TASK: ${{ inputs.task || 'weekly-review' }}

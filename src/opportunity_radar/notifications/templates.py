@@ -54,6 +54,16 @@ def _season_label(job: JobRow) -> str:
     return label
 
 
+def _resume_fit_line(job: JobRow) -> str | None:
+    from opportunity_radar.config import get_settings
+    from opportunity_radar.resume.verdict import resume_fit_line
+
+    tier = next((c.tier for c in get_settings().companies if c.id == job.company_id), None)
+    return resume_fit_line(
+        job.title, job.description_text or "", important=tier in ("core", "strong")
+    )
+
+
 def _keyword_line(job: JobRow) -> str | None:
     """Cross-reference the posting against your profile/resume skills."""
     from opportunity_radar.config import get_settings
@@ -87,7 +97,8 @@ def build_job_embed(job: JobRow, *, header: str = "🚨 NEW HIGH-PRIORITY ROLE")
             "inline": True,
         },
         {
-            "name": "First seen",
+            # When Opportunity Radar detected it, not when the employer posted it.
+            "name": "Detected",
             "value": humanize_age(ensure_utc(job.first_seen_at)),
             "inline": True,
         },
@@ -96,10 +107,15 @@ def build_job_embed(job: JobRow, *, header: str = "🚨 NEW HIGH-PRIORITY ROLE")
     if job.posted_at is not None:
         fields.append(
             {
-                "name": "Posted",
+                "name": "Posted (per ATS)",
                 "value": ensure_utc(job.posted_at).strftime("%Y-%m-%d"),  # type: ignore[union-attr]
                 "inline": True,
             }
+        )
+    fit_line = _resume_fit_line(job)
+    if fit_line:
+        fields.append(
+            {"name": "Resume", "value": truncate(sanitize(fit_line), 1024), "inline": False}
         )
     keyword_line = _keyword_line(job)
     if keyword_line:
@@ -331,7 +347,7 @@ def markdown_chunks(markdown: str, limit: int = _DESCRIPTION_LIMIT) -> list[str]
     return chunks or ["(empty report)"]
 
 
-def build_resume_check_message(job: JobRow, fit, rev, tailored_summary: str) -> dict[str, Any]:
+def build_resume_check_message(job: Any, fit, rev, tailored_summary: str) -> dict[str, Any]:
     """One message per flagged role: verdict, why it was flagged, top fixes.
 
     The tailored PDF and the full review.md ride along as attachments.

@@ -225,6 +225,7 @@ uv run opportunity-radar resume tailor 34723 --no-polish
 uv run opportunity-radar resume variants             # backend / ai-ml / fullstack / infrastructure / general
 uv run opportunity-radar resume ats some.pdf --job 34723
 uv run opportunity-radar resume assess 34723 --review   # does my resume compete? (Claude review)
+uv run opportunity-radar resume review-url <link>       # brutal review + tailored PDF to Discord, any posting
 uv run opportunity-radar apply 34723 --resume backend   # log an application (commits + pushes privately)
 uv run opportunity-radar jobs status <id-or-url> interview
 uv run opportunity-radar insights outcomes            # what works: response rates by tier, role, version, speed
@@ -232,6 +233,10 @@ uv run opportunity-radar insights outcomes            # what works: response rat
 
 Each tailored resume lands in `resume/private/tailored/<date>-<company>-<role>/`
 with the PDF, `.tex`, an ATS report and a `meta.json` of every decision.
+
+Every high-priority alert carries a resume verdict (✅ apply as-is / ⚠️ tune /
+🛠️ gap). From your phone: GitHub app -> Actions -> Opportunity Radar Agents ->
+Run workflow -> task `review-role` + the posting link, for a brutal review of any role.
 
 Cloud scans don't tailor every alert. For important new roles they run a fit
 check (`uv run opportunity-radar resume assess <job> [--review]` does the same

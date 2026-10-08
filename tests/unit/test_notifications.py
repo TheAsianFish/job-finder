@@ -52,7 +52,7 @@ def test_embed_contains_required_fields():
     assert embed["url"] == "https://jobs.lever.co/palantir/123"
     assert embed["color"] == templates.COLOR_HIGH
     names = {f["name"] for f in embed["fields"]}
-    assert {"Company", "Score", "Season", "Location", "First seen", "Links"} <= names
+    assert {"Company", "Score", "Season", "Location", "Detected", "Links"} <= names
     links = next(f for f in embed["fields"] if f["name"] == "Links")
     assert "Apply directly" in links["value"]
     assert "127.0.0.1:8765" in links["value"]
@@ -162,3 +162,38 @@ async def test_send_files_posts_multipart_attachment():
     assert request.headers["content-type"].startswith("multipart/form-data")
     assert b'filename="resume.pdf"' in request.content
     assert b"payload_json" in request.content
+
+
+def test_alert_carries_resume_verdict_when_a_resume_exists(tmp_path, monkeypatch):
+    from tests.conftest import load_fixture
+
+    private = tmp_path / "private"
+    private.mkdir()
+    (private / "resume.tex").write_text(load_fixture("resume_sample.tex"), encoding="utf-8")
+    monkeypatch.setenv("OPPORTUNITY_RADAR_PRIVATE_DIR", str(private))
+    fits = make_job_row(
+        title="Backend Engineer Intern",
+        description_text="Build Python services on PostgreSQL with REST APIs, Docker and Kubernetes. "
+        * 8,
+    )
+    field = next(
+        f for f in templates.build_job_embed(fits)["embeds"][0]["fields"] if f["name"] == "Resume"
+    )
+    assert field["value"].startswith("✅") and "apply as-is" in field["value"]
+    gap = make_job_row(
+        title="Rust Systems Intern", description_text="Rust Kafka Terraform Go tooling. " * 20
+    )
+    field = next(
+        f for f in templates.build_job_embed(gap)["embeds"][0]["fields"] if f["name"] == "Resume"
+    )
+    assert field["value"].startswith("🛠️") and "Rust" in field["value"]
+    short = make_job_row(description_text="Internship listed on the Simplify internships list.")
+    field = next(
+        f for f in templates.build_job_embed(short)["embeds"][0]["fields"] if f["name"] == "Resume"
+    )
+    assert field["value"].startswith("❔")
+
+
+def test_alert_has_no_resume_field_without_a_resume():
+    names = {f["name"] for f in templates.build_job_embed(make_job_row())["embeds"][0]["fields"]}
+    assert "Resume" not in names
