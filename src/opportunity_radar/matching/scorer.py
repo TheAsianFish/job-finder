@@ -214,6 +214,86 @@ def is_internship(title: str, description: str = "") -> bool:
     )
 
 
+_STRONG_EARLY_DESC_RE = re.compile(
+    r"new[\s\-]?grad(?:uate)?s?\b|recent (?:college |university )?graduates?|entry[\s\-]level"
+    r"|early[\s\-]career (?:program|role|position|talent)|university (?:grad|hire|program)"
+    r"|graduating (?:in|by|between)|class of 20\d\d|0\s*[-–]\s*[12] years",  # noqa: RUF001
+    re.IGNORECASE,
+)
+_EXPERIENCE_RE = re.compile(
+    r"(?<![\d\-–])(\d{1,2})\s*(?:\+|\s*or more)?\s*years?(?:\s+of)?"  # noqa: RUF001
+    r"(?:\s+(?:professional|industry|relevant|work|hands-on|software|engineering|full-time))*"
+    r"\s+experience",
+    re.IGNORECASE,
+)
+_CLASS_YEAR_RE = re.compile(
+    r"(20\d\d)\s+(?:new\s+(?:college\s+)?grad|graduates?|university\s+grad|grad\b)"
+    r"|new[\s\-](?:college[\s\-])?grad(?:uate)?s?[\s,(\-]+(20\d\d)"
+    r"|class of (20\d\d)|(20\d\d)\s+(?:start|graduating)",
+    re.IGNORECASE,
+)
+
+
+def full_time_aligned(
+    *,
+    title: str,
+    description: str,
+    early_career_title: bool,
+    eligibility_level: str,
+    start_min: date | None,
+    earliest_start: date,
+    earliest_class_year: int,
+) -> bool:
+    """Would a full-time role fit a candidate graduating in the given range?
+
+    Needs an explicit entry-level signal (title, or a strong description
+    phrase - a stray "university" in boilerplate is not enough), no 2+ years
+    of required experience, no graduation-window mismatch, a target class
+    year no earlier than the candidate's, and no start date before
+    earliest_start. Unknown start/class year is allowed: most postings omit it.
+    """
+    text = f"{title}\n{description or ''}"
+    if not (early_career_title or _STRONG_EARLY_DESC_RE.search(text)):
+        return False
+    if eligibility_level in ("likely_ineligible", "confirmed_ineligible"):
+        return False
+    if any(int(m.group(1)) >= 2 for m in _EXPERIENCE_RE.finditer(text)):
+        return False
+    years = [int(y) for m in _CLASS_YEAR_RE.finditer(text) for y in m.groups() if y]
+    if years and max(years) < earliest_class_year:
+        return False
+    return start_min is None or start_min >= earliest_start
+
+
+def notify_eligible(
+    *,
+    title: str,
+    description: str,
+    early_career_title: bool,
+    eligibility_level: str,
+    start_min: date | None,
+    preferences,  # config.Preferences
+    earliest_class_year: int,
+) -> bool:
+    """Internships always qualify; full-time roles per preferences.full_time_policy."""
+    if is_internship(title, description):
+        return True
+    policy = preferences.full_time_policy
+    if policy == "always":
+        return True
+    if policy == "never":
+        return False
+    return full_time_aligned(
+        title=title,
+        description=description,
+        early_career_title=early_career_title,
+        eligibility_level=eligibility_level,
+        start_min=start_min,
+        earliest_start=preferences.full_time_earliest_start,
+        earliest_class_year=earliest_class_year,
+    )
+
+
 def _score_compensation(
     pay_hourly_max: float | None,
     remote_type: str,
@@ -327,8 +407,7 @@ def decide_alert_level(
     thresholds_suppress: int,
     now: datetime | None = None,
     us_accessible: bool = True,
-    internship: bool = True,
-    require_internship: bool = False,
+    role_notifiable: bool = True,
 ) -> str:
     """Return one of: immediate, digest, dashboard, suppress (spec §13.5)."""
     now = now or utcnow()
@@ -346,8 +425,9 @@ def decide_alert_level(
     if not us_accessible:
         return "dashboard" if score >= thresholds_dashboard else "suppress"
 
-    # Internship-focused search: full-time roles never notify.
-    if require_internship and not internship:
+    # Full-time roles outside the candidate's start/graduation fit (or any
+    # full-time role, under an internships-only policy) never notify.
+    if not role_notifiable:
         return "dashboard" if score >= thresholds_dashboard else "suppress"
 
     if score >= thresholds_immediate:

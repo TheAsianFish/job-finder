@@ -7,7 +7,7 @@
 #   Production/systems relevance: 0-10
 #   Location/remote fit:          0-5
 #   Freshness:                    0-5
-#   Posted pay (when stated):    -8-+4
+#   Posted pay (when stated):    -3-+3  (missing pay: 0, never a penalty)
 #   Eligibility adjustment:     -50-0
 #   Risk/noise adjustment:      -30-0
 
@@ -63,16 +63,17 @@ target_windows:
     end: 2028-06-30
     priority: 40
 
-# Posted pay (only when a posting states it): strong pay earns a bonus; low
-# pay is penalised, softened for remote roles or core/strong brands.
+# Posted pay (only when a posting states it; missing or unparseable pay is
+# neutral). Kept deliberately gentle: a nudge, never a veto. Low pay is
+# softened further for remote roles or core/strong brands.
 compensation:
   strong_hourly: 50
   good_hourly: 40
-  low_hourly: 25
-  strong_bonus: 4
-  good_bonus: 2
-  low_penalty: 8
-  softened_low_penalty: 2
+  low_hourly: 22
+  strong_bonus: 3
+  good_bonus: 1.5
+  low_penalty: 3
+  softened_low_penalty: 1
 
 alerts:
   immediate_min_score: 78
@@ -100,3 +101,10 @@ tuning_history:
     reason: Patrick's stated priorities (2026-10-08) - Winter/Spring/Summer/Fall 2027
       internships, backend / AI backend / AI / full stack; startups need reasonable pay
       unless remote or brand-name. Embedded/robotics/frontend lowered.
+- at: '2026-10-08T08:00:00+00:00'
+  changes:
+  - key: compensation
+    old: low_hourly 25, penalty 8 (2 softened), bonuses 4/2
+    new: low_hourly 22, penalty 3 (1 softened), bonuses 3/1.5
+    reason: Patrick - pay should be reasonable, not harsh; many postings omit or misstate
+      pay, so pay is a gentle nudge only and missing pay is always neutral.

@@ -70,6 +70,14 @@ early_career_signals:
   - emerging talent
   - entry level
   - entry-level
+  - engineer i
+  - developer i
+  - associate software engineer
+  - associate software developer
+  - junior software engineer
+  - junior developer
+  - university graduate
+  - rotational program
 
 # Hard exclusions — apply ONLY when matched in the title with high confidence.
 hard_exclusions:

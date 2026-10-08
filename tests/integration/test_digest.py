@@ -217,19 +217,31 @@ def test_digest_flags_silent_zero_job_sources(db):
     assert "quietco" in text
 
 
-def test_digest_keeps_only_internships_when_focus_is_internships(db):
-    settings = AppSettings()
-    settings.profile.preferences.internships_only = True
+def test_digest_keeps_internships_and_aligned_full_time_roles(db):
+    settings = AppSettings()  # default policy: full_time_roles = aligned
     with session_scope(db) as session:
         repo.sync_companies(session, [CompanySource(id="stripe", name="Stripe", tier="core")])
-        for job_id, title in (("i1", "Backend Engineer Intern"), ("f1", "AI Engineer")):
+        for job_id, title in (
+            ("i1", "Backend Engineer Intern"),
+            ("g1", "Graduate Software Engineer"),
+            ("f1", "Mission Software Engineer"),
+        ):
             record = make_record(job_id, title)
             row = repo.insert_job(session, record, alias_hashes(record))
             row.match_score = 70.0
             row.digest_pending = True
     text = json.dumps(build_digest(settings, db_url=db))
     assert "Backend Engineer Intern" in text
-    assert "AI Engineer" not in text.replace("Backend Engineer Intern", "")
+    assert "Graduate Software Engineer" in text
+    assert "Mission Software Engineer" not in text
+
+    settings.profile.preferences.full_time_roles = "never"
+    with session_scope(db) as session:
+        for row in repo.list_jobs(session, limit=10):
+            row.digest_pending = True
+    text = json.dumps(build_digest(settings, db_url=db))
+    assert "Backend Engineer Intern" in text
+    assert "Graduate Software Engineer" not in text
 
 
 def test_disabled_sources_do_not_raise_silent_warnings(db):

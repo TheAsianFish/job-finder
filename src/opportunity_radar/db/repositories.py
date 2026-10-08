@@ -376,6 +376,26 @@ def get_job_by_identity(session: Session, identity_hash: str) -> JobRow | None:
     return session.scalars(select(JobRow).where(JobRow.identity_hash == identity_hash)).first()
 
 
+def close_jobs_for_sources(session: Session, source_names: set[str], reason: str) -> int:
+    """Close every active job reported by the given sources (e.g. a source
+    removed from or disabled in the registry: nothing will ever re-confirm
+    or close its postings otherwise)."""
+    if not source_names:
+        return 0
+    rows = list(
+        session.scalars(
+            select(JobRow).where(JobRow.source_name.in_(source_names), JobRow.status == "active")
+        )
+    )
+    now = utcnow()
+    for row in rows:
+        row.status = "closed"
+        row.closed_at = now
+        row.digest_pending = False
+        record_change(session, row.id, "status", "active", f"closed: {reason}", meaningful=False)
+    return len(rows)
+
+
 def active_jobs_for_source(session: Session, source_name: str) -> list[JobRow]:
     stmt = select(JobRow).where(JobRow.source_name == source_name, JobRow.status == "active")
     return list(session.scalars(stmt))

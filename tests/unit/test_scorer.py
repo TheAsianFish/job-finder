@@ -326,14 +326,12 @@ def test_internship_detection():
     assert not is_internship("Internal Tools Engineer")
 
 
-def test_full_time_roles_never_notify_when_internships_only():
+def test_non_notifiable_roles_cap_at_dashboard():
     title = "AI Engineer"
-    classification = classify(title, "")
-    season = parse_season(title, "")
     kwargs = dict(
         score=90.0,
-        season=season,
-        classification=classification,
+        season=parse_season(title, ""),
+        classification=classify(title, ""),
         company_tier="core",
         posted_at=None,
         deadline=None,
@@ -342,10 +340,77 @@ def test_full_time_roles_never_notify_when_internships_only():
         thresholds_dashboard=35,
         thresholds_suppress=20,
         now=NOW,
-        internship=False,
     )
-    assert decide_alert_level(**kwargs, require_internship=True) == "dashboard"
-    assert decide_alert_level(**kwargs, require_internship=False) == "immediate"
+    assert decide_alert_level(**kwargs, role_notifiable=False) == "dashboard"
+    assert decide_alert_level(**kwargs, role_notifiable=True) == "immediate"
+
+
+def _aligned(title, description="", start_min=None, level="uncertain"):
+    from datetime import date
+
+    from opportunity_radar.matching.scorer import full_time_aligned
+
+    return full_time_aligned(
+        title=title,
+        description=description,
+        early_career_title=classify(title, "").is_early_career,
+        eligibility_level=level,
+        start_min=start_min,
+        earliest_start=date(2027, 8, 1),
+        earliest_class_year=2027,
+    )
+
+
+def test_full_time_alignment_with_graduation_range():
+    from datetime import date
+
+    # Entry-level / new-grad roles from the live digest.
+    assert _aligned("Graduate Software Engineer (DV Commodities)")
+    assert _aligned("Engineer I, Simulation Framework (R6203)")
+    assert _aligned("Software Engineer, New Grad (2027)")
+    assert _aligned("Software Engineer", "We hire recent graduates into our backend team.")
+    # Experienced or mid-level roles never qualify.
+    assert not _aligned("Mission Software Engineer, Mission Systems")
+    assert not _aligned("AI Engineer")
+    assert not _aligned("Engineer II, Simulation Framework (R6204)")
+    assert not _aligned(
+        "Software Engineer, New Grad", "Requires 3+ years of professional experience."
+    )
+    assert _aligned("Software Engineer, New Grad", "0-2 years of experience preferred.")
+    # Class year and start date must fit.
+    assert not _aligned("Software Engineer - New Grad 2026")
+    assert not _aligned("ASIC Design Engineer - New College Grad 2026")
+    assert not _aligned("2026 New College Grad, Software")
+    assert _aligned("2028 New Grad Software Engineer")
+    assert not _aligned("New Grad Software Engineer", start_min=date(2027, 1, 15))
+    assert _aligned("New Grad Software Engineer", start_min=date(2027, 9, 1))
+    # Ineligible per the description's graduation window.
+    assert not _aligned("New Grad Software Engineer", level="likely_ineligible")
+
+
+def test_notify_policy_modes():
+    from opportunity_radar.config import Preferences
+    from opportunity_radar.matching.scorer import notify_eligible
+
+    def check(title, policy, description=""):
+        prefs = Preferences(full_time_roles=policy)
+        return notify_eligible(
+            title=title,
+            description=description,
+            early_career_title=classify(title, "").is_early_career,
+            eligibility_level="uncertain",
+            start_min=None,
+            preferences=prefs,
+            earliest_class_year=2027,
+        )
+
+    assert check("Backend Engineer Intern", "never")
+    assert not check("Graduate Software Engineer", "never")
+    assert check("Graduate Software Engineer", "aligned")
+    assert not check("AI Engineer", "aligned")
+    assert check("AI Engineer", "always")
+    assert check("Graduate Software Engineer", "aligned") is not False  # sanity
+    assert Preferences(internships_only=True).full_time_policy == "never"
 
 
 def test_posted_pay_adjusts_score():
@@ -361,6 +426,8 @@ def test_posted_pay_adjusts_score():
     # Low pay is softened by remote work or a brand-name employer.
     assert _score_compensation(20.0, "remote", "broad", cfg) == -cfg.softened_low_penalty
     assert _score_compensation(20.0, "onsite", "core", cfg) == -cfg.softened_low_penalty
+    # Gentle by design: pay can never swing a role by more than a few points.
+    assert cfg.low_penalty <= 3 and cfg.strong_bonus <= 3
 
 
 def test_no_location_preference_makes_any_us_location_ideal():

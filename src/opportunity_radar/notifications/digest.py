@@ -22,15 +22,22 @@ logger = structlog.get_logger(__name__)
 LAST_DIGEST_KEY = "last_digest_at"
 
 
-def _digest_relevant(job: JobRow, internships_only: bool = False) -> bool:
+def _digest_relevant(job: JobRow, settings: AppSettings | None = None) -> bool:
     """Notification bar shared by every digest section: software role that a
-    US citizen can actually work (and an internship, when that is the focus).
-    Score alone never overrides any of these."""
-    from opportunity_radar.matching.scorer import is_internship, is_us_accessible
+    US citizen can actually work, and an internship or a full-time role that
+    fits the candidate's start/graduation range. Score never overrides these."""
+    from opportunity_radar.matching.notify import role_notifiable
+    from opportunity_radar.matching.scorer import is_us_accessible
 
     if job.role_family in (None, "irrelevant", "adjacent"):
         return False
-    if internships_only and not is_internship(job.title, job.description_text):
+    if settings is not None and not role_notifiable(
+        title=job.title,
+        description=job.description_text,
+        eligibility_level=job.eligibility_level,
+        start_min=job.start_date_min,
+        settings=settings,
+    ):
         return False
     return is_us_accessible(job.all_locations or [], job.compensation_currency)
 
@@ -88,8 +95,7 @@ def build_digest(settings: AppSettings, db_url: str | None = None) -> dict | Non
         # Non-software and non-US roles never notify, whatever their score
         # (belt to the scanner's suspenders: stale pending flags survive rule
         # changes).
-        internships_only = settings.profile.preferences.internships_only
-        pending = [j for j in pending if _digest_relevant(j, internships_only)]
+        pending = [j for j in pending if _digest_relevant(j, settings)]
         # Best first: sections truncate to 10 lines, so the cut must keep the
         # top-scored roles, not an arbitrary insertion-order slice.
         pending.sort(key=lambda j: j.match_score, reverse=True)
@@ -136,9 +142,7 @@ def build_digest(settings: AppSettings, db_url: str | None = None) -> dict | Non
                 continue
             # Same relevance bar as new-job digest entries: senior/non-SWE
             # and non-US roles never notify, whatever their score.
-            if job.match_score < alerts.digest_min_score or not _digest_relevant(
-                job, internships_only
-            ):
+            if job.match_score < alerts.digest_min_score or not _digest_relevant(job, settings):
                 continue
             if change.field == "description":
                 detail = f"description updated ({change.new_value or 'rewritten'})"

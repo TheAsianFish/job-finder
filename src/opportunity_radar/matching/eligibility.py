@@ -157,8 +157,11 @@ def evaluate(
         result.graduation_min = grad_min
         result.graduation_max = grad_max
         if grad_min or grad_max:
+            # The candidate can graduate anywhere in [earliest, expected]; the
+            # posting's window only has to overlap that range.
+            earliest = min(profile.earliest_graduation or expected_grad, expected_grad)
             in_window = (grad_min is None or expected_grad >= grad_min) and (
-                grad_max is None or expected_grad <= grad_max
+                grad_max is None or earliest <= grad_max
             )
             if in_window:
                 positives += 2

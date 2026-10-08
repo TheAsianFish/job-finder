@@ -21,7 +21,8 @@ from opportunity_radar.config import AppSettings
 from opportunity_radar.constants import NORMALIZATION_VERSION
 from opportunity_radar.db import repositories as repo
 from opportunity_radar.db.engine import session_scope
-from opportunity_radar.matching.scorer import decide_alert_level, is_internship, is_us_accessible
+from opportunity_radar.matching.notify import role_notifiable
+from opportunity_radar.matching.scorer import decide_alert_level, is_us_accessible
 from opportunity_radar.models.company import CompanySource
 from opportunity_radar.models.job import JobRecord, RawJob
 from opportunity_radar.models.scan import ScanOutcome
@@ -84,6 +85,12 @@ async def scan_companies(
         repo.sync_companies(session, companies)
         baseline_done = repo.meta_get(session, BASELINE_DONE_KEY) == "1"
         job_count = repo.count_jobs(session)
+        # Sources switched off in the registry are never scanned again, so
+        # their postings would stay "active" forever; retire them now.
+        disabled = {c.id for c in settings.companies if not c.enabled}
+        retired = repo.close_jobs_for_sources(session, disabled, "source disabled")
+        if retired:
+            logger.info("retired_disabled_source_jobs", jobs=retired, sources=len(disabled))
     if not baseline and not baseline_done and job_count == 0:
         logger.warning(
             "auto_baseline",
@@ -245,7 +252,6 @@ def _persist_company_jobs(
     )
     now = utcnow()
     alerts = settings.scoring.alerts
-    internships_only = settings.profile.preferences.internships_only
 
     resolver = (
         CompanyResolver(settings.companies, default_tier=company.tier, source_id=company.id)
@@ -360,10 +366,10 @@ def _persist_company_jobs(
                         alerts,
                         summary,
                         session,
-                        require_internship=internships_only,
+                        settings=settings,
                     )
                 elif not baseline and _worth_summarising(
-                    record, job_company, alerts, require_internship=internships_only
+                    record, job_company, alerts, settings=settings
                 ):
                     summary.baselined_job_ids.append(job_row.id)
             else:
@@ -397,9 +403,12 @@ def _persist_company_jobs(
                         and is_us_accessible(
                             existing.all_locations or [], existing.compensation_currency
                         )
-                        and (
-                            not internships_only
-                            or is_internship(existing.title, existing.description_text)
+                        and role_notifiable(
+                            title=existing.title,
+                            description=existing.description_text,
+                            eligibility_level=existing.eligibility_level,
+                            start_min=existing.start_date_min,
+                            settings=settings,
                         )
                     ):
                         summary.changed_job_ids.append(existing.id)
@@ -522,8 +531,20 @@ def _reuse_detail_fields(raw: RawJob, existing) -> RawJob:
     return raw.model_copy(update=update) if update else raw
 
 
+def _record_notifiable(record: JobRecord, settings: AppSettings | None) -> bool:
+    if settings is None:
+        return True
+    return role_notifiable(
+        title=record.title,
+        description=record.description_text,
+        eligibility_level=record.eligibility_level,
+        start_min=record.start_date_min,
+        settings=settings,
+    )
+
+
 def _worth_summarising(
-    record: JobRecord, company: CompanySource, alerts, require_internship: bool = False
+    record: JobRecord, company: CompanySource, alerts, settings: AppSettings | None = None
 ) -> bool:
     """Would this job have reached Discord had the source already been live?"""
     from opportunity_radar.matching.season_parser import SeasonResult
@@ -548,8 +569,7 @@ def _worth_summarising(
         thresholds_dashboard=alerts.dashboard_min_score,
         thresholds_suppress=alerts.suppress_below_score,
         us_accessible=is_us_accessible(record.all_locations, record.compensation_currency),
-        internship=is_internship(record.title, record.description_text),
-        require_internship=require_internship,
+        role_notifiable=_record_notifiable(record, settings),
     )
     return level in ("immediate", "digest")
 
@@ -561,7 +581,7 @@ def _classify_alert(
     alerts,  # AlertSettings
     summary: ScanSummary,
     session,
-    require_internship: bool = False,
+    settings: AppSettings | None = None,
 ) -> None:
     from opportunity_radar.matching.season_parser import SeasonResult
     from opportunity_radar.matching.title_classifier import classify
@@ -586,8 +606,7 @@ def _classify_alert(
         thresholds_dashboard=alerts.dashboard_min_score,
         thresholds_suppress=alerts.suppress_below_score,
         us_accessible=is_us_accessible(record.all_locations, record.compensation_currency),
-        internship=is_internship(record.title, record.description_text),
-        require_internship=require_internship,
+        role_notifiable=_record_notifiable(record, settings),
     )
     if level == "immediate":
         summary.immediate_job_ids.append(job_id)

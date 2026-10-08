@@ -95,6 +95,10 @@ class AlertSettings(BaseModel):
 
 class CandidateProfile(BaseModel):
     expected_graduation: date = date(2027, 12, 1)
+    # Earliest date you could graduate if a role required it (e.g. finishing
+    # after a summer internship). A posting's graduation window only needs to
+    # overlap [earliest_graduation, expected_graduation].
+    earliest_graduation: date | None = None
     degree_level: str = "bachelors"
     school: str = "University of California, San Diego"
     country: str = "US"
@@ -106,9 +110,21 @@ class CandidateProfile(BaseModel):
 
 class Preferences(BaseModel):
     countries: list[str] = Field(default_factory=lambda: ["US"])
-    # When true, only internship/co-op postings ever notify (alerts and
-    # digests); full-time roles stay on the dashboard.
+    # Which full-time roles may notify (internships always may):
+    #   "never"   - internships only
+    #   "aligned" - entry-level/new-grad roles whose start and graduation
+    #               requirements fit full_time_earliest_start and the
+    #               candidate's graduation range (default)
+    #   "always"  - any full-time role that clears the score bar
+    full_time_roles: str = "aligned"
+    full_time_earliest_start: date = date(2027, 8, 1)
+    # Deprecated alias kept for old configs: true means full_time_roles=never.
     internships_only: bool = False
+
+    @property
+    def full_time_policy(self) -> str:
+        return "never" if self.internships_only else self.full_time_roles
+
     allow_remote: bool = True
     willing_to_relocate: bool = True
     preferred_locations: list[str] = Field(
@@ -213,11 +229,11 @@ class CompensationScoring(BaseModel):
 
     strong_hourly: float = 50.0  # >= this: +strong_bonus
     good_hourly: float = 40.0  # >= this: +good_bonus
-    low_hourly: float = 25.0  # < this: penalty (softened for remote / brand)
-    strong_bonus: float = 4.0
-    good_bonus: float = 2.0
-    low_penalty: float = 8.0
-    softened_low_penalty: float = 2.0
+    low_hourly: float = 22.0  # < this: penalty (softened for remote / brand)
+    strong_bonus: float = 3.0
+    good_bonus: float = 1.5
+    low_penalty: float = 3.0
+    softened_low_penalty: float = 1.0
 
 
 class ScoringConfig(BaseModel):

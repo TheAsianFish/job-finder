@@ -96,3 +96,17 @@ def test_or_later_graduation():
     text = "Expected graduation date of December 2026 or later."
     result = evaluate(text, PROFILE)
     assert result.level in ("likely_eligible", "confirmed_eligible")
+
+
+def test_graduation_range_allows_early_finish():
+    from datetime import date
+
+    from opportunity_radar.config import CandidateProfile
+
+    flexible = CandidateProfile(
+        expected_graduation=date(2027, 12, 1), earliest_graduation=date(2027, 8, 1)
+    )
+    strict = CandidateProfile(expected_graduation=date(2027, 12, 1))
+    text = "Candidates must be graduating between May 2027 and September 2027."
+    assert evaluate(text, flexible).level in ("likely_eligible", "confirmed_eligible")
+    assert evaluate(text, strict).level in ("likely_ineligible", "confirmed_ineligible")

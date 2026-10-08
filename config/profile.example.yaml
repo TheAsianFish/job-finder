@@ -8,6 +8,8 @@
 
 candidate:
   expected_graduation: 2027-12-01
+  # Could finish early (after a Summer 2027 internship) if a role needs it.
+  earliest_graduation: 2027-08-01
   degree_level: bachelors
   school: University of California, San Diego
   country: US
@@ -19,8 +21,11 @@ candidate:
 
 preferences:
   countries: [US]
-  # Internship search: full-time roles stay on the dashboard, never notify.
-  internships_only: true
+  # Internships always notify. Full-time roles notify only when "aligned":
+  # entry-level / new-grad, no 2+ years required, not aimed at 2026 grads,
+  # and no start before full_time_earliest_start. ("never" | "aligned" | "always")
+  full_time_roles: aligned
+  full_time_earliest_start: 2027-08-01
   allow_remote: true
   willing_to_relocate: true
   # Empty = any US location is ideal (remote, hybrid and onsite all fine).

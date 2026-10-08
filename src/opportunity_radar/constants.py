@@ -63,7 +63,7 @@ ELIGIBILITY_LEVELS = (
 # classified or scored: it is part of every job's raw_hash, so the next scan
 # re-normalises every stored job instead of trusting the unchanged-posting
 # fast path (AD-23).
-NORMALIZATION_VERSION = 3  # 3: posted-pay extraction + scoring
+NORMALIZATION_VERSION = 4  # 4: full-time alignment, graduation range, gentler pay
 
 # Consecutive successful scans that must miss a job before we close it.
 CLOSURE_MISS_THRESHOLD = 2

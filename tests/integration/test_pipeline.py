@@ -553,3 +553,20 @@ async def test_legacy_merged_requisitions_split_quietly_and_stop_flip_flopping(d
         assert next(
             j for j in repo.list_jobs(session, limit=10) if j.source_job_id == "4011777"
         ).is_baseline
+
+
+@respx.mock
+async def test_disabled_source_jobs_are_retired(db, settings):
+    respx.get(API_URL).mock(return_value=Response(200, json=gh_payload()))
+    await scan_companies([company()], settings, db_url=db)
+    with session_scope(db) as session:
+        assert all(j.status == "active" for j in repo.list_jobs(session, limit=10))
+
+    disabled = company().model_copy(update={"enabled": False})
+    settings.companies = [disabled]
+    await scan_companies([], settings, db_url=db)
+    with session_scope(db) as session:
+        rows = repo.list_jobs(session, limit=10)
+        assert rows and all(j.status == "closed" for j in rows)
+        changes = session.query(JobChangeRow).filter(JobChangeRow.field == "status").all()
+        assert changes and all(not c.meaningful for c in changes)  # never digested
