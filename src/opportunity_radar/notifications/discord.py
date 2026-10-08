@@ -43,7 +43,8 @@ def webhook_for(channel: str) -> str | None:
     """The webhook for a hub channel, else the default one."""
     from opportunity_radar.config import get_settings
 
-    return os.environ.get(webhook_env(channel)) or get_settings().discord_webhook_url
+    default = get_settings().discord_webhook_url  # loads .env before the lookup below
+    return os.environ.get(webhook_env(channel)) or default
 
 
 def notifier_for(channel: str) -> DiscordNotifier:

@@ -68,9 +68,10 @@ def test_hub_cli_log_and_context(tmp_path):
 # ---------------------------------------------------------------- routing
 
 
-def test_channel_webhooks_fall_back_to_the_default(monkeypatch):
+def test_channel_webhooks_fall_back_to_the_default(tmp_path, monkeypatch):
     from opportunity_radar.config import get_settings
 
+    monkeypatch.setenv("OPPORTUNITY_RADAR_HOME", str(tmp_path))  # no .env here
     monkeypatch.setenv("DISCORD_WEBHOOK_URL", "https://discord.test/default")
     monkeypatch.setenv("DISCORD_WEBHOOK_PROJECTS", "https://discord.test/projects")
     monkeypatch.delenv("DISCORD_WEBHOOK_STUDY", raising=False)
@@ -80,6 +81,28 @@ def test_channel_webhooks_fall_back_to_the_default(monkeypatch):
         assert webhook_for("projects") == "https://discord.test/projects"
         assert webhook_for("study") == "https://discord.test/default"
     finally:
+        get_settings.cache_clear()
+
+
+def test_channel_webhook_read_from_dotenv_on_first_call(tmp_path, monkeypatch):
+    # `discord setup` writes the channel webhooks to .env only; the very first
+    # lookup must load .env before checking the environment (it used to fall
+    # back to #job because settings were loaded after the lookup).
+    from opportunity_radar.config import get_settings
+
+    (tmp_path / ".env").write_text(
+        "DISCORD_WEBHOOK_URL=https://discord.test/default\n"
+        "DISCORD_WEBHOOK_RESUME=https://discord.test/resume\n"
+    )
+    monkeypatch.setenv("OPPORTUNITY_RADAR_HOME", str(tmp_path))
+    monkeypatch.delenv("DISCORD_WEBHOOK_URL", raising=False)
+    monkeypatch.delenv("DISCORD_WEBHOOK_RESUME", raising=False)
+    get_settings.cache_clear()
+    try:
+        assert webhook_for("resume") == "https://discord.test/resume"
+    finally:
+        monkeypatch.delenv("DISCORD_WEBHOOK_URL", raising=False)
+        monkeypatch.delenv("DISCORD_WEBHOOK_RESUME", raising=False)
         get_settings.cache_clear()
 
 
