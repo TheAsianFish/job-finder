@@ -31,3 +31,6 @@ build/
 *.log
 logs/
 data/yc_candidates.yaml
+
+# Personal resume files: public repo, never commit (docs/roadmap.md phase 2)
+resume/private/
