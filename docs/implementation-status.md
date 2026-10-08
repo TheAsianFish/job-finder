@@ -180,6 +180,10 @@ dbt Labs, Canva, Grammarly, Tempus, Rippling.
   ATS-first writer that may drop/replace weak bullets; bullets needing an
   unwritten fact become an approval PR in the private repo with an interview
   prep sheet; merged ones live in `verified.yaml` and feed every later resume.
+- Project builder (AD-32): weekly Fable scout, Patrick-approved projects built
+  in their own repos one milestone PR at a time (Fable plan/review, Opus
+  build), comments addressed automatically, resume entry proposed from
+  measured results. `opportunity-radar projects list|approve|pause|reject|step`.
 
 ## Known gaps / deferred (with reasons)
 

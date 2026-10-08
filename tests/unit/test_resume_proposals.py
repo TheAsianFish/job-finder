@@ -263,7 +263,7 @@ def test_submit_opens_a_pr_branch_without_touching_main(career_repo, fake_gh, ba
 
 
 def test_submit_without_github_saves_for_review(tmp_path, bank, monkeypatch):
-    monkeypatch.setattr("opportunity_radar.resume.proposals.shutil.which", lambda name: None)
+    monkeypatch.setattr("opportunity_radar.resume.private_pr.shutil.which", lambda name: None)
     result = submit(
         [_proposal()],
         repo=tmp_path,

@@ -80,6 +80,12 @@ roles are excluded. Skill demand: `uv run opportunity-radar insights skills`
   Patrick's Max plan (`CLAUDE_CODE_OAUTH_TOKEN` secret, `ENABLE_AGENTS=true`
   variable), weekly review Mondays + manual custom prompts, output as a PR.
   Prompts in `agents/prompts/`. Actions may open (not merge) PRs.
+- Project builder: `.github/workflows/projects.yml` (AD-32,
+  `docs/project-builder.md`; `ENABLE_PROJECT_BUILDER=true`): Fable scouts and
+  plans, Opus builds one milestone PR at a time in the project's own repo
+  (`TheAsianFish/<slug>`, private by default), Fable reviews; pipeline state in
+  the private repo's `projects.yaml` (`opportunity-radar projects ...`). Only
+  autopilot projects (opt-in per project) may merge their own PRs.
 - Private career repo `TheAsianFish/career-private` is cloned at
   `resume/private/` (git-ignored; `CAREER_DEPLOY_KEY` deploy key for CI).
   Resume engine: `src/opportunity_radar/resume/` (AD-28, AD-29: assessment-gated

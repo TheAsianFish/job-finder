@@ -945,6 +945,10 @@ from opportunity_radar.cli_career import register as _register_career  # noqa: E
 
 _register_career(app, jobs_app, notify_app)
 
+from opportunity_radar.cli_projects import register as _register_projects  # noqa: E402
+
+_register_projects(app)
+
 
 def main() -> None:
     app()

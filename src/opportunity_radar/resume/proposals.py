@@ -18,11 +18,7 @@ proposals/pending/ in the private repo so nothing is lost.
 from __future__ import annotations
 
 import hashlib
-import os
 import re
-import shutil
-import subprocess
-import tempfile
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -31,6 +27,7 @@ import yaml
 
 from opportunity_radar.resume.bank import Bank
 from opportunity_radar.resume.polish import Proposal, Runner
+from opportunity_radar.resume.private_pr import gh_token, open_private_pr
 from opportunity_radar.resume.verified import (
     VerifiedBullet,
     dump_verified,
@@ -38,7 +35,6 @@ from opportunity_radar.resume.verified import (
 )
 
 LOG_NAME = "proposals/log.yaml"
-GIT_AUTHOR = ("TheAsianFish", "jmchung2006@gmail.com")
 
 
 @dataclass
@@ -178,18 +174,6 @@ def pr_body(proposals: list[Proposal], *, title: str, company: str, url: str | N
     return "\n".join(lines)
 
 
-def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", "-C", str(repo), *args], capture_output=True, text=True, check=False
-    )
-
-
-def repo_slug(repo: Path) -> str | None:
-    url = _git(repo, "remote", "get-url", "origin").stdout.strip()
-    match = re.search(r"github\.com[:/]([^/]+/[^/.]+?)(?:\.git)?$", url)
-    return match.group(1) if match else None
-
-
 def _write_branch_files(
     root: Path, proposals: list[Proposal], prep: str, *, role: str, prep_name: str
 ) -> None:
@@ -222,78 +206,21 @@ def open_pull_request(
     url: str | None,
     token: str | None,
 ) -> str:
-    """Branch from origin/main in a temporary worktree, push, open the PR.
-    Returns the PR URL; raises RuntimeError with a short reason otherwise."""
-    gh = shutil.which("gh")
-    if gh is None or not (repo / ".git").exists():
-        raise RuntimeError("gh CLI or the private git repo is not available")
-    slug_ = repo_slug(repo)
-    if slug_ is None:
-        raise RuntimeError("private repo has no GitHub remote")
+    """One PR adding the proposals to verified.yaml plus the prep sheet."""
     company_slug = re.sub(r"[^a-z0-9]+", "-", company.lower()).strip("-")[:24] or "role"
     stamp = date.today().isoformat()
-    branch = f"proposals/{stamp}-{company_slug}-{proposal_key(proposals[0].text)[:6]}"
     role = f"{title} @ {company}"
-    fetch = _git(repo, "fetch", "-q", "origin", "main")
-    if fetch.returncode != 0:
-        raise RuntimeError(f"fetch failed: {fetch.stderr.strip()[:150]}")
-    with tempfile.TemporaryDirectory(prefix="proposal-") as tmp:
-        work = Path(tmp) / "wt"
-        added = _git(repo, "worktree", "add", "-q", "-B", branch, str(work), "origin/main")
-        if added.returncode != 0:
-            raise RuntimeError(f"worktree failed: {added.stderr.strip()[:150]}")
-        try:
-            _write_branch_files(
-                work, proposals, prep, role=role, prep_name=f"{stamp}-{company_slug}.md"
-            )
-            _git(work, "add", "-A")
-            name, email = GIT_AUTHOR
-            commit = _git(
-                work,
-                "-c",
-                f"user.name={name}",
-                "-c",
-                f"user.email={email}",
-                "commit",
-                "-q",
-                "-m",
-                f"Propose {len(proposals)} bullet(s) for {role}",
-            )
-            if commit.returncode != 0:
-                raise RuntimeError(f"commit failed: {commit.stderr.strip()[:150]}")
-            push = _git(work, "push", "-q", "-f", "origin", f"HEAD:refs/heads/{branch}")
-            if push.returncode != 0:
-                raise RuntimeError(f"push failed: {push.stderr.strip()[:150]}")
-        finally:
-            _git(repo, "worktree", "remove", "--force", str(work))
-            _git(repo, "branch", "-D", branch)
-    env = dict(os.environ)
-    if token:
-        env["GH_TOKEN"] = token
-    created = subprocess.run(
-        [
-            gh,
-            "pr",
-            "create",
-            "--repo",
-            slug_,
-            "--base",
-            "main",
-            "--head",
-            branch,
-            "--title",
-            f"Review {len(proposals)} bullet(s): {role}"[:120],
-            "--body",
-            pr_body(proposals, title=title, company=company, url=url),
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-        env=env,
+    return open_private_pr(
+        repo,
+        branch=f"proposals/{stamp}-{company_slug}-{proposal_key(proposals[0].text)[:6]}",
+        title=f"Review {len(proposals)} bullet(s): {role}",
+        body=pr_body(proposals, title=title, company=company, url=url),
+        message=f"Propose {len(proposals)} bullet(s) for {role}",
+        write=lambda work: _write_branch_files(
+            work, proposals, prep, role=role, prep_name=f"{stamp}-{company_slug}.md"
+        ),
+        token=token,
     )
-    if created.returncode != 0:
-        raise RuntimeError(f"gh pr create failed: {created.stderr.strip()[:150]}")
-    return created.stdout.strip().splitlines()[-1]
 
 
 def submit(
@@ -313,7 +240,7 @@ def submit(
     if not todo:
         return result
     prep = build_prep(todo, bank, title=title, company=company, runner=runner)
-    token = token or os.environ.get("CAREER_GH_TOKEN") or os.environ.get("GH_TOKEN")
+    token = gh_token(token)
     try:
         result.pr_url = open_pull_request(
             repo, todo, prep, title=title, company=company, url=url, token=token

@@ -451,3 +451,37 @@ silently giving up.
   administration, contents, pull requests, issues, workflows) is passed to
   the resume steps as `CAREER_GH_TOKEN` for `gh pr create` in the private
   repo. Pushes still use the deploy key.
+
+## AD-32: Agent-built portfolio projects, one reviewed PR at a time
+
+Projects are the main readiness signal for AI-leaning internships, and
+Patrick has Max-plan compute to spend. A friend's workflow (Claude suggests
+the right project for the background and the target roles, agents build it)
+is the model, with three constraints: the projects must be strong and
+real-world (not per-posting rush jobs, which read as shallow), Patrick must be
+able to defend them, and nothing reaches the resume without measured results
+and his approval.
+
+- **Pipeline state** lives in the private repo's `projects.yaml` (proposed →
+  approved → building → finishing → done; paused / rejected). The scout
+  (Fable, weekly) proposes three projects from skill demand, per-role
+  reviews (`reports/project-queue.md`) and what the resume already shows;
+  Patrick approves from the GitHub app.
+- **Builder** (`projects.yml`, every 3 hours): `projects step` reads the
+  project repo through `gh` and returns one stage (create, plan, address,
+  merge, wait, build, finish, idle). Fable plans and reviews; Opus builds a
+  single milestone with subagents and addresses comments. One open agent PR
+  per project; a waiting PR costs no compute. Autopilot merging is opt-in per
+  project and needs a passing Fable review, green CI and 12 quiet hours.
+- **Why GitHub Actions** rather than the laptop: runs with the lid closed,
+  6-hour jobs, the same Max OAuth token as the other agents. Cost is the Max
+  plan's usage limits, which interactive Claude Code shares.
+- **Isolation.** Project sessions never see the private repo (skills summary
+  only), run with credential-free git remotes and only the Claude token in
+  the environment; the PAT is used by workflow steps alone. A commit-msg hook
+  strips AI attribution (standing rule).
+- **Resume entry.** The finish stage writes one Jake's-template entry whose
+  numbers must come from `RESULTS.md`; it is proposed as a commented-out
+  reserve project via a private-repo PR, with any unbacked number flagged.
+- The one-shot `project-plan` agent task (a brief Patrick had to build
+  himself) is retired in favour of this pipeline.

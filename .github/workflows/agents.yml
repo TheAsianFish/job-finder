@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       task:
-        description: "weekly-review | project-plan | review-role | custom"
+        description: "weekly-review | review-role | custom (projects: see projects.yml)"
         default: weekly-review
         required: true
       prompt:
@@ -134,7 +134,7 @@ jobs:
         run: |
           report=$(find resume/private/reports -name "${TASK}-*.md" -type f 2>/dev/null | sort | tail -1)
           if [ -n "$report" ]; then
-            title="Weekly review"; [ "$TASK" = "project-plan" ] && title="Project plan"
+            title="Weekly review"
             uv run opportunity-radar notify markdown "$report" --title "📊 $title — $(date -u +%Y-%m-%d)"
           fi
           cd resume/private

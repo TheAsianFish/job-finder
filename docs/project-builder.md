@@ -1,0 +1,75 @@
+# Project builder: agent-built portfolio projects
+
+Projects are the main signal internship screeners use to judge whether
+Patrick can do an AI-leaning SWE role. This pipeline turns that into
+background work on his Max plan, with Patrick deciding what to build and
+approving every step. Decision record: AD-32.
+
+## The loop
+
+```mermaid
+flowchart LR
+  S[Scout · Fable · weekly] -->|3 proposals + Discord| P{Patrick approves one}
+  P --> C[Create repo TheAsianFish/slug · private]
+  C --> PL[Plan · Fable · PR with PLAN.md]
+  PL -->|Patrick merges / comments| B[Build next milestone · Opus + subagents]
+  B --> R[Independent review · Fable · fixes + verdict]
+  R -->|one PR + Discord| W{Patrick}
+  W -->|comments| A[Address · Opus, then Fable review]
+  A --> W
+  W -->|merge| B
+  B -->|all milestones merged| F[Finish · release readiness + resume entry]
+  F -->|PR in career-private, numbers from RESULTS.md only| V{Patrick merges = true}
+```
+
+- **One project and one open PR at a time.** A run that finds an agent PR
+  waiting for Patrick spends no compute. The pace follows his reviews.
+- **Autopilot (opt-in per project).** With `autopilot: true` in
+  `projects.yaml`, a PR that passed the Fable review (`<!-- fable-review:
+  pass -->` in its body), has green CI, and had no activity for 12 hours is
+  merged by the builder. Off by default.
+- **Cadence.** A builder step every 3 hours (`17 */3 * * *`), a scout run on
+  Mondays 09:00 PT. A build step uses up to ~5 hours of agent time (Opus
+  build ≤ 230 min, Fable review ≤ 70 min).
+
+## What Patrick does
+
+| To... | Do this |
+|---|---|
+| Approve a proposed project | Actions → **Project builder** → Run workflow → `approve`, project `<slug>` (GitHub app works), or set `status: approved` in `resume/private/projects.yaml`, or `uv run opportunity-radar projects approve <slug>` |
+| Request changes | Comment on the agent's PR (any comment counts; addressed next run) |
+| Continue | Merge the PR |
+| Stop / never build | `pause` / `reject` the same way |
+| Get new ideas now | Run workflow → `scout` |
+| Let it run unattended | `autopilot: true` on that project |
+| Publish / deploy | Follow the project's `RELEASE.md` (agents never sign up for services or use credentials) |
+
+## Models and roles
+
+| Stage | Model | Why |
+|---|---|---|
+| Scout, plan, review | Fable 5.1 (`--model fable`, falls back to Opus) | Most capable: research, architecture, and an independent, demanding review |
+| Build, address comments, finish | Opus 5.5 (`--model opus`) | Long agentic coding sessions; spawns subagents for parallel work |
+
+All prompts live in `agents/prompts/projects/` and start with
+`standards.md` (the quality bar: real users, depth over breadth, measured
+claims only, production engineering, AI stack used well, no AI attribution).
+
+## Safety and privacy
+
+- The build job never checks out the private career repo; sessions get only
+  a skills summary. The resume stays private.
+- `AGENT_GH_TOKEN` is used in clone/push/PR steps only. The Claude sessions
+  run with credential-free remotes and only `CLAUDE_CODE_OAUTH_TOKEN` in the
+  environment, so an agent cannot push, create repos, or touch other repos.
+- A `commit-msg` hook strips AI attribution; commits are authored as
+  TheAsianFish.
+- This repo is public, so workflow logs print stages and run statistics only.
+
+## Truth
+
+A project reaches the resume only through a pull request in the private repo
+that adds it as a commented-out (reserve) entry. The builder flags any number
+in its bullets that does not appear in the project's `RESULTS.md` (measured
+by a real run), and merging means "this is true". Patrick should be able to
+explain every line; the per-milestone PRs are how he learns the codebase.

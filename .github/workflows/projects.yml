@@ -1,0 +1,311 @@
+# Autonomous portfolio project builder (AD-32, docs/project-builder.md).
+#
+# The scout (Fable) proposes projects weekly; Patrick approves one; then every
+# 3 hours the builder takes the next step on it:
+#   plan (Fable)  ->  build one milestone (Opus + subagents)  ->  independent
+#   review (Fable)  ->  one PR in the project repo  ->  wait for Patrick
+# Comments on the PR are addressed on the next run. When every milestone is
+# merged, the resume entry (measured numbers only) is proposed to the private
+# career repo as a PR.
+#
+# Gated by repo variable ENABLE_PROJECT_BUILDER=true. Secrets: AGENT_GH_TOKEN
+# (fine-grained PAT: creates project repos, pushes, opens PRs),
+# CLAUDE_CODE_OAUTH_TOKEN (Max plan), CAREER_DEPLOY_KEY, DISCORD_WEBHOOK_URL.
+# This repo is public: logs print stages and statistics only.
+
+name: Project builder
+
+on:
+  schedule:
+    - cron: "17 */3 * * *"   # next builder step
+    - cron: "0 16 * * 1"     # Mondays 09:00 PT: scout new proposals
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "auto (next step) | scout | approve | pause | reject"
+        type: choice
+        options: [auto, scout, approve, pause, reject]
+        default: auto
+      project:
+        description: "Project slug (required for approve/pause/reject; optional for auto)"
+        required: false
+
+concurrency:
+  group: project-builder
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  control:
+    if: vars.ENABLE_PROJECT_BUILDER == 'true' && (github.event_name == 'workflow_dispatch' && inputs.action != 'scout' || github.event.schedule == '17 */3 * * *')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      stage: ${{ steps.step.outputs.stage }}
+      context: ${{ steps.step.outputs.context }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check out private career repo
+        uses: actions/checkout@v7
+        with:
+          repository: TheAsianFish/career-private
+          path: resume/private
+          ssh-key: ${{ secrets.CAREER_DEPLOY_KEY }}
+      - uses: astral-sh/setup-uv@v10.2.0  # no floating major tag is published
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen
+
+      - name: Approve / pause / reject
+        if: contains(fromJSON('["approve","pause","reject"]'), inputs.action)
+        env:
+          ACTION: ${{ inputs.action }}
+          PROJECT: ${{ inputs.project }}
+        run: uv run opportunity-radar projects "$ACTION" "$PROJECT" --push
+
+      - name: Decide the next step
+        id: step
+        if: inputs.action != 'pause' && inputs.action != 'reject'
+        env:
+          AGENT_GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
+          PROJECT: ${{ inputs.project }}
+        run: |
+          args=(--out "$RUNNER_TEMP/context.json")
+          [ -n "$PROJECT" ] && args+=(--slug "$PROJECT")
+          uv run opportunity-radar projects step "${args[@]}"
+          echo "stage=$(jq -r .stage "$RUNNER_TEMP/context.json")" >> "$GITHUB_OUTPUT"
+          { echo "context<<CTX_EOF"; cat "$RUNNER_TEMP/context.json"; echo; echo "CTX_EOF"; } >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: control
+    if: contains(fromJSON('["plan","build","address","finish"]'), needs.control.outputs.stage)
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    outputs:
+      resume_entry: ${{ steps.collect.outputs.resume_entry }}
+      results: ${{ steps.collect.outputs.results }}
+    env:
+      STAGE: ${{ needs.control.outputs.stage }}
+      CONTEXT: ${{ needs.control.outputs.context }}
+    steps:
+      # Public repo only (prompts, scripts). The private career repo is
+      # deliberately NOT checked out here: project sessions never see resume data.
+      - uses: actions/checkout@v7
+        with:
+          path: radar
+      - uses: astral-sh/setup-uv@v10.2.0  # no floating major tag is published
+        with:
+          python-version: "3.12"
+
+      - name: Clone the project repository
+        env:
+          GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
+        run: |
+          repo=$(jq -r .repo <<< "$CONTEXT")
+          git clone -q "https://x-access-token:${GH_TOKEN}@github.com/${repo}.git" work
+          # Strip credentials: the agent sessions must not be able to push.
+          git -C work remote set-url origin "https://github.com/${repo}.git"
+          cd work
+          git config user.name "TheAsianFish"
+          git config user.email "jmchung2006@gmail.com"
+          install -m 755 ../radar/scripts/commit_msg_hook.sh .git/hooks/commit-msg
+          echo ".agent/" >> .git/info/exclude
+          if ! git rev-parse -q --verify HEAD >/dev/null; then
+            git checkout -q -b main
+            title=$(jq -r .project.title <<< "$CONTEXT")
+            printf '# %s\n\nStatus: planning.\n' "$title" > README.md
+            git add README.md && git commit -q -m "Initial commit"
+            echo "NEW_REPO=1" >> "$GITHUB_ENV"
+          fi
+          case "$STAGE" in
+            address) git fetch -q origin "$(jq -r .pr_branch <<< "$CONTEXT")"
+                     git checkout -q -B "$(jq -r .pr_branch <<< "$CONTEXT")" FETCH_HEAD ;;
+            plan)    git checkout -q -b agent/plan ;;
+            finish)  git checkout -q -b agent/finish ;;
+            build)   n=$(( $(jq -r .milestones_done <<< "$CONTEXT") + 1 ))
+                     git checkout -q -b "agent/m${n}" ;;
+          esac
+          echo "BRANCH=$(git branch --show-current)" >> "$GITHUB_ENV"
+          mkdir -p .agent
+
+      - name: Push the initial commit
+        if: env.NEW_REPO == '1'
+        env:
+          GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
+        run: |
+          cd work
+          repo=$(jq -r .repo <<< "$CONTEXT")
+          git push -q "https://x-access-token:${GH_TOKEN}@github.com/${repo}.git" main:main
+          git update-ref refs/remotes/origin/main main
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code >/dev/null
+
+      - name: Write the session prompts
+        run: |
+          p=radar/agents/prompts/projects
+          ctx=$(jq '{project, milestone, milestones_done, milestones_total, feedback, pr_url, candidate}' <<< "$CONTEXT")
+          for s in plan build review address finish; do
+            { cat "$p/standards.md"; echo; cat "$p/$s.md"; echo; echo "## Context"; echo '```json'; echo "$ctx"; echo '```'; } \
+              > "$RUNNER_TEMP/prompt-$s.md"
+          done
+
+      - name: Existing PR description (address stage)
+        if: env.STAGE == 'address'
+        env:
+          GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
+        run: |
+          gh pr view "$(jq -r .pr_number <<< "$CONTEXT")" --repo "$(jq -r .repo <<< "$CONTEXT")" \
+            --json body -q .body | grep -v 'fable-review:' > work/.agent/pr.md || true
+
+      - name: Agent sessions
+        working-directory: work
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          agent=../radar/scripts/project_agent.sh
+          case "$STAGE" in
+            plan)    bash $agent fable "$RUNNER_TEMP/prompt-plan.md" 60 150 plan ;;
+            build)   bash $agent opus  "$RUNNER_TEMP/prompt-build.md" 230 500 build
+                     bash $agent fable "$RUNNER_TEMP/prompt-review.md" 70 200 review ;;
+            address) bash $agent opus  "$RUNNER_TEMP/prompt-address.md" 150 300 address
+                     bash $agent fable "$RUNNER_TEMP/prompt-review.md" 60 150 review ;;
+            finish)  bash $agent opus  "$RUNNER_TEMP/prompt-finish.md" 120 250 finish ;;
+          esac
+
+      - name: Commit anything left uncommitted
+        working-directory: work
+        run: |
+          git add -A
+          if ! git diff --cached --quiet; then
+            msg=$(head -1 .agent/commit.txt 2>/dev/null || true)
+            git commit -q -m "${msg:-Agent work: ${STAGE}}"
+          fi
+          echo "commits ahead of main: $(git rev-list --count origin/main..HEAD 2>/dev/null || git rev-list --count HEAD)"
+
+      - name: Push and open or update the pull request
+        id: pr
+        working-directory: work
+        env:
+          GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
+        run: |
+          repo=$(jq -r .repo <<< "$CONTEXT")
+          ahead=$(git rev-list --count origin/main..HEAD 2>/dev/null || echo 1)
+          if [ "$ahead" = "0" ] && [ "$STAGE" != "address" ]; then
+            echo "No commits produced; nothing to open."; echo "url=" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${repo}.git" "HEAD:refs/heads/${BRANCH}"
+          [ -s .agent/pr.md ] || echo "Automated ${STAGE} run." > .agent/pr.md
+          if [ "$STAGE" = "address" ]; then
+            number=$(jq -r .pr_number <<< "$CONTEXT")
+            { cat .agent/reply.md 2>/dev/null || echo "Addressed your comments."; echo; echo "<!-- project-builder -->"; } > .agent/reply-final.md
+            gh pr comment "$number" --repo "$repo" --body-file .agent/reply-final.md
+            gh pr edit "$number" --repo "$repo" --body-file .agent/pr.md
+            echo "url=$(jq -r .pr_url <<< "$CONTEXT")" >> "$GITHUB_OUTPUT"
+          else
+            case "$STAGE" in
+              plan)   title="Plan: $(jq -r .project.title <<< "$CONTEXT")" ;;
+              build)  title=$(jq -r .milestone <<< "$CONTEXT" | cut -c1-110) ;;
+              finish) title="Release readiness and resume entry" ;;
+            esac
+            url=$(gh pr create --repo "$repo" --base main --head "$BRANCH" --title "$title" --body-file .agent/pr.md)
+            echo "url=$url" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Collect the resume entry (finish stage)
+        id: collect
+        if: env.STAGE == 'finish'
+        working-directory: work
+        run: |
+          if [ -s .agent/RESUME.tex ]; then
+            { echo "resume_entry<<TEX_EOF"; cat .agent/RESUME.tex; echo; echo "TEX_EOF"; } >> "$GITHUB_OUTPUT"
+            results=.agent/RESULTS.md; [ -s "$results" ] || results=RESULTS.md
+            { echo "results<<RES_EOF"; head -c 60000 "$results" 2>/dev/null; echo; echo "RES_EOF"; } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Tell Patrick
+        if: always()
+        working-directory: radar
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          URL: ${{ steps.pr.outputs.url }}
+          OUTCOME: ${{ job.status }}
+        run: |
+          uv sync --frozen -q
+          title=$(jq -r .project.title <<< "$CONTEXT")
+          {
+            result="failed ($OUTCOME)"; [ "$OUTCOME" = success ] && result="finished"
+            echo "**${title}**: ${STAGE} ${result}."
+            [ -n "$URL" ] && echo "Review: ${URL} (comment to request changes; merge to continue)."
+            [ "$STAGE" = build ] && echo "Milestone: $(jq -r .milestone <<< "$CONTEXT")"
+          } > "$RUNNER_TEMP/note.md"
+          uv run opportunity-radar notify markdown "$RUNNER_TEMP/note.md" --title "🔨 Project builder"
+
+  record:
+    needs: [control, build]
+    if: needs.control.outputs.stage == 'finish' && needs.build.outputs.resume_entry != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check out private career repo
+        uses: actions/checkout@v7
+        with:
+          repository: TheAsianFish/career-private
+          path: resume/private
+          ssh-key: ${{ secrets.CAREER_DEPLOY_KEY }}
+      - uses: astral-sh/setup-uv@v10.2.0  # no floating major tag is published
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen
+      - name: Propose the resume entry
+        env:
+          AGENT_GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          ENTRY: ${{ needs.build.outputs.resume_entry }}
+          RESULTS: ${{ needs.build.outputs.results }}
+          CONTEXT: ${{ needs.control.outputs.context }}
+        run: |
+          printf '%s\n' "$ENTRY" > "$RUNNER_TEMP/RESUME.tex"
+          printf '%s\n' "$RESULTS" > "$RUNNER_TEMP/RESULTS.md"
+          uv run opportunity-radar projects finish "$(jq -r .slug <<< "$CONTEXT")" \
+            --entry "$RUNNER_TEMP/RESUME.tex" --results "$RUNNER_TEMP/RESULTS.md" --push
+
+  scout:
+    if: vars.ENABLE_PROJECT_BUILDER == 'true' && (github.event.schedule == '0 16 * * 1' || inputs.action == 'scout')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check out private career repo
+        uses: actions/checkout@v7
+        with:
+          repository: TheAsianFish/career-private
+          path: resume/private
+          ssh-key: ${{ secrets.CAREER_DEPLOY_KEY }}
+      - uses: astral-sh/setup-uv@v10.2.0  # no floating major tag is published
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code >/dev/null
+      - name: Scout (Fable)
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          prompt=agents/prompts/projects/scout.md
+          tools="Read,Glob,Grep,Write,WebSearch,WebFetch,Bash(date *)"
+          for model in fable opus; do
+            if timeout 45m claude -p "$(cat $prompt)" --model "$model" --max-turns 80 \
+                 --allowedTools "$tools" > "$RUNNER_TEMP/scout.log" 2>&1; then
+              echo "scout finished ($model)"; break
+            fi
+            echo "scout failed with $model"
+          done
+          test -s /tmp/scout.json
+      - name: Record proposals and ask Patrick
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: uv run opportunity-radar projects scout-merge /tmp/scout.json --push

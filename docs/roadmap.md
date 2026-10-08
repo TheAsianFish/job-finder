@@ -40,7 +40,7 @@ real skill gaps. Every agent working in this repo should read this file and
 | 2 | Master resume ingestion | **Done** (2026-10-08) | `resume.tex` in the private repo is parsed into a bullet bank (live + commented reserves); profile skills synced from it; `resume bank` shows it |
 | 3 | Per-posting match + tailored versions | **Done** (2026-10-08) | Keyword line on every alert; fit checks on important new roles with Claude review + STAR-rewritten PDF only on a real disconnect (AD-29); `resume assess` / `resume tailor` / dashboard buttons; weekly role-family `variants/`; ATS report |
 | 4 | Outcome loop | **Live** (Simplify CSV import + `apply`; needs logged applications) | `jobs applied <id> --resume <version>`, `jobs status <id> oa\|interview\|offer\|rejected`, `insights outcomes` -> `reports/private/outcomes.md` (tier, role, season, resume version, referral, source, apply speed). Needs logged applications |
-| 5 | Agent-guided projects | **Live** | Weekly review proposes gap-closing projects; `agents.yml` task `project-plan` writes a full brief (spec, milestones, tests, the resume bullet it earns) to the private repo + Discord; Patrick builds it with Claude Code |
+| 5 | Agent-built portfolio projects | **Live** (2026-10-08) | `projects.yml` (AD-32, `docs/project-builder.md`): Fable scouts 3 projects weekly from demand + per-role reviews; Patrick approves one; every 3h the builder plans (Fable), builds one milestone (Opus + subagents), has it reviewed (Fable) and opens a PR in the project's own repo; his comments are addressed next run; when done, the resume entry (measured numbers only) is proposed to the private repo |
 
 ## Autonomous agents
 
@@ -50,6 +50,8 @@ real skill gaps. Every agent working in this repo should read this file and
   gated by the `ENABLE_AGENTS=true` repo variable. Weekly review on Mondays plus
   manual runs with a custom prompt. Prompts live in `agents/prompts/`.
   Output is a pull request.
+- **Project builder:** `.github/workflows/projects.yml` (ENABLE_PROJECT_BUILDER=true),
+  scout weekly + one builder step every 3 hours; see `docs/project-builder.md`.
 
 ## Where things live
 
