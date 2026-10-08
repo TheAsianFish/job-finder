@@ -48,8 +48,10 @@ flowchart LR
 
 | Stage | Model | Why |
 |---|---|---|
-| Scout, plan, review | Fable 5.1 (`--model fable`, falls back to Opus) | Most capable: research, architecture, and an independent, demanding review |
-| Build, address comments, finish | Opus 5.5 (`--model opus`) | Long agentic coding sessions; spawns subagents for parallel work |
+| Scout, plan, review, finish, study | Fable 5.1 (`--model fable`, falls back to Opus) | Most capable: research, architecture, a demanding review that re-runs tests/evals, and the resume entry, results write-up and interview prep |
+| Build, address comments | Opus 5.5 (`--model opus`) | Long agentic coding sessions |
+| Subagents (any stage) | Chosen per task | `fable` for hard reasoning and adversarial verification, `opus` for big implementation, `sonnet` for routine well-specified work, `haiku` for search and CI/log triage; as many or as few as the work needs (`standards.md`) |
+| Replay/Kiln's own model calls | Cheapest that answers | Evals and the product use a capped `ANTHROPIC_API_KEY`; the model per call is recorded in RESULTS.md |
 
 All prompts live in `agents/prompts/projects/` and start with
 `standards.md` (the quality bar: real users, depth over breadth, measured

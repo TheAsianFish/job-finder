@@ -48,6 +48,19 @@ Process rules:
 - Use subagents (the Agent tool) to parallelise independent work: e.g. one
   writes tests while another implements, one researches an API while another
   scaffolds. Review their output before committing it.
+- **Pick each subagent's model for its job** (the Agent tool's `model`):
+  `fable` for the hardest thinking (architecture calls, subtle bugs, security
+  and concurrency review, statistics, adversarially verifying a claim or a
+  finding); `opus` for substantial implementation and integration; `sonnet`
+  for well-specified routine work (boilerplate, straightforward tests, docs,
+  mechanical refactors); `haiku` for search, log/CI triage and bulk mechanical
+  edits. Use as many or as few as the work needs: several in parallel for
+  independent pieces, none for a small change. Escalate to a stronger model
+  when a weaker one's output fails review instead of patching it repeatedly.
+- **Verify by running, not reading.** Every claim (tests pass, the eval score,
+  the latency) comes from a command you ran in this session, quoted with its
+  output in `.agent/pr.md`. For the product's own model calls, use the
+  cheapest model that answers the question and say which one in RESULTS.md.
 - Keep PLAN.md as the single source of truth: tick a milestone's checkbox only
   when its definition of done is met and tests pass.
 - Never sign up for services, buy anything, publish packages, or deploy.

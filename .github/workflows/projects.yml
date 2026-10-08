@@ -179,7 +179,7 @@ jobs:
                      bash $agent fable "$RUNNER_TEMP/prompt-review.md" 70 200 review ;;
             address) bash $agent opus  "$RUNNER_TEMP/prompt-address.md" 150 300 address
                      bash $agent fable "$RUNNER_TEMP/prompt-review.md" 60 150 review ;;
-            finish)  bash $agent opus  "$RUNNER_TEMP/prompt-finish.md" 120 250 finish ;;
+            finish)  bash $agent fable "$RUNNER_TEMP/prompt-finish.md" 120 250 finish ;;
           esac
 
       - name: Commit anything left uncommitted
