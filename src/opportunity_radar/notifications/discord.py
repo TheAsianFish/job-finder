@@ -65,6 +65,65 @@ class DiscordNotifier:
                 return False
         return False
 
+    async def send_files(
+        self, payload: dict[str, Any], files: list[tuple[str, bytes, str]]
+    ) -> bool:
+        """POST a payload with file attachments (multipart; Discord limit 25 MB)."""
+        if not self._webhook_url:
+            logger.warning("discord_not_configured", hint="set DISCORD_WEBHOOK_URL in .env")
+            return False
+        import json as _json
+
+        form = {"payload_json": _json.dumps(payload)}
+        uploads = {
+            f"files[{index}]": (name, data, mime) for index, (name, data, mime) in enumerate(files)
+        }
+        async with httpx.AsyncClient() as client:
+            for attempt in range(_MAX_ATTEMPTS):
+                try:
+                    response = await client.post(
+                        self._webhook_url, data=form, files=uploads, timeout=60.0
+                    )
+                except httpx.HTTPError as exc:
+                    logger.warning("discord_network_error", attempt=attempt, error=str(exc))
+                    await asyncio.sleep(2 * (attempt + 1))
+                    continue
+                if response.status_code in (200, 204):
+                    return True
+                if response.status_code == 429:
+                    retry_after = 2.0
+                    with contextlib.suppress(Exception):
+                        retry_after = float(response.json().get("retry_after", retry_after))
+                    await asyncio.sleep(min(retry_after, 30.0))
+                    continue
+                logger.error(
+                    "discord_send_failed", status=response.status_code, body=response.text[:300]
+                )
+                return False
+        return False
+
+    async def send_markdown(self, title: str, markdown: str) -> bool:
+        """Post a long markdown report as one or more embeds (4,096 chars each)."""
+        chunks = templates.markdown_chunks(markdown)
+        ok = True
+        for index in range(0, len(chunks), 10):
+            embeds = [
+                {
+                    "title": templates.truncate(templates.sanitize(title), 256)
+                    if index + i == 0
+                    else None,
+                    "description": chunk,
+                    "color": templates.COLOR_MEDIUM,
+                }
+                for i, chunk in enumerate(chunks[index : index + 10])
+            ]
+            payload = {
+                "embeds": [{k: v for k, v in e.items() if v is not None} for e in embeds],
+                "allowed_mentions": {"parse": []},
+            }
+            ok = await self.send(payload) and ok
+        return ok
+
     async def send_test(self) -> bool:
         return await self.send(templates.build_test_payload())
 

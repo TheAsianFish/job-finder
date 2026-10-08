@@ -13,6 +13,12 @@
 # Each run decides its own scope (`scan --mode auto`): the full registry when
 # the last full scan is about an hour old, otherwise the hot set (core-tier
 # employers + Simplify feeds).
+#
+# Career data (AD-27): the private repo TheAsianFish/career-private is checked
+# out at resume/private via the CAREER_DEPLOY_KEY deploy key. Each run syncs
+# applications.yaml into the DB, and every fresh high-priority alert gets a
+# tailored resume PDF in Discord (archived in the private repo). Logs here are
+# public, so those steps print counts only.
 
 name: Opportunity Radar Scan
 
@@ -36,11 +42,22 @@ jobs:
     if: vars.ENABLE_CLOUD_SCAN == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      HAS_CAREER_KEY: ${{ secrets.CAREER_DEPLOY_KEY != '' }}
+      HAS_CLAUDE_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
     steps:
       - name: Record start time
         run: echo "RUN_STARTED=$(date +%s)" >> "$GITHUB_ENV"
 
       - uses: actions/checkout@v7
+
+      - name: Check out private career repo
+        if: env.HAS_CAREER_KEY == 'true'
+        uses: actions/checkout@v7
+        with:
+          repository: TheAsianFish/career-private
+          path: resume/private
+          ssh-key: ${{ secrets.CAREER_DEPLOY_KEY }}
 
       - uses: astral-sh/setup-uv@v10.2.0  # no floating major tag is published
         with:
@@ -67,8 +84,36 @@ jobs:
           TZ: America/Los_Angeles
         run: |
           uv run opportunity-radar db migrate
+          if [ -f resume/private/applications.yaml ]; then
+            uv run opportunity-radar applications sync
+          fi
           uv run opportunity-radar scan --mode auto
           uv run opportunity-radar notify digest --if-due
+
+      - name: Count alerts needing a tailored resume
+        id: resumes
+        if: env.HAS_CAREER_KEY == 'true'
+        run: echo "pending=$(uv run opportunity-radar resume deliver --count 2>/dev/null | tail -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache TinyTeX
+        if: steps.resumes.outputs.pending != '' && steps.resumes.outputs.pending != '0'
+        uses: actions/cache@v6
+        with:
+          path: ~/.TinyTeX
+          key: tinytex-${{ runner.os }}-${{ hashFiles('scripts/install_tinytex.sh') }}
+
+      - name: Install pdfLaTeX and Claude Code
+        if: steps.resumes.outputs.pending != '' && steps.resumes.outputs.pending != '0'
+        run: |
+          bash scripts/install_tinytex.sh
+          if [ "$HAS_CLAUDE_TOKEN" = "true" ]; then npm install -g @anthropic-ai/claude-code >/dev/null; fi
+
+      - name: Deliver tailored resumes
+        if: steps.resumes.outputs.pending != '' && steps.resumes.outputs.pending != '0'
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: uv run opportunity-radar resume deliver --polish --push
 
       - name: Persist database
         if: always()

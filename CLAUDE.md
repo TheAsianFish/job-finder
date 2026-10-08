@@ -18,8 +18,9 @@ This repo is growing from a job tracker into Patrick's **internship copilot**:
 find roles first, apply with the strongest *truthful* resume, close real skill
 gaps. `docs/roadmap.md` holds the phases, candidate facts and the ground rules
 every agent must follow (truthful only, no auto-apply, changes via PR).
-Current focus: **internships only**; BS candidate, so PhD/MS/MBA-only roles
-are excluded. Skill demand: `uv run opportunity-radar insights skills`
+Focus: internships (2027 seasons first) plus full-time roles aligned with his
+graduation (Aug-Dec 2027, start Fall 2027+); BS candidate, so PhD/MS/MBA-only
+roles are excluded. Skill demand: `uv run opportunity-radar insights skills`
 (-> `reports/skill-demand.md`).
 
 ## Patrick's standing rules
@@ -79,6 +80,12 @@ are excluded. Skill demand: `uv run opportunity-radar insights skills`
   Patrick's Max plan (`CLAUDE_CODE_OAUTH_TOKEN` secret, `ENABLE_AGENTS=true`
   variable), weekly review Mondays + manual custom prompts, output as a PR.
   Prompts in `agents/prompts/`. Actions may open (not merge) PRs.
+- Private career repo `TheAsianFish/career-private` is cloned at
+  `resume/private/` (git-ignored; `CAREER_DEPLOY_KEY` deploy key for CI).
+  Resume engine: `src/opportunity_radar/resume/` (AD-28). Never copy resume
+  or application content into the public repo, PRs, or CI logs.
+- pdfLaTeX via TinyTeX (`scripts/install_tinytex.sh`); resume tests that
+  compile are skipped when it is absent.
 - Simplify lists are ingested as a secondary source (`simplify` adapter,
   AD-21); employers we scan directly are skipped to avoid double alerts.
   Patrick explicitly approved using the Simplify lists (2026-10-07).

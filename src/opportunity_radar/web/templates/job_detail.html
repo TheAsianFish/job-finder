@@ -13,6 +13,8 @@
 <div class="actions">
   <a href="{{ job.apply_url }}" target="_blank" rel="noopener noreferrer"><button>Apply on employer site ↗</button></a>
   <button class="secondary" onclick="navigator.clipboard.writeText('{{ job.apply_url }}')">Copy apply link</button>
+  <a href="/jobs/{{ job.id }}/resume" target="_blank"><button class="secondary">Tailored resume (PDF)</button></a>
+  <a href="/jobs/{{ job.id }}/resume?polish=true" target="_blank" title="Rewords bullets with Claude; a guard rejects anything not in your resume"><button class="secondary">Tailored + Claude polish</button></a>
   {% for action, label in [("saved", "Save"), ("dismissed", "Dismiss"), ("applied", "Applied"), ("oa", "OA"), ("interview", "Interview")] %}
   <form method="post" action="/jobs/{{ job.id }}/status" style="display:inline">
     <input type="hidden" name="csrf" value="{{ csrf_token }}">

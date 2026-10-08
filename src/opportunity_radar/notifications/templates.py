@@ -298,3 +298,51 @@ def build_test_payload() -> dict[str, Any]:
         "content": "✅ Opportunity Radar is connected to this channel.",
         "allowed_mentions": {"parse": []},
     }
+
+
+_DESCRIPTION_LIMIT = 4000
+
+
+def markdown_chunks(markdown: str, limit: int = _DESCRIPTION_LIMIT) -> list[str]:
+    """Split markdown on line boundaries into Discord-sized description chunks.
+
+    Discord embeds render bold/links/lists but not headings or tables, so
+    headings become bold lines and table pipes are kept readable.
+    """
+    lines = []
+    for line in sanitize(markdown).splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            lines.append(f"**{stripped.lstrip('#').strip()}**")
+        elif set(stripped) <= {"|", "-", ":", " "} and stripped:
+            continue  # table separator row
+        else:
+            lines.append(line)
+    chunks: list[str] = []
+    current = ""
+    for line in lines:
+        piece = line[:limit]
+        if len(current) + len(piece) + 1 > limit:
+            chunks.append(current.rstrip())
+            current = ""
+        current += piece + "\n"
+    if current.strip():
+        chunks.append(current.rstrip())
+    return chunks or ["(empty report)"]
+
+
+def build_resume_message(job: JobRow, summary: str, ats_line: str) -> dict[str, Any]:
+    """Companion message for a tailored resume attachment."""
+    return {
+        "content": sanitize(f"📄 Tailored resume for **{job.title}** at **{job.company_name}**"),
+        "embeds": [
+            {
+                "title": truncate(sanitize(job.title), _EMBED_TITLE_LIMIT),
+                "url": job.apply_url,
+                "color": COLOR_HIGH,
+                "description": truncate(sanitize(f"{summary}\n{ats_line}"), 2000),
+                "footer": {"text": "Attached PDF uses only content from your resume"},
+            }
+        ],
+        "allowed_mentions": {"parse": []},
+    }

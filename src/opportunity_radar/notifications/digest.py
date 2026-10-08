@@ -22,6 +22,11 @@ logger = structlog.get_logger(__name__)
 LAST_DIGEST_KEY = "last_digest_at"
 
 
+_HANDLED_STATUSES = frozenset(
+    {"applied", "oa", "interview", "offer", "rejected", "withdrawn", "dismissed"}
+)
+
+
 def _digest_relevant(job: JobRow, settings: AppSettings | None = None) -> bool:
     """Notification bar shared by every digest section: software role that a
     US citizen can actually work, and an internship or a full-time role that
@@ -31,6 +36,8 @@ def _digest_relevant(job: JobRow, settings: AppSettings | None = None) -> bool:
 
     if job.role_family in (None, "irrelevant", "adjacent"):
         return False
+    if job.application is not None and job.application.status in _HANDLED_STATUSES:
+        return False  # already applied to, decided on, or dismissed
     if settings is not None and not role_notifiable(
         title=job.title,
         description=job.description_text,

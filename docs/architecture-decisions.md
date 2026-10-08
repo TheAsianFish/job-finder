@@ -309,3 +309,52 @@ skills are synced from the resume and drive a have/missing keyword line on
 every alert. Disabled sources no longer raise silent-source warnings.
 `NORMALIZATION_VERSION` 3 re-scores stored jobs. All changes audited in
 `tuning_history`.
+
+## AD-27: Full-time roles by alignment, not a blanket ban
+
+2026-10-08 (Patrick): full-time roles are welcome if they fit his timeline;
+he could graduate early (after Summer 2027) and start Fall 2027 or any time
+from early 2028. `preferences.full_time_roles` (`never | aligned | always`,
+default `aligned`) replaces the earlier internships-only switch. A full-time
+role notifies only with an explicit entry-level signal (title, or a strong
+description phrase such as "new grad" / "recent graduates"; a stray
+"university" in boilerplate does not count), no 2+ years of required
+experience, no target class earlier than his (catches "New College Grad
+2026"), and no stated start before `full_time_earliest_start` (2027-08-01).
+`candidate.earliest_graduation` makes graduation windows an overlap test
+against Aug-Dec 2027. Posted pay became a gentle nudge (-3..+3) because many
+postings omit or misstate pay; missing pay is always neutral. Jobs from
+sources disabled in the registry are now closed, since nothing could ever
+re-confirm or close them otherwise.
+
+## AD-28: Adaptive resumes from the user's own LaTeX, behind a guard
+
+The resume source of truth is Patrick's `resume.tex` (Jake's template),
+kept in a **private** repo (`TheAsianFish/career-private`, cloned at
+`resume/private/`, read/written by CI through a write deploy key in the
+`CAREER_DEPLOY_KEY` secret). Commented-out entries are the bullet bank;
+lines commented twice are superseded wordings and ignored.
+
+Tailoring is deterministic first: real jobs always stay; the first live
+project (the flagship) always stays and leads; flexible slots and other
+projects go to the best-matching bank entries, and a reserve entry must beat
+a live one by a margin; one venture never appears twice; a live entry's
+opening summary bullet stays first; skills lines keep every item but lead
+with the posting's; total bullets never exceed the master's, and pdfLaTeX
+recompiles with trimming until one page. Engine: real pdfLaTeX (TinyTeX,
+no sudo) because the template uses pdfTeX primitives and must match the
+Overleaf output exactly.
+
+Optional polish runs Claude Code headless (`claude -p`, so the Max plan,
+not an API key). Every rewrite passes a guard or is discarded: no number
+absent from the original bullet, no vocabulary skill absent from the bank,
+no capitalised name or acronym absent from the bank, length within
+60-120%. The ATS report separates matched keywords, ones the bank has but
+the page doesn't show, and true gaps that must not be claimed.
+
+Delivery: cloud scans tailor a resume for each fresh immediate alert (at most
+five per run), attach the PDF to a Discord message beside the alert, and
+archive `.tex`/PDF/ATS/meta in the private repo. Public CI logs print counts
+only. The applications log (`applications.yaml`) lives in the private repo,
+is synced into the DB every scan (outcomes, digest exclusions), and is
+written by `opportunity-radar apply` / `jobs status`, which commit and push.

@@ -212,6 +212,33 @@ get the list's tier). Disable either entry to turn it off.
 `scheduler.full_scan_interval_minutes` (60) and a hot scan otherwise. The
 GitHub Actions workflow runs `--mode auto` every 10 minutes.
 
+## Adaptive resumes and the applications log
+
+Your resume source lives in a private repo cloned at `resume/private/`
+(git-ignored here). Commented-out entries in `resume.tex` are the bullet
+bank: true content the tailor can swap in when a posting needs it.
+
+```
+uv run opportunity-radar resume bank                 # what was parsed (live vs reserve)
+uv run opportunity-radar resume tailor 34723         # tailor to a job id or apply URL (Claude polish on)
+uv run opportunity-radar resume tailor 34723 --no-polish
+uv run opportunity-radar resume variants             # backend / ai-ml / fullstack / infrastructure / general
+uv run opportunity-radar resume ats some.pdf --job 34723
+uv run opportunity-radar apply 34723 --resume backend   # log an application (commits + pushes privately)
+uv run opportunity-radar jobs status <id-or-url> interview
+uv run opportunity-radar insights outcomes            # what works: response rates by tier, role, version, speed
+```
+
+Each tailored resume lands in `resume/private/tailored/<date>-<company>-<role>/`
+with the PDF, `.tex`, an ATS report and a `meta.json` of every decision. Cloud
+scans do this automatically for every high-priority alert and attach the PDF
+in Discord. The dashboard's job page has "Tailored resume" buttons.
+
+Guarantees: tailoring only selects, orders and rewords content already in
+`resume.tex`; Claude rewrites are discarded unless every number, skill and
+name already exists in your resume. PDFs compile with real pdfLaTeX
+(`scripts/install_tinytex.sh`, no sudo) so they match your Overleaf output.
+
 ## Adding an adapter
 
 1. Subclass `BaseAdapter` in `src/opportunity_radar/adapters/`, implement

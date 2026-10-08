@@ -14,9 +14,10 @@ real skill gaps. Every agent working in this repo should read this file and
 - Not eligible for PhD/Master's/MBA-only roles; those are filtered out.
 - Priorities (2026-10-08): Winter/Spring/Summer/Fall 2027 internships first;
   Fall 2026 lower. Backend, AI backend, AI/ML, full stack. FAANG+ ideal;
-  startups fine if they fit and pay reasonably, unless remote or brand-name
-  compensates. Any US location (remote, hybrid, onsite) is fine. Full-time
-  roles never notify (`preferences.internships_only`).
+  startups fine if they fit and pay reasonably (pay is a gentle nudge;
+  missing pay is neutral). Any US location (remote, hybrid, onsite).
+- Full-time roles are welcome when aligned: entry-level, start Fall 2027 or
+  later; he can graduate as early as Aug 2027 (AD-27).
 
 ## Ground rules for every agent
 
@@ -34,10 +35,10 @@ real skill gaps. Every agent working in this repo should read this file and
 | # | Phase | Status | Notes |
 |---|---|---|---|
 | 1 | Skill and ATS-keyword demand report | **Done** (2026-10-07) | `opportunity-radar insights skills` -> `reports/skill-demand.md`; vocabulary in `config/skills_vocabulary.yaml` |
-| 2 | Master resume ingestion | **In progress** | Resume in `resume/private/` (git-ignored). Profile skills synced from it (2026-10-08); every alert shows a have/missing keyword line. Next: structured bullet bank |
-| 3 | Per-posting match + tailored versions | Planned | Match score and missing keywords on each alert; role-family resume versions (backend / ML / infra / quant), later per-job, rendered to PDF |
-| 4 | Outcome loop | **Tooling ready** | `jobs applied <id> --resume <version>`, `jobs status <id> oa\|interview\|offer\|rejected`, `insights outcomes` -> `reports/private/outcomes.md` (tier, role, season, resume version, referral, source, apply speed). Needs logged applications |
-| 5 | Agent-guided projects | Planned | Agent proposes projects that close the top gaps; Patrick builds them with Claude Code as pair programmer, each in its own repo |
+| 2 | Master resume ingestion | **Done** (2026-10-08) | `resume.tex` in the private repo is parsed into a bullet bank (live + commented reserves); profile skills synced from it; `resume bank` shows it |
+| 3 | Per-posting match + tailored versions | **Done** (2026-10-08) | Keyword line on every alert; `resume tailor <job>` (CLI + dashboard button); tailored PDF auto-attached to every immediate alert in Discord; weekly role-family `variants/`; guarded Claude polish; ATS report (AD-28) |
+| 4 | Outcome loop | **Live** (needs logged applications) | `jobs applied <id> --resume <version>`, `jobs status <id> oa\|interview\|offer\|rejected`, `insights outcomes` -> `reports/private/outcomes.md` (tier, role, season, resume version, referral, source, apply speed). Needs logged applications |
+| 5 | Agent-guided projects | **Live** | Weekly review proposes gap-closing projects; `agents.yml` task `project-plan` writes a full brief (spec, milestones, tests, the resume bullet it earns) to the private repo + Discord; Patrick builds it with Claude Code |
 
 ## Autonomous agents
 
@@ -47,6 +48,14 @@ real skill gaps. Every agent working in this repo should read this file and
   gated by the `ENABLE_AGENTS=true` repo variable. Weekly review on Mondays plus
   manual runs with a custom prompt. Prompts live in `agents/prompts/`.
   Output is a pull request.
+
+## Where things live
+
+- Public repo (this one): code, docs, aggregate reports (`reports/skill-demand.md`).
+- Private repo `TheAsianFish/career-private`, cloned at `resume/private/`:
+  `resume.tex` (source of truth), `applications.yaml`, `tailored/`,
+  `variants/`, `reports/` (weekly reviews, project plans, outcomes).
+  Never copy anything from it into the public repo or public CI logs.
 
 ## Current skill-gap snapshot
 

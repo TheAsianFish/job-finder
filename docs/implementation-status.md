@@ -163,6 +163,19 @@ dbt Labs, Canva, Grammarly, Tempus, Rippling.
 - **Dependencies upgraded** (SQLAlchemy 2.1, FastAPI 0.142, ...), Actions
   bumped to checkout v7 / cache v6 / setup-uv v10.
 
+## Career copilot (2026-10-08)
+
+- Full-time roles notify when aligned with graduation (AD-27); posted pay is
+  a gentle nudge; disabled sources' jobs are closed.
+- Adaptive resumes (AD-28): bullet bank from the private `resume.tex`,
+  deterministic selection, guarded Claude polish, pdfLaTeX one-page compile,
+  ATS report; auto-attached to immediate alerts in Discord; dashboard button;
+  weekly role-family variants.
+- Applications log in the private repo, synced every scan; digests skip
+  roles already applied to or dismissed; outcomes report live.
+- Weekly review and project plans written to the private repo and posted to
+  Discord.
+
 ## Known gaps / deferred (with reasons)
 
 - **iCIMS / SuccessFactors / Taleo**: placeholder adapters by spec §8.8 (no

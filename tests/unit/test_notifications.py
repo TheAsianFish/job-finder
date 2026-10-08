@@ -140,3 +140,25 @@ def test_digest_payload_chunks_long_sections_without_cutting_lines():
     assert joined.count("Software Engineer Intern") == 12
     assert "…" not in joined
     assert all(len(f["value"]) <= 1024 for f in fields)
+
+
+def test_markdown_chunks_respect_discord_limits():
+    md = "# Weekly review\n\n| a | b |\n|---|---|\n| 1 | 2 |\n" + ("- line of text\n" * 600)
+    chunks = templates.markdown_chunks(md)
+    assert chunks[0].startswith("**Weekly review**")
+    assert all(len(c) <= 4000 for c in chunks)
+    assert "|---|" not in "".join(chunks)
+    assert len(chunks) >= 2
+
+
+@respx.mock
+async def test_send_files_posts_multipart_attachment():
+    route = respx.post(WEBHOOK).mock(return_value=Response(200))
+    ok = await DiscordNotifier(WEBHOOK).send_files(
+        {"content": "resume"}, [("resume.pdf", b"%PDF-1.4 test", "application/pdf")]
+    )
+    assert ok
+    request = route.calls[0].request
+    assert request.headers["content-type"].startswith("multipart/form-data")
+    assert b'filename="resume.pdf"' in request.content
+    assert b"payload_json" in request.content

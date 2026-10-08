@@ -173,6 +173,56 @@ def jobs_page(
     )
 
 
+@router.get("/jobs/{job_id}/resume")
+def job_resume(job_id: int, polish: bool = False):
+    """Tailor the resume to this posting and return the PDF (local only).
+
+    Deterministic by default (instant); ?polish=true rewords with Claude
+    behind the fabrication guard. Output is archived in the private repo.
+    """
+    from datetime import date
+
+    from fastapi.responses import FileResponse, PlainTextResponse
+
+    from opportunity_radar.resume.paths import private_dir, resume_source
+    from opportunity_radar.resume.polish import claude_runner
+    from opportunity_radar.resume.tailor import load_bank, master_text, slug, tailor
+
+    with session_scope() as session:
+        job = repo.get_job(session, job_id)
+        if job is None:
+            raise HTTPException(404, "job not found")
+        title, company, description = job.title, job.company_name, job.description_text or ""
+        apply_url = job.apply_url
+    if not resume_source().exists():
+        return PlainTextResponse(
+            f"No resume source at {resume_source()}; clone the private career repo there.",
+            status_code=404,
+        )
+    bank = load_bank()
+    out_dir = (
+        private_dir() / "tailored" / f"{date.today().isoformat()}-{slug(company, 24)}-{slug(title)}"
+    )
+    result = tailor(
+        bank,
+        title=title,
+        company=company,
+        description=description,
+        out_dir=out_dir,
+        runner=claude_runner() if polish else None,
+        baseline_text=master_text(bank),
+        meta={"job_id": job_id, "apply_url": apply_url},
+    )
+    if result.pdf_path is None:
+        return PlainTextResponse(
+            f"Resume source written to {result.tex_path}, but PDF failed: {result.compile_error}",
+            status_code=500,
+        )
+    return FileResponse(
+        result.pdf_path, media_type="application/pdf", filename=result.pdf_path.name
+    )
+
+
 @router.get("/jobs/{job_id}")
 def job_detail(request: Request, job_id: int):
     with session_scope() as session:

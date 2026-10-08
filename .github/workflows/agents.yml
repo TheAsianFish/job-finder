@@ -2,7 +2,11 @@
 # Runs Claude Code headless on Patrick's Max plan via CLAUDE_CODE_OAUTH_TOKEN
 # (create it locally with `claude setup-token`, then
 # `gh secret set CLAUDE_CODE_OAUTH_TOKEN`). Gated by repo variable
-# ENABLE_AGENTS=true. Every run's changes are proposed as a pull request.
+# ENABLE_AGENTS=true. Personal outputs (weekly review, project plans, resume
+# variants, outcomes) go to the PRIVATE career repo checked out at
+# resume/private and are posted to Discord; only public-file changes (docs,
+# reports/skill-demand.md) are proposed as a pull request here. Logs on this
+# public repo print counts only.
 
 name: Opportunity Radar Agents
 
@@ -12,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       task:
-        description: "Prompt file in agents/prompts (without .md), or 'custom'"
+        description: "weekly-review | project-plan | custom (prompt file in agents/prompts)"
         default: weekly-review
         required: true
       prompt:
@@ -31,9 +35,19 @@ jobs:
   agent:
     if: vars.ENABLE_AGENTS == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
+    env:
+      HAS_CAREER_KEY: ${{ secrets.CAREER_DEPLOY_KEY != '' }}
     steps:
       - uses: actions/checkout@v7
+
+      - name: Check out private career repo
+        if: env.HAS_CAREER_KEY == 'true'
+        uses: actions/checkout@v7
+        with:
+          repository: TheAsianFish/career-private
+          path: resume/private
+          ssh-key: ${{ secrets.CAREER_DEPLOY_KEY }}
 
       - uses: astral-sh/setup-uv@v10.2.0
         with:
@@ -54,10 +68,22 @@ jobs:
       - name: Refresh deterministic reports
         run: |
           uv run opportunity-radar db migrate
+          if [ -f resume/private/applications.yaml ]; then
+            uv run opportunity-radar applications sync
+            uv run opportunity-radar insights outcomes -o resume/private/reports/outcomes.md
+          fi
           uv run opportunity-radar insights skills
 
-      - name: Install Claude Code
-        run: npm install -g @anthropic-ai/claude-code
+      - name: Cache TinyTeX
+        uses: actions/cache@v6
+        with:
+          path: ~/.TinyTeX
+          key: tinytex-${{ runner.os }}-${{ hashFiles('scripts/install_tinytex.sh') }}
+
+      - name: Install Claude Code and pdfLaTeX
+        run: |
+          npm install -g @anthropic-ai/claude-code >/dev/null
+          bash scripts/install_tinytex.sh
 
       - name: Run agent
         env:
@@ -77,7 +103,34 @@ jobs:
           claude -p "$(cat /tmp/prompt.md)" \
             --model opus \
             --max-turns 60 \
-            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(uv run opportunity-radar *),Bash(sqlite3 *),Bash(git log *),Bash(git diff *),Bash(git show *)"
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(uv run opportunity-radar *),Bash(sqlite3 *),Bash(git log *),Bash(git diff *),Bash(git show *),Bash(git -C resume/private log *),Bash(date *)" \
+            > /tmp/agent.log 2>&1 || { echo "agent failed (log withheld: public repo)"; tail -c 300 /tmp/agent.log | grep -iE "error|auth|limit" || true; exit 1; }
+          echo "agent finished"
+
+      - name: Refresh resume variants
+        if: env.HAS_CAREER_KEY == 'true' && (inputs.task || 'weekly-review') == 'weekly-review'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: uv run opportunity-radar resume variants --polish > /dev/null && echo "variants built"
+
+      - name: Save private outputs and post to Discord
+        if: env.HAS_CAREER_KEY == 'true'
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TASK: ${{ inputs.task || 'weekly-review' }}
+        run: |
+          report=$(find resume/private/reports -name "${TASK}-*.md" -type f 2>/dev/null | sort | tail -1)
+          if [ -n "$report" ]; then
+            title="Weekly review"; [ "$TASK" = "project-plan" ] && title="Project plan"
+            uv run opportunity-radar notify markdown "$report" --title "📊 $title — $(date -u +%Y-%m-%d)"
+          fi
+          cd resume/private
+          git add -A
+          if ! git diff --cached --quiet; then
+            git -c user.name=TheAsianFish -c user.email=jmchung2006@gmail.com \
+              commit -q -m "agent: ${TASK} $(date -u +%Y-%m-%d)"
+            git push -q && echo "private repo updated"
+          fi
 
       - name: Open pull request with the agent's changes
         env:
@@ -86,14 +139,14 @@ jobs:
         run: |
           git restore --staged . 2>/dev/null || true
           git checkout -- data 2>/dev/null || true
-          if [ -z "$(git status --porcelain -- . ':!data')" ]; then
+          if [ -z "$(git status --porcelain -- . ':!data' ':!resume')" ]; then
             echo "Agent made no changes."; exit 0
           fi
           branch="agent/${TASK}-${{ github.run_id }}"
           git config user.name "TheAsianFish"
           git config user.email "jmchung2006@gmail.com"
           git checkout -b "$branch"
-          git add -- . ':!data'
+          git add -- . ':!data' ':!resume'
           git commit -m "agent: ${TASK} ($(date -u +%Y-%m-%d))"
           git push origin "$branch"
           gh pr create --base main --head "$branch" \

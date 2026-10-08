@@ -522,30 +522,6 @@ def jobs_dismiss(job_id: int) -> None:
     _set_status(job_id, "dismissed")
 
 
-@jobs_app.command("applied")
-def jobs_applied(
-    job_id: int,
-    resume: str = typer.Option(None, "--resume", help="Resume variant used"),
-    notes: str = typer.Option(None, "--notes"),
-) -> None:
-    """Mark a job as applied."""
-    _set_status(job_id, "applied", resume_variant=resume, notes=notes)
-
-
-@jobs_app.command("status")
-def jobs_status(
-    job_id: int,
-    status: str = typer.Argument(..., help="oa | interview | offer | rejected"),
-    stage: str = typer.Option(None, "--stage", help="Interview stage, e.g. 'final round'"),
-    notes: str = typer.Option(None, "--notes"),
-) -> None:
-    """Record an application outcome (feeds `insights outcomes`)."""
-    if status not in ("oa", "interview", "offer", "rejected"):
-        console.print("[red]status must be oa, interview, offer, or rejected.[/red]")
-        raise typer.Exit(1)
-    _set_status(job_id, status, interview_stage=stage, notes=notes)
-
-
 @jobs_app.command("export")
 def jobs_export(
     fmt: str = typer.Option("csv", "--format", help="csv or json"),
@@ -958,6 +934,11 @@ def db_migrate() -> None:
 
     upgrade_to_head()
     console.print("[green]Database is up to date.[/green]")
+
+
+from opportunity_radar.cli_career import register as _register_career  # noqa: E402
+
+_register_career(app, jobs_app, notify_app)
 
 
 def main() -> None:

@@ -89,3 +89,25 @@ def test_companies_and_health_pages(client):
     assert client.get("/companies").status_code == 200
     assert client.get("/health").status_code == 200
     assert client.get("/settings").status_code == 200
+
+
+def test_tailored_resume_route(client, tmp_path, monkeypatch):
+    from opportunity_radar.resume.compiler import find_pdflatex
+    from tests.conftest import load_fixture
+
+    private = tmp_path / "private"
+    private.mkdir()
+    monkeypatch.setenv("OPPORTUNITY_RADAR_PRIVATE_DIR", str(private))
+    page = client.get("/jobs/1")
+    assert "Tailored resume (PDF)" in page.text
+    missing = client.get("/jobs/1/resume")
+    assert missing.status_code == 404 and "No resume source" in missing.text
+    (private / "resume.tex").write_text(load_fixture("resume_sample.tex"), encoding="utf-8")
+    response = client.get("/jobs/1/resume")
+    if find_pdflatex() is None:
+        assert response.status_code == 500 and "PDF failed" in response.text
+    else:
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "application/pdf"
+        assert response.content.startswith(b"%PDF")
+    assert any((private / "tailored").iterdir())

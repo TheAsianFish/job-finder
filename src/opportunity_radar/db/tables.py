@@ -113,6 +113,8 @@ class JobRow(Base):
     consecutive_misses: Mapped[int] = mapped_column(Integer, default=0)
     is_baseline: Mapped[bool] = mapped_column(Boolean, default=False)
     alerted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # When a tailored resume for this job was delivered (Discord + private repo).
+    resume_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     digest_pending: Mapped[bool] = mapped_column(Boolean, default=False)
 
     match_score: Mapped[float] = mapped_column(Float, default=0.0, index=True)

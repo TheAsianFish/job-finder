@@ -262,3 +262,24 @@ def test_disabled_sources_do_not_raise_silent_warnings(db):
     text = json.dumps(build_digest(settings, db_url=db))
     assert "quietco" in text
     assert "canva" not in text
+
+
+def test_digest_skips_roles_already_applied_or_dismissed(db):
+    with session_scope(db) as session:
+        repo.sync_companies(session, [CompanySource(id="stripe", name="Stripe", tier="core")])
+        ids = {}
+        for job_id, title in (
+            ("a1", "Backend Engineer Intern"),
+            ("a2", "Platform Engineer Intern"),
+            ("a3", "Data Engineer Intern"),
+        ):
+            record = make_record(job_id, title)
+            row = repo.insert_job(session, record, alias_hashes(record))
+            row.match_score = 70.0
+            row.digest_pending = True
+            ids[title] = row.id
+        repo.set_application_status(session, ids["Backend Engineer Intern"], "applied")
+        repo.set_application_status(session, ids["Platform Engineer Intern"], "dismissed")
+    text = json.dumps(build_digest(AppSettings(), db_url=db))
+    assert "Data Engineer Intern" in text
+    assert "Backend Engineer Intern" not in text and "Platform Engineer Intern" not in text
