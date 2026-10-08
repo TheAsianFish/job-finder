@@ -358,3 +358,38 @@ archive `.tex`/PDF/ATS/meta in the private repo. Public CI logs print counts
 only. The applications log (`applications.yaml`) lives in the private repo,
 is synced into the DB every scan (outcomes, digest exclusions), and is
 written by `opportunity-radar apply` / `jobs status`, which commit and push.
+
+## AD-29: Resume checks, not resume spam; stories, not keyword sprinkles
+
+Patrick's feedback on the first tailored resume (2026-10-08): bland, and not
+needed for that role. Two changes.
+
+**Assessment-gated checks.** A fresh immediate alert at a core/strong
+company in a target role family gets a deterministic fit assessment of the
+standing resume (fetching the full description from Greenhouse / Lever /
+Ashby / Workday when the role came from the Simplify list). Severity
+`fits` is silent. `tune` needs a concrete fixable issue (material the
+resume hides, a clearly better reserve entry, measurable lift) or two
+independent weak signals; `gap` means the role centres on a skill the
+resume genuinely lacks. Calibrated on 227 alert-grade target roles: 94%
+silent. Flagged roles get Claude's candid review (weak bullets with fixes,
+project and culture fit, competitiveness, swaps, a new-project proposal
+appended to the private `reports/project-queue.md`) plus a tailored
+resume, in one Discord message with the PDF and `review.md`.
+
+**Story rewrites.** The writer now rewrites whole entries with the job
+description, the reviewer's fixes, and explicit direction: technical
+STAR/XYZ stories, precise engineering vocabulary, restructure don't
+paraphrase. Reviewer-recommended reserve swaps are applied by the
+selector. Truth stays mechanical: numbers must exist in that entry's
+facts, skills in the resume, names/acronyms in the resume (plus generic
+engineering acronyms), and each entry keeps its original length budget so
+the page never forces content out. On overflow, rewrites are undone
+before content is trimmed; rewrites that lose keywords versus the same
+selection are undone.
+
+**Applications from Simplify.** The Simplify Job Tracker's official
+Export CSV is imported (`applications import-simplify`, or drop it in the
+private repo's `imports/`; every scan merges it). Matching is by link,
+else company + title; status only moves forward. MyGreenhouse has no
+export or API; logged-in scraping is out of scope.

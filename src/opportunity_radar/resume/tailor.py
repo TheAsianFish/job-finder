@@ -20,7 +20,7 @@ from opportunity_radar.resume.bank import Bank, build_bank
 from opportunity_radar.resume.compiler import CompileError, compile_tex, inspect_pdf
 from opportunity_radar.resume.latex import to_plain
 from opportunity_radar.resume.paths import private_dir, resume_source
-from opportunity_radar.resume.polish import PolishOutcome, Runner, polish
+from opportunity_radar.resume.polish import PolishOutcome, Runner, rewrite_entries
 from opportunity_radar.resume.render import render
 from opportunity_radar.resume.selector import Posting, Selection, bullet_score, select
 
@@ -136,15 +136,24 @@ def tailor(
     compile_pdf: bool = True,
     baseline_text: str | None = None,
     meta: dict | None = None,
+    guidance: list[str] | None = None,
+    prefer: list[str] | None = None,
 ) -> TailorResult:
     posting = Posting.from_text(title, description)
-    selection = select(bank, posting)
+    selection = select(bank, posting, prefer=prefer)
     outcome: PolishOutcome | None = None
-    overrides: dict[str, str] = {}
+    overrides: dict[str, list[str]] = {}
     if runner is not None:
-        keywords = [s for s in posting.skills if s in bank.all_skills]
-        outcome = polish(bank, selection.bullets, keywords, title, runner)
-        overrides = outcome.accepted
+        outcome = rewrite_entries(
+            bank,
+            selection.experiences + selection.projects,
+            title=title,
+            company=company,
+            description=description,
+            runner=runner,
+            guidance=guidance,
+        )
+        overrides = dict(outcome.accepted)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     pdf_name = (
@@ -153,21 +162,40 @@ def tailor(
     pdf_path: Path | None = out_dir / pdf_name
     compile_error = None
     trimmed: list[str] = []
+    reverted: list[str] = []
     tex = render(bank, selection, overrides)
     text_for_report = to_plain(tex)
     pages: int | None = None
     if compile_pdf:
         try:
-            for _ in range(MAX_TRIM_ROUNDS + 1):
+            for _ in range(MAX_TRIM_ROUNDS + len(overrides) + 1):
                 compiled = compile_tex(tex, pdf_path)  # type: ignore[arg-type]
                 pages, text_for_report = compiled.pages, compiled.text
                 if compiled.pages <= 1:
                     break
-                note = _trim(selection, posting)
-                if note is None:
-                    break
-                trimmed.append(note)
+                # Overflow: undo the longest rewrite before cutting real content.
+                if overrides:
+                    longest = max(overrides, key=lambda k: sum(len(t) for t in overrides[k]))
+                    overrides.pop(longest)
+                    reverted.append(longest)
+                else:
+                    note = _trim(selection, posting)
+                    if note is None:
+                        break
+                    trimmed.append(note)
                 tex = render(bank, selection, overrides)
+            # Rewrites must never lose keywords that the same selection shows
+            # unrewritten (selection-level trade-offs, e.g. a reviewer-advised
+            # swap, are judged by the reviewer, not undone here).
+            if overrides:
+                rewritten_cov = analyse(text_for_report, posting, bank).coverage
+                plain_cov = analyse(to_plain(render(bank, selection, {})), posting, bank).coverage
+                if rewritten_cov + 1e-9 < plain_cov:
+                    reverted.extend(overrides)
+                    overrides = {}
+                    tex = render(bank, selection, overrides)
+                    compiled = compile_tex(tex, pdf_path)  # type: ignore[arg-type]
+                    pages, text_for_report = compiled.pages, compiled.text
         except CompileError as exc:
             compile_error = str(exc)
             pdf_path = None
@@ -191,6 +219,8 @@ def tailor(
         "polish_rejected": outcome.rejected if outcome else {},
         "polish_skipped": outcome.skipped_reason if outcome else "not requested",
         "trimmed": trimmed,
+        "rewrites_reverted": reverted,
+        "rewrites_kept": sorted(overrides),
         "compile_error": compile_error,
         "ats": asdict(report),
         **(meta or {}),

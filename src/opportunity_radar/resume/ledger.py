@@ -23,6 +23,8 @@ from opportunity_radar.db.tables import JobRow
 from opportunity_radar.utilities.urls import canonicalize_url
 
 STATUSES = ("applied", "oa", "interview", "offer", "rejected", "withdrawn")
+# Progress order for merges: an import never moves an application backwards.
+STATUS_RANK = {"applied": 1, "oa": 2, "interview": 3, "offer": 4, "rejected": 5, "withdrawn": 5}
 _HEADER = """# Applications log (source of truth for outcomes). One entry per application.
 # Add with:  uv run opportunity-radar apply <job-id-or-apply-url> --resume <version>
 # Update:    uv run opportunity-radar jobs status <job-id-or-url> oa|interview|offer|rejected
@@ -34,7 +36,7 @@ _HEADER = """# Applications log (source of truth for outcomes). One entry per ap
 
 @dataclass
 class Application:
-    url: str
+    url: str = ""
     company: str = ""
     title: str = ""
     status: str = "applied"
@@ -46,7 +48,16 @@ class Application:
 
     @property
     def key(self) -> str:
-        return canonicalize_url(self.url)
+        """Canonical apply URL, or company|title when the source had no link."""
+        if self.url:
+            return canonicalize_url(self.url)
+        return f"{_norm(self.company)}|{_norm(self.title)}"
+
+
+def _norm(text: str) -> str:
+    import re
+
+    return re.sub(r"[^a-z0-9]+", " ", (text or "").lower()).strip()
 
 
 def load(path: Path) -> list[Application]:
@@ -56,7 +67,9 @@ def load(path: Path) -> list[Application]:
     entries = raw.get("applications") or []
     apps = []
     for entry in entries:
-        if not isinstance(entry, dict) or not entry.get("url"):
+        if not isinstance(entry, dict) or not (
+            entry.get("url") or (entry.get("company") and entry.get("title"))
+        ):
             continue
         known = {k: entry[k] for k in Application.__dataclass_fields__ if k in entry}
         for key in ("applied", "updated"):
@@ -130,6 +143,52 @@ def find_job(session: Session, url: str) -> JobRow | None:
     return None
 
 
+def merge(path: Path, incoming: list[Application]) -> tuple[int, int]:
+    """Merge applications (e.g. from a Simplify export). Returns (added, updated).
+
+    Matching is by apply URL, else company+title. Existing entries keep any
+    field the import doesn't provide, and status only ever moves forward.
+    """
+    apps = load(path)
+    index = {a.key: a for a in apps}
+    added = updated = 0
+    for new in incoming:
+        current = index.get(new.key)
+        if current is None and new.url:
+            current = index.get(f"{_norm(new.company)}|{_norm(new.title)}")
+        if current is None:
+            apps.append(new)
+            index[new.key] = new
+            added += 1
+            continue
+        changed = False
+        if STATUS_RANK.get(new.status, 0) > STATUS_RANK.get(current.status, 0):
+            current.status = new.status
+            changed = True
+        for attr in ("url", "company", "title", "resume", "referral", "notes"):
+            if not getattr(current, attr) and getattr(new, attr):
+                setattr(current, attr, getattr(new, attr))
+                changed = True
+        if new.applied and new.applied < current.applied:
+            current.applied = new.applied
+            changed = True
+        if changed:
+            current.updated = date.today().isoformat()
+            updated += 1
+    save(path, apps)
+    return added, updated
+
+
+def find_by_company_title(session: Session, company: str, title: str) -> JobRow | None:
+    target = _norm(title)
+    for row in session.scalars(
+        select(JobRow).where(JobRow.company_name.ilike(f"%{company.strip()}%"))
+    ):
+        if _norm(row.title) == target:
+            return row
+    return None
+
+
 @dataclass
 class SyncResult:
     matched: int = 0
@@ -144,9 +203,11 @@ def sync_to_db(session: Session, apps: list[Application]) -> SyncResult:
 
     result = SyncResult()
     for app in apps:
-        job = find_job(session, app.url)
+        job = find_job(session, app.url) if app.url else None
+        if job is None and app.company and app.title:
+            job = find_by_company_title(session, app.company, app.title)
         if job is None:
-            result.unmatched.append(app.url)
+            result.unmatched.append(app.url or f"{app.company}: {app.title}")
             continue
         row = repo.set_application_status(session, job.id, app.status)
         try:

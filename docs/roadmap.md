@@ -36,8 +36,8 @@ real skill gaps. Every agent working in this repo should read this file and
 |---|---|---|---|
 | 1 | Skill and ATS-keyword demand report | **Done** (2026-10-07) | `opportunity-radar insights skills` -> `reports/skill-demand.md`; vocabulary in `config/skills_vocabulary.yaml` |
 | 2 | Master resume ingestion | **Done** (2026-10-08) | `resume.tex` in the private repo is parsed into a bullet bank (live + commented reserves); profile skills synced from it; `resume bank` shows it |
-| 3 | Per-posting match + tailored versions | **Done** (2026-10-08) | Keyword line on every alert; `resume tailor <job>` (CLI + dashboard button); tailored PDF auto-attached to every immediate alert in Discord; weekly role-family `variants/`; guarded Claude polish; ATS report (AD-28) |
-| 4 | Outcome loop | **Live** (needs logged applications) | `jobs applied <id> --resume <version>`, `jobs status <id> oa\|interview\|offer\|rejected`, `insights outcomes` -> `reports/private/outcomes.md` (tier, role, season, resume version, referral, source, apply speed). Needs logged applications |
+| 3 | Per-posting match + tailored versions | **Done** (2026-10-08) | Keyword line on every alert; fit checks on important new roles with Claude review + STAR-rewritten PDF only on a real disconnect (AD-29); `resume assess` / `resume tailor` / dashboard buttons; weekly role-family `variants/`; ATS report |
+| 4 | Outcome loop | **Live** (Simplify CSV import + `apply`; needs logged applications) | `jobs applied <id> --resume <version>`, `jobs status <id> oa\|interview\|offer\|rejected`, `insights outcomes` -> `reports/private/outcomes.md` (tier, role, season, resume version, referral, source, apply speed). Needs logged applications |
 | 5 | Agent-guided projects | **Live** | Weekly review proposes gap-closing projects; `agents.yml` task `project-plan` writes a full brief (spec, milestones, tests, the resume bullet it earns) to the private repo + Discord; Patrick builds it with Claude Code |
 
 ## Autonomous agents

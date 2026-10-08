@@ -12,18 +12,21 @@ from opportunity_radar.resume.latex import escape
 from opportunity_radar.resume.selector import Selection
 
 
-def _entries_tex(entries: list[tuple[Entry, list[Bullet]]], overrides: dict[str, str]) -> list[str]:
+def _entries_tex(
+    entries: list[tuple[Entry, list[Bullet]]], overrides: dict[str, list[str]]
+) -> list[str]:
     lines: list[str] = []
     for entry, bullets in entries:
         lines.append(f"    {entry.heading_tex.strip()}")
         lines.append("      \\resumeItemListStart")
-        for bullet in bullets:
-            lines.append(f"        \\resumeItem{{{overrides.get(bullet.id, bullet.tex)}}}")
+        for tex in overrides.get(entry.id) or [b.tex for b in bullets]:
+            lines.append(f"        \\resumeItem{{{tex}}}")
         lines.append("      \\resumeItemListEnd")
     return lines
 
 
-def render(bank: Bank, selection: Selection, overrides: dict[str, str] | None = None) -> str:
+def render(bank: Bank, selection: Selection, overrides: dict[str, list[str]] | None = None) -> str:
+    """overrides: entry id -> rewritten LaTeX bullets (from the guarded rewrite)."""
     overrides = overrides or {}
     names = bank.section_names
     out = [bank.preamble.rstrip(), ""]

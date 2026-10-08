@@ -10,7 +10,13 @@ from opportunity_radar.resume.ats import analyse, render_markdown
 from opportunity_radar.resume.bank import build_bank
 from opportunity_radar.resume.compiler import find_pdflatex
 from opportunity_radar.resume.latex import escape, find_macros, split_sections, to_plain
-from opportunity_radar.resume.polish import guard, polish, to_tex
+from opportunity_radar.resume.polish import (
+    build_prompt,
+    guard_bullet,
+    headline_metrics,
+    rewrite_entries,
+    to_tex,
+)
 from opportunity_radar.resume.render import render
 from opportunity_radar.resume.selector import Posting, select
 from opportunity_radar.resume.tailor import tailor
@@ -117,55 +123,122 @@ def test_live_entries_keep_their_opening_bullet_first(bank):
     assert bullets[0] is acme.bullets[0]
 
 
-# ---------------------------------------------------------------- guard / polish
+# ---------------------------------------------------------------- guarded story rewrite
 
 
-def test_guard_accepts_faithful_rewrite_and_rejects_fabrication(bank):
-    original = bank.experiences[0].bullets[0]  # billing service, 40 teams
+def _entry_fixture(bank):
+    from opportunity_radar.resume.selector import Posting, select
+
+    selection = select(bank, Posting.from_text("Backend Intern", "Python PostgreSQL REST APIs"))
+    return selection.experiences[:1]  # (Acme entry, its bullets)
+
+
+def test_guard_bullet_checks_numbers_skills_names_length(bank):
+    entry, _ = _entry_fixture(bank)[0]
+    entry_text = " ".join(b.text for b in entry.bullets) + " " + entry.name
+    numbers = {"40", "60"}
     corpus = bank.plain_corpus().lower()
-    ok = "Built a Python billing service on PostgreSQL that exposes REST APIs to 40 internal teams."
-    assert guard(original, ok, bank, corpus) is None
-    assert "new numbers" in guard(original, ok.replace("40", "45"), bank, corpus)
-    assert "skill not in resume" in guard(original, ok.replace("PostgreSQL", "Kafka"), bank, corpus)
-    assert "name or term" in guard(original, ok.replace("internal", "Google"), bank, corpus)
-    assert "length" in guard(original, "Built a service.", bank, corpus)
+    good = (
+        "Architected a Python and PostgreSQL billing service with idempotent REST APIs consumed "
+        "by 40 internal teams, cutting release time 60% via containerized deploys."
+    )
+    assert guard_bullet(good, numbers, bank, corpus, entry_text) is None
+    assert "numbers" in guard_bullet(good.replace("40", "45"), numbers, bank, corpus, entry_text)
+    assert "skill not in resume" in guard_bullet(
+        good.replace("PostgreSQL", "Kafka"), numbers, bank, corpus, entry_text
+    )
+    assert "name or term" in guard_bullet(
+        good.replace("internal", "Google"), numbers, bank, corpus, entry_text
+    )
+    assert "length" in guard_bullet("Built a service.", numbers, bank, corpus, entry_text)
+    # Generic engineering acronyms are fine even if the resume never spells them...
+    with_acronym = good.replace("REST APIs", "REST APIs under an SLA")
+    assert guard_bullet(with_acronym, numbers, bank, corpus, entry_text) is None
+    # ...but "p99" smuggles in a latency number nobody measured.
+    with_p99 = good.replace("REST APIs", "REST APIs with p99 latency")
+    assert "numbers" in guard_bullet(with_p99, numbers, bank, corpus, entry_text)
 
 
-def test_to_tex_rebolds_original_phrases(bank):
-    original = bank.experiences[0].bullets[1]  # bold "cutting release time 60%"
+def test_to_tex_bolds_only_whole_headline_metrics(bank):
     tex = to_tex(
-        "Containerized deploys with Docker and Kubernetes, cutting release time 60%.", original
+        "Cut release time 60% by containerizing deploys with Docker and Kubernetes.", ["60%"]
     )
-    assert r"\textbf{cutting release time 60\%}" in tex
-
-
-def test_polish_applies_only_guarded_rewrites(bank):
-    bullets = bank.experiences[0].bullets[:2]
-    reply = json.dumps(
-        [
-            {
-                "id": bullets[0].id,
-                "text": "Built a Python and PostgreSQL billing service whose REST APIs serve 40 internal teams.",
-            },
-            {
-                "id": bullets[1].id,
-                "text": "Containerized deployments with Docker, Kubernetes and Terraform, cutting release time 60%.",
-            },
-        ]
+    assert r"\textbf{60\%}" in tex
+    assert r"\textbf" not in to_tex("Served 40 teams.", ["60%"])
+    # A range is never bolded in fragments.
+    ranged = to_tex(
+        "Cut latency over 90% (2.5-3s to ~200ms) with memoized selectors.", ["90%", "3s"]
     )
-    outcome = polish(bank, bullets, ["REST APIs"], "Backend Intern", runner=lambda prompt: reply)
-    assert bullets[0].id in outcome.accepted
-    assert outcome.rejected[bullets[1].id].startswith("skill not in resume: Terraform")
+    assert r"\textbf{90\%}" in ranged and r"\textbf{3s}" not in ranged
 
 
-def test_polish_failures_never_break_tailoring(bank):
+def test_headline_metrics_come_from_bold_phrases(bank):
+    acme = bank.experiences[0]
+    assert headline_metrics(acme.bullets) == ["60%"]
+
+
+def test_prompt_carries_story_direction_and_job_description(bank):
+    entries = _entry_fixture(bank)
+    prompt = build_prompt(
+        entries,
+        title="Backend Intern",
+        company="Acme",
+        description="We value reliability.",
+        skills_line="Python, PostgreSQL",
+    )
+    for phrase in ("STAR", "engineering vocabulary", "We value reliability.", "bullets_to_write"):
+        assert phrase in prompt
+
+
+def test_rewrite_entries_accepts_safe_stories_and_rejects_fabrication(bank):
+    entries = _entry_fixture(bank)
+    entry, shown = entries[0]
+    good = [
+        "Architected a Python/PostgreSQL billing service with REST APIs for 40 internal teams.",
+        "Cut release time 60% by containerizing deploys with Docker and Kubernetes rollouts.",
+        "Diagnosed an invoice-queue race condition and locked in the fix with unit tests.",
+    ][: len(shown)]
+    reply = json.dumps({"entries": [{"id": entry.id, "bullets": good}]})
+    outcome = rewrite_entries(
+        bank,
+        entries,
+        title="Backend Intern",
+        company="Acme",
+        description="",
+        runner=lambda p: reply,
+    )
+    assert entry.id in outcome.accepted and len(outcome.accepted[entry.id]) == len(shown)
+
+    bad = list(good)
+    bad[0] = bad[0].replace("PostgreSQL", "Kafka")
+    reply = json.dumps({"entries": [{"id": entry.id, "bullets": bad}]})
+    outcome = rewrite_entries(
+        bank, entries, title="x", company="y", description="", runner=lambda p: reply
+    )
+    assert entry.id not in outcome.accepted  # all-or-nothing per entry
+    assert outcome.rejected[entry.id].startswith("skill not in resume: Kafka")
+
+    short = json.dumps({"entries": [{"id": entry.id, "bullets": good[:1]}]})
+    outcome = rewrite_entries(
+        bank, entries, title="x", company="y", description="", runner=lambda p: short
+    )
+    assert "expected" in outcome.rejected[entry.id]
+
+
+def test_rewrite_failures_never_break_tailoring(bank):
     def broken(prompt):
         raise RuntimeError("401 OAuth access token is invalid")
 
-    outcome = polish(bank, bank.experiences[0].bullets, [], "x", runner=broken)
-    assert outcome.skipped_reason.startswith("polish failed")
-    assert polish(bank, [], [], "x", runner=None).skipped_reason == "Claude Code CLI not available"
-    assert polish(bank, bank.projects[0].bullets, [], "x", runner=lambda p: "sorry").skipped_reason
+    entries = _entry_fixture(bank)
+    kwargs = dict(title="x", company="y", description="")
+    assert rewrite_entries(bank, entries, runner=broken, **kwargs).skipped_reason.startswith(
+        "rewrite failed"
+    )
+    assert (
+        rewrite_entries(bank, entries, runner=None, **kwargs).skipped_reason
+        == "Claude Code CLI not available"
+    )
+    assert rewrite_entries(bank, entries, runner=lambda p: "sorry", **kwargs).skipped_reason
 
 
 # ---------------------------------------------------------------- render / ATS / tailor
@@ -230,3 +303,31 @@ def test_tailor_compiles_one_page_pdf(bank, tmp_path):
         "Alex Example" in result.report.__dict__.get("matched", [])
         or result.report.checks["email present"]
     )
+
+
+def test_reviewer_swaps_replace_the_weakest_unprotected_entries(bank):
+    posting = Posting.from_text("Backend Intern", "Python PostgreSQL REST APIs Docker Kubernetes")
+    plain = select(bank, posting)
+    assert "VisionLab — Defect Detector" not in [e.name for e, _ in plain.projects]
+    swapped = select(bank, posting, prefer=["Swap the dashboard for the VisionLab defect detector"])
+    names = [e.name for e, _ in swapped.projects]
+    assert "VisionLab — Defect Detector" in names
+    assert names[0] == "Indexer — Code Search Engine"  # the anchor is never swapped out
+    assert "VisionLab — Defect Detector" in swapped.swapped_in
+    lab = select(bank, posting, prefer=["Example Vision Lab research assistant role"])
+    assert "Research Assistant @ Example Vision Lab" in [e.name for e, _ in lab.experiences]
+    assert "Software Engineering Intern @ Acme Cloud" in [e.name for e, _ in lab.experiences]
+
+
+def test_rewrite_rejects_entries_that_grow_the_page(bank):
+    entries = _entry_fixture(bank)
+    entry, shown = entries[0]
+    padded = [
+        (b.text + " Delivered with careful review and documentation for the team.")[:130]
+        for b in shown
+    ]
+    reply = json.dumps({"entries": [{"id": entry.id, "bullets": padded}]})
+    outcome = rewrite_entries(
+        bank, entries, title="x", company="y", description="", runner=lambda p: reply
+    )
+    assert "over budget" in outcome.rejected.get(entry.id, "")

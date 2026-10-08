@@ -11,7 +11,7 @@ from httpx import Response
 
 from opportunity_radar.db import repositories as repo
 from opportunity_radar.db.engine import get_engine, reset_engine, session_scope
-from opportunity_radar.db.tables import Base, JobRow
+from opportunity_radar.db.tables import Base
 from opportunity_radar.insights.outcomes import collect
 from opportunity_radar.models.company import CompanySource
 from opportunity_radar.notifications.discord import DiscordNotifier
@@ -86,26 +86,102 @@ def test_ledger_sync_feeds_outcomes(db, tmp_path):
     assert dims["Referral"]["yes"].applied == 1
 
 
+FIT_DESCRIPTION = (
+    "Build backend services in Python with PostgreSQL and REST APIs. Ship with Docker and "
+    "Kubernetes and CI/CD. Write unit tests, design data structures and algorithms, and own "
+    "features end to end. " * 3
+)
+GAP_DESCRIPTION = (
+    "Write high-performance Rust services, Kafka pipelines and Terraform infrastructure. "
+    "You will profile Rust code, tune Kafka consumers and build Go tooling. " * 4
+)
+
+
+def _runner(prompt: str) -> str:
+    if "screens internship and new-grad resumes" in prompt:
+        return json.dumps(
+            {
+                "verdict": "Solid Python backend story, but nothing in Rust.",
+                "strengths": ["Production Python service"],
+                "weak_bullets": [
+                    {"bullet": "Practiced algorithms", "problem": "generic", "fix": "drop it"}
+                ],
+                "projects": [{"name": "Indexer", "fit": "okay", "why": "Python, not Rust"}],
+                "culture_fit": "Performance-focused.",
+                "competitiveness": "Below typical Rust-focused applicants.",
+                "swaps": [],
+                "new_project": {
+                    "needed": True,
+                    "title": "Rust log shipper",
+                    "pitch": "Kafka-backed",
+                    "skills": ["Rust", "Kafka"],
+                    "why": "role centres on Rust",
+                },
+            }
+        )
+    return "not json"  # rewrite step: fall back to original bullets
+
+
 @respx.mock
-async def test_deliver_sends_pdf_or_message_and_marks_job(db, private):
-    job_id, _ = _insert(db, "21", "Backend Engineer Intern", alerted=True)
-    _insert(db, "22", "Old Intern Role")  # never alerted: not delivered
+async def test_well_fitting_role_stays_quiet(db, private):
+    job_id, _ = _insert(
+        db, "21", "Backend Engineer Intern", alerted=True, description=FIT_DESCRIPTION
+    )
+    _insert(db, "22", "Old Intern Role")  # never alerted: never checked
     assert pending_jobs(db) == [job_id]
     route = respx.post(WEBHOOK).mock(return_value=Response(204))
-    report = await deliver_pending(DiscordNotifier(WEBHOOK), db_url=db, push=False)
-    assert report.delivered == ["Stripe: Backend Engineer Intern"]
-    assert route.called
-    request = route.calls[0].request
-    body = request.content.decode("latin-1")
-    assert "Tailored resume for" in body
-    out_dirs = list((private / "tailored").iterdir())
-    assert len(out_dirs) == 1 and (out_dirs[0] / "ats.md").exists()
-    meta = json.loads((out_dirs[0] / "meta.json").read_text())
-    assert meta["job_id"] == job_id
-    with session_scope(db) as session:
-        assert session.get(JobRow, job_id).resume_sent_at is not None
-    assert pending_jobs(db) == []  # never sent twice
+    report = await deliver_pending(DiscordNotifier(WEBHOOK), db_url=db, runner=_runner, push=False)
+    assert report.checked == 1 and report.quiet == 1 and not report.flagged
+    assert not route.called  # no noise when the resume already fits
+    assert pending_jobs(db) == []  # checked once, never again
+
+
+@respx.mock
+async def test_disconnected_role_gets_review_resume_and_project(db, private):
+    job_id, _ = _insert(
+        db, "31", "Rust Backend Engineer Intern", alerted=True, description=GAP_DESCRIPTION
+    )
+    route = respx.post(WEBHOOK).mock(return_value=Response(204))
+    report = await deliver_pending(DiscordNotifier(WEBHOOK), db_url=db, runner=_runner, push=False)
+    assert report.flagged == [str(job_id)]
+    body = route.calls[0].request.content
+    assert b'filename="review.md"' in body
+    assert b"Resume check" in body and b"Rust log shipper" in body
+    out = next((private / "tailored").iterdir())
+    review_md = (out / "review.md").read_text()
+    assert "Severity: GAP" in review_md and "Rust" in review_md
+    meta = json.loads((out / "meta.json").read_text())
+    assert meta["severity"] == "gap"
+    queue = (private / "reports" / "project-queue.md").read_text()
+    assert "Rust log shipper" in queue
     assert report.git == "private dir is not a git repo; saved locally only"
+
+
+@respx.mock
+async def test_non_priority_companies_are_not_checked(db, private):
+    with session_scope(db) as session:
+        repo.sync_companies(session, [CompanySource(id="stripe", name="Stripe", tier="broad")])
+    _insert(db, "41", "Rust Backend Engineer Intern", alerted=True, description=GAP_DESCRIPTION)
+    route = respx.post(WEBHOOK).mock(return_value=Response(204))
+    report = await deliver_pending(DiscordNotifier(WEBHOOK), db_url=db, runner=_runner, push=False)
+    assert report.skipped == 1 and not route.called
+
+
+@respx.mock
+async def test_short_description_is_fetched_from_the_ats(db, private):
+    job_id, _ = _insert(
+        db,
+        "51",
+        "Rust Backend Engineer Intern",
+        alerted=True,
+        description="Internship listed on the Simplify internships list.",
+    )
+    respx.get("https://boards-api.greenhouse.io/v1/boards/stripe/jobs/51").mock(
+        return_value=Response(200, json={"content": "&lt;p&gt;" + GAP_DESCRIPTION + "&lt;/p&gt;"})
+    )
+    respx.post(WEBHOOK).mock(return_value=Response(204))
+    report = await deliver_pending(DiscordNotifier(WEBHOOK), db_url=db, runner=_runner, push=False)
+    assert report.flagged == [str(job_id)]
 
 
 async def test_deliver_without_resume_source_skips_cleanly(db, tmp_path, monkeypatch):

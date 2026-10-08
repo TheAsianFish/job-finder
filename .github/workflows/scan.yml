@@ -16,9 +16,10 @@
 #
 # Career data (AD-27): the private repo TheAsianFish/career-private is checked
 # out at resume/private via the CAREER_DEPLOY_KEY deploy key. Each run syncs
-# applications.yaml into the DB, and every fresh high-priority alert gets a
-# tailored resume PDF in Discord (archived in the private repo). Logs here are
-# public, so those steps print counts only.
+# applications.yaml (and any Simplify exports in imports/) into the DB, and
+# fresh high-priority alerts get a resume fit check: silent when the resume
+# fits, a review + tailored PDF in Discord when it doesn't (AD-29). Logs here
+# are public, so those steps print counts only.
 
 name: Opportunity Radar Scan
 
@@ -85,12 +86,12 @@ jobs:
         run: |
           uv run opportunity-radar db migrate
           if [ -f resume/private/applications.yaml ]; then
-            uv run opportunity-radar applications sync
+            uv run opportunity-radar applications sync --push
           fi
           uv run opportunity-radar scan --mode auto
           uv run opportunity-radar notify digest --if-due
 
-      - name: Count alerts needing a tailored resume
+      - name: Count alerts awaiting a resume check
         id: resumes
         if: env.HAS_CAREER_KEY == 'true'
         run: echo "pending=$(uv run opportunity-radar resume deliver --count 2>/dev/null | tail -1)" >> "$GITHUB_OUTPUT"
@@ -108,7 +109,7 @@ jobs:
           bash scripts/install_tinytex.sh
           if [ "$HAS_CLAUDE_TOKEN" = "true" ]; then npm install -g @anthropic-ai/claude-code >/dev/null; fi
 
-      - name: Deliver tailored resumes
+      - name: Resume checks for new high-priority roles
         if: steps.resumes.outputs.pending != '' && steps.resumes.outputs.pending != '0'
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}

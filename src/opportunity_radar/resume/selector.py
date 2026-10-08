@@ -187,7 +187,44 @@ def _fill_slots(
     return chosen, swapped_in, swapped_out
 
 
-def select(bank: Bank, posting: Posting) -> Selection:
+def _matches_name(entry: Entry, wanted: str) -> bool:
+    """Loose match of a reviewer's free-text suggestion to a bank entry."""
+    target = re.sub(r"[^a-z0-9]+", " ", wanted.lower())
+    for candidate in (entry.name, entry.org, entry.title):
+        words = [
+            w for w in re.sub(r"[^a-z0-9]+", " ", (candidate or "").lower()).split() if len(w) > 3
+        ]
+        if words and sum(w in target for w in words) >= min(2, len(words)):
+            return True
+    return False
+
+
+def _apply_preferences(
+    chosen: list[Entry],
+    reserves: list[Entry],
+    prefer: list[str],
+    protected: list[Entry],
+    posting: Posting,
+) -> list[str]:
+    """Swap reviewer-recommended reserve entries in for the weakest unprotected
+    chosen entries (in place). Returns the names swapped in."""
+    swapped: list[str] = []
+    for wanted in prefer:
+        entry = next((e for e in reserves if e not in chosen and _matches_name(e, wanted)), None)
+        if entry is None:
+            continue
+        candidates = [e for e in chosen if e not in protected and e.active]
+        if not candidates:
+            break
+        weakest = min(candidates, key=lambda e: entry_score(e, posting))
+        chosen[chosen.index(weakest)] = entry
+        swapped.append(entry.name)
+    return swapped
+
+
+def select(bank: Bank, posting: Posting, prefer: list[str] | None = None) -> Selection:
+    """prefer: reserve entries a reviewer recommended (free text, loosely matched);
+    they replace the weakest unprotected live entries of the same kind."""
     live_exp = [e for e in bank.experiences if e.active]
     pinned = [e for e in live_exp if e.is_work]
     flexible_live = [e for e in live_exp if not e.is_work]
@@ -204,6 +241,13 @@ def select(bank: Bank, posting: Posting) -> Selection:
         live_proj[1:], reserves_proj, max(len(live_proj) - 1, 0), posting, exclude_entities=taken
     )
     proj_chosen = anchor + rest_chosen
+    if prefer:
+        exp_in += _apply_preferences(flex_chosen, reserves_exp, prefer, [], posting)
+        forced = _apply_preferences(rest_chosen, reserves_proj, prefer, [], posting)
+        proj_in += forced
+        proj_chosen = anchor + rest_chosen
+        proj_out = [e.name for e in live_proj if e not in proj_chosen]
+        exp_out = [e.name for e in flexible_live if e not in flex_chosen]
 
     budget = sum(len(e.bullets) for e in live_exp + live_proj)
 

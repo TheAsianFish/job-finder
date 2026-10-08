@@ -331,17 +331,36 @@ def markdown_chunks(markdown: str, limit: int = _DESCRIPTION_LIMIT) -> list[str]
     return chunks or ["(empty report)"]
 
 
-def build_resume_message(job: JobRow, summary: str, ats_line: str) -> dict[str, Any]:
-    """Companion message for a tailored resume attachment."""
+def build_resume_check_message(job: JobRow, fit, rev, tailored_summary: str) -> dict[str, Any]:
+    """One message per flagged role: verdict, why it was flagged, top fixes.
+
+    The tailored PDF and the full review.md ride along as attachments.
+    """
+    icon = "🧭" if fit.severity == "tune" else "🛠️"
+    lines = [
+        f"**{fit.severity.upper()}** · keyword coverage {fit.master_coverage:.0%} now, "
+        f"{fit.tailored_coverage:.0%} reselected · project fit {fit.project_alignment:.0%}"
+    ]
+    if getattr(rev, "verdict", ""):
+        lines.append(f"**Verdict:** {rev.verdict}")
+    lines += [f"• {reason}" for reason in fit.reasons[:4]]
+    for weak in (getattr(rev, "weak_bullets", None) or [])[:2]:
+        lines.append(f"✏️ {weak.get('problem', '')} → {weak.get('fix', '')}")
+    project = getattr(rev, "new_project", None) or {}
+    if project.get("needed"):
+        lines.append(f"🚀 New project: **{project.get('title', '')}**: {project.get('pitch', '')}")
+    if getattr(rev, "error", None):
+        lines.append(f"(written review unavailable: {rev.error})")
+    lines.append(f"📄 Attached resume: {tailored_summary}")
     return {
-        "content": sanitize(f"📄 Tailored resume for **{job.title}** at **{job.company_name}**"),
+        "content": sanitize(f"{icon} Resume check: **{job.title}** at **{job.company_name}**"),
         "embeds": [
             {
                 "title": truncate(sanitize(job.title), _EMBED_TITLE_LIMIT),
                 "url": job.apply_url,
-                "color": COLOR_HIGH,
-                "description": truncate(sanitize(f"{summary}\n{ats_line}"), 2000),
-                "footer": {"text": "Attached PDF uses only content from your resume"},
+                "color": COLOR_MEDIUM if fit.severity == "tune" else COLOR_ERROR,
+                "description": truncate(sanitize("\n".join(lines)), 4000),
+                "footer": {"text": "Full review in review.md · resume uses only your real content"},
             }
         ],
         "allowed_mentions": {"parse": []},

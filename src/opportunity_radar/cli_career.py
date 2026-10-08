@@ -148,13 +148,60 @@ def register(app: typer.Typer, jobs_app: typer.Typer, notify_app: typer.Typer) -
         )
 
 
+@applications_app.command("import-simplify")
+def applications_import_simplify(
+    csv_path: Path = typer.Argument(..., exists=True, help="Simplify Job Tracker -> Export CSV"),
+    push: bool = typer.Option(True, "--push/--no-push"),
+) -> None:
+    """Merge a Simplify tracker export into applications.yaml (never downgrades)."""
+    from opportunity_radar.resume.ledger import commit_and_push, merge
+    from opportunity_radar.resume.paths import ledger_path, private_dir
+    from opportunity_radar.resume.simplify_import import parse_simplify_csv
+
+    apps, skipped = parse_simplify_csv(csv_path)
+    added, updated = merge(ledger_path(), apps)
+    git = commit_and_push(private_dir(), f"Import Simplify tracker ({added} new)", push=push)
+    console.print(
+        f"Simplify import: {added} new, {updated} updated, {skipped} skipped "
+        f"(saved/wishlist or incomplete rows); {git}."
+    )
+
+
+def import_drop_folder(push: bool) -> str | None:
+    """Import every CSV in the private repo's imports/ folder (idempotent)."""
+    from opportunity_radar.resume.ledger import commit_and_push, merge
+    from opportunity_radar.resume.paths import ledger_path, private_dir
+    from opportunity_radar.resume.simplify_import import parse_simplify_csv
+
+    folder = private_dir() / "imports"
+    files = sorted(folder.glob("*.csv")) if folder.exists() else []
+    added = updated = 0
+    for path in files:
+        try:
+            apps, _ = parse_simplify_csv(path)
+        except (ValueError, OSError) as exc:
+            console.print(f"[yellow]skipped {path.name}: {exc}[/yellow]")
+            continue
+        a, u = merge(ledger_path(), apps)
+        added, updated = added + a, updated + u
+    if not files:
+        return None
+    git = commit_and_push(private_dir(), f"Import tracker exports ({added} new)", push=push)
+    return f"{len(files)} export(s): {added} new, {updated} updated; {git}"
+
+
 @applications_app.command("sync")
-def applications_sync() -> None:
-    """Mirror the private applications.yaml into the job database."""
+def applications_sync(
+    push: bool = typer.Option(False, "--push/--no-push", help="Push imported changes"),
+) -> None:
+    """Import drop-folder exports, then mirror applications.yaml into the job database."""
     from opportunity_radar.db.engine import session_scope
     from opportunity_radar.resume.ledger import load, sync_to_db
     from opportunity_radar.resume.paths import ledger_path
 
+    imported = import_drop_folder(push)
+    if imported:
+        console.print(f"Imported {imported}")
     apps = load(ledger_path())
     if not apps:
         console.print(f"No applications in {ledger_path()}.")
@@ -338,11 +385,11 @@ def _family_demand() -> dict[str, list[str]]:
 @resume_app.command("deliver")
 def resume_deliver(
     count: bool = typer.Option(False, "--count", help="Only print how many are pending"),
-    polish: bool = typer.Option(True, "--polish/--no-polish"),
+    polish: bool = typer.Option(True, "--polish/--no-polish", help="Claude review + rewrite"),
     push: bool = typer.Option(True, "--push/--no-push"),
-    max_jobs: int = typer.Option(5, "--max"),
+    max_jobs: int = typer.Option(3, "--max"),
 ) -> None:
-    """Tailor + send resumes for fresh high-priority alerts (used by cloud scans)."""
+    """Check fresh high-priority alerts; message only on a real resume disconnect."""
     from opportunity_radar.config import get_settings
     from opportunity_radar.notifications.discord import DiscordNotifier
     from opportunity_radar.resume.deliver import deliver_pending, pending_jobs
@@ -358,9 +405,81 @@ def resume_deliver(
         console.print(f"[yellow]{report.skipped_reason}[/yellow]")
     # Counts only: this runs in public CI logs.
     console.print(
-        f"Pending {report.pending}; delivered {len(report.delivered)}; "
-        f"failed {len(report.failed)}; private repo: {report.git or 'unchanged'}"
+        f"Pending {report.pending}; checked {report.checked}: flagged {len(report.flagged)}, "
+        f"fit {report.quiet}, not applicable {report.skipped}, failed {len(report.failed)}; "
+        f"private repo: {report.git or 'unchanged'}"
     )
+
+
+@resume_app.command("assess")
+def resume_assess(
+    target: str = typer.Argument(..., help="Job id (local DB) or apply URL"),
+    review_it: bool = typer.Option(False, "--review", help="Add Claude's written review"),
+    send: bool = typer.Option(
+        False, "--send", help="Full check: review + tailored PDF to Discord + private repo"
+    ),
+) -> None:
+    """Does your standing resume compete for this role? (deterministic, instant)"""
+    from opportunity_radar.config import get_settings
+    from opportunity_radar.db.engine import session_scope
+    from opportunity_radar.db.tables import JobRow
+    from opportunity_radar.notifications.discord import DiscordNotifier
+    from opportunity_radar.resume.assess import MIN_DESCRIPTION, assess
+    from opportunity_radar.resume.deliver import check_job
+    from opportunity_radar.resume.describe import fetch_description
+    from opportunity_radar.resume.ledger import find_job
+    from opportunity_radar.resume.review import render_markdown, review
+    from opportunity_radar.resume.selector import Posting
+    from opportunity_radar.resume.tailor import load_bank, master_text
+
+    with session_scope() as session:
+        job = session.get(JobRow, int(target)) if target.isdigit() else find_job(session, target)
+        if job is None:
+            console.print("[red]Job not found in the local database.[/red]")
+            raise typer.Exit(1)
+        job_id, title, company, url = job.id, job.title, job.company_name, job.apply_url
+        description = job.description_text or ""
+    bank = load_bank()
+    baseline = master_text(bank)
+    if send:
+        notifier = DiscordNotifier(get_settings().discord_webhook_url)
+        outcome, _ = asyncio.run(
+            check_job(
+                job_id,
+                notifier=notifier,
+                bank=bank,
+                baseline=baseline,
+                runner=_runner(True),
+                force=True,
+            )
+        )
+        console.print(f"Check {outcome}; outputs in the private repo's tailored/ folder.")
+        return
+    if len(description) < MIN_DESCRIPTION:
+        description = fetch_description(url) or description
+    fit = assess(bank, Posting.from_text(title, description), baseline)
+    rev = (
+        review(
+            bank,
+            baseline,
+            title=title,
+            company=company,
+            description=description,
+            fit=fit,
+            runner=_runner(review_it),
+        )
+        if review_it
+        else None
+    )
+    if rev is None:
+        from opportunity_radar.resume.review import Review
+
+        rev = Review(error="not requested (use --review)")
+    console.print(render_markdown(rev, fit, title=title, company=company, url=url))
+    if fit.weak_bullets:
+        console.print("[bold]Bullets with no link to this role:[/bold]")
+        for text in fit.weak_bullets:
+            console.print(f"  - {text[:120]}")
 
 
 @resume_app.command("ats")

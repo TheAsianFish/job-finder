@@ -145,6 +145,9 @@ jobs:
         run: |
           git restore --staged . 2>/dev/null || true
           git checkout -- data 2>/dev/null || true
+          # The regenerated aggregate report alone is not worth a PR; the
+          # agent reads it from this checkout either way.
+          git checkout -- reports/skill-demand.md 2>/dev/null || true
           if [ -z "$(git status --porcelain -- . ':!data' ':!resume')" ]; then
             echo "Agent made no changes."; exit 0
           fi

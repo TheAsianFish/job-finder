@@ -437,3 +437,12 @@ def test_no_location_preference_makes_any_us_location_ideal():
     open_profile.preferences.preferred_locations = []
     assert _score_location(["Omaha, NE"], "onsite", open_profile) == 5.0
     assert _score_location(["Omaha, NE"], "onsite", ProfileConfig()) == 4.0
+
+
+def test_more_non_us_cities_are_recognised():
+    from opportunity_radar.matching.scorer import is_us_accessible
+
+    for place in ("Belgrade", "Novi Sad", "Zagreb", "Hsinchu", "Lahore", "Kitchener"):
+        assert not is_us_accessible([place]), place
+    for place in ("Atlanta, Georgia", "Reading, PA", "Cambridge, MA", "Remote (US)"):
+        assert is_us_accessible([place]), place

@@ -153,6 +153,9 @@ def _first_match(terms: list[_Term], text: str, lowered: str | None = None) -> s
 # candidate cannot apply, so they are never relevant.
 _GRAD_TITLE_RE = re.compile(
     r"\bph\.?\s?d\b|doctoral|doctorate|post[\s\-]?doc|\bmba\b"
+    # "Graduate Intern" = grad-student internship ("Graduate Software
+    # Engineer" is a new-grad role and is NOT matched).
+    r"|graduate\s+(?:student\s+)?intern"
     # Bare "MS" only inside "(...)" or "/" degree lists ("(MS)", "MS/PhD"):
     # never "MS Teams" or a Mississippi location ("Southaven, MS").
     r"|master'?s|\bm\.?s\.?(?=\s*[/)])|(?<=[(/])\s?m\.?s\b",

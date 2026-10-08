@@ -124,6 +124,7 @@ import pytest as _pytest  # noqa: E402
         "Machine Learning Intern (MS)",
         "2027 MBA Intern - Corporate Strategy",
         "Postdoctoral Researcher",
+        "AI Solution Architect - Graduate Intern",
     ],
 )
 def test_graduate_only_titles_are_excluded(title):
@@ -141,6 +142,7 @@ def test_graduate_only_titles_are_excluded(title):
         "Software Engineer Intern - MS Teams Platform",  # 'MS' as product name
         "Software Engineer Intern - Summer 2027",
         "Systems Software Intern",  # 'ms' inside a word
+        "Graduate Software Engineer",  # new-grad title, not a grad-student internship
         "Campus Quantitative Researcher, UG/MS (Intern)",
         "Software Engineer Intern - Southaven, MS",  # Mississippi
     ],

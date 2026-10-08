@@ -59,7 +59,25 @@ _NON_US_HINTS = re.compile(
     r"|calgary|waterloo|quebec|mexico|guadalajara|monterrey|brazil|argentina"
     r"|buenos aires|chile|santiago|colombia|bogot[aá]|peru|lima|costa rica"
     r"|uruguay|montevideo|turkey|istanbul|dubai|\buae\b|egypt|cairo|nigeria"
-    r"|lagos|kenya|nairobi|south africa|cape town|johannesburg",
+    r"|lagos|kenya|nairobi|south africa|cape town|johannesburg"
+    r"|belgrade|novi sad|zagreb|ljubljana|slovenia|bratislava|slovakia|athens|greece"
+    r"|riga|latvia|kyiv|kiev|lviv|minsk|yerevan|armenia|tbilisi|cyprus|limassol"
+    r"|malta|luxembourg|reykjavik|iceland|cluj|iasi|timisoara|wroclaw|gdansk|poznan"
+    r"|lodz|brno|porto|valencia|seville|bilbao|lyon|toulouse|nantes|marseille|nice,"
+    r"|bordeaux|lille|rome|turin|bologna|florence|naples|geneva|lausanne|basel"
+    r"|bern|antwerp|brussels|ghent|the hague|utrecht|leiden|aarhus|gothenburg|malmo"
+    r"|uppsala|tampere|espoo|oulu|bergen|trondheim|cork|galway|limerick|leeds"
+    r"|bristol|birmingham, uk|cambridge, uk|oxford|reading, uk|belfast|cardiff"
+    r"|karachi|lahore|islamabad|pakistan|dhaka|bangladesh|colombo|sri lanka|kathmandu"
+    r"|ho chi minh|hanoi|da nang|cebu|shenzhen|hangzhou|chengdu|guangzhou|suzhou"
+    r"|nanjing|wuhan|xi'an|busan|incheon|fukuoka|nagoya|kyoto|kaohsiung|hsinchu"
+    r"|tel-aviv|haifa|jerusalem|herzliya|amman|jordan|riyadh|saudi|doha|qatar"
+    r"|abu dhabi|bahrain|kuwait|muscat|oman|casablanca|morocco|tunis|accra|ghana"
+    r"|kigali|rwanda|addis ababa|ethiopia|kampala|uganda|dar es salaam|tanzania"
+    r"|perth|adelaide|canberra|gold coast|christchurch|edmonton|winnipeg|halifax"
+    r"|victoria, bc|kitchener|mississauga|markham|burnaby|laval|gatineau"
+    r"|puebla|queretaro|tijuana|medellin|cali,|quito|ecuador|la paz|bolivia"
+    r"|asuncion|paraguay|panama|san jose, costa rica|guatemala|santo domingo",
     re.IGNORECASE,
 )
 
