@@ -12,6 +12,16 @@ spec is `docs/opportunity-radar-master-spec.md`; deviations are recorded in
 `docs/architecture-decisions.md`; progress vs. acceptance criteria in
 `docs/implementation-status.md`. Read those before making significant changes.
 
+## Mission (read docs/roadmap.md)
+
+This repo is growing from a job tracker into Patrick's **internship copilot**:
+find roles first, apply with the strongest *truthful* resume, close real skill
+gaps. `docs/roadmap.md` holds the phases, candidate facts and the ground rules
+every agent must follow (truthful only, no auto-apply, changes via PR).
+Current focus: **internships only**; BS candidate, so PhD/MS/MBA-only roles
+are excluded. Skill demand: `uv run opportunity-radar insights skills`
+(-> `reports/skill-demand.md`).
+
 ## Patrick's standing rules
 
 - **Git**: commit often — one commit per logical phase, like a real team.
@@ -65,6 +75,10 @@ spec is `docs/opportunity-radar-master-spec.md`; deviations are recorded in
   cron alone fired ~4x/day) with `scan --mode auto` (hot set: core tier +
   Simplify feeds; full registry hourly). The cloud DB is the live one; the local
   `data/*.db` is not kept in sync with it.
+- Agents: `.github/workflows/agents.yml` runs Claude Code headless on
+  Patrick's Max plan (`CLAUDE_CODE_OAUTH_TOKEN` secret, `ENABLE_AGENTS=true`
+  variable), weekly review Mondays + manual custom prompts, output as a PR.
+  Prompts in `agents/prompts/`. Actions may open (not merge) PRs.
 - Simplify lists are ingested as a secondary source (`simplify` adapter,
   AD-21); employers we scan directly are skipped to avoid double alerts.
   Patrick explicitly approved using the Simplify lists (2026-10-07).

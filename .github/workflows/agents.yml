@@ -1,0 +1,101 @@
+# Autonomous Claude Code agents (docs/roadmap.md -> Autonomous agents).
+# Runs Claude Code headless on Patrick's Max plan via CLAUDE_CODE_OAUTH_TOKEN
+# (create it locally with `claude setup-token`, then
+# `gh secret set CLAUDE_CODE_OAUTH_TOKEN`). Gated by repo variable
+# ENABLE_AGENTS=true. Every run's changes are proposed as a pull request.
+
+name: Opportunity Radar Agents
+
+on:
+  schedule:
+    - cron: "0 15 * * 1"   # Mondays 08:00 PT: weekly review
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "Prompt file in agents/prompts (without .md), or 'custom'"
+        default: weekly-review
+        required: true
+      prompt:
+        description: "Custom prompt (used when task = custom)"
+        required: false
+
+concurrency:
+  group: opportunity-radar-agents
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  agent:
+    if: vars.ENABLE_AGENTS == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      # Read-only copy of the scanner's latest state; never saved back.
+      - name: Restore job database
+        uses: actions/cache/restore@v6
+        with:
+          path: data/opportunity_radar.db
+          key: radar-db-agent-${{ github.run_id }}
+          restore-keys: |
+            radar-db-
+
+      - name: Refresh deterministic reports
+        run: |
+          uv run opportunity-radar db migrate
+          uv run opportunity-radar insights skills
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run agent
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          TASK: ${{ inputs.task || 'weekly-review' }}
+          CUSTOM_PROMPT: ${{ inputs.prompt }}
+        run: |
+          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            echo "::error::CLAUDE_CODE_OAUTH_TOKEN secret is not set"; exit 1
+          fi
+          if [ "$TASK" = "custom" ]; then
+            printf '%s\n\nRead CLAUDE.md and docs/roadmap.md first and follow their ground rules.\n' \
+              "$CUSTOM_PROMPT" > /tmp/prompt.md
+          else
+            cp "agents/prompts/${TASK}.md" /tmp/prompt.md
+          fi
+          claude -p "$(cat /tmp/prompt.md)" \
+            --model opus \
+            --max-turns 60 \
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(uv run opportunity-radar *),Bash(sqlite3 *),Bash(git log *),Bash(git diff *),Bash(git show *)"
+
+      - name: Open pull request with the agent's changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TASK: ${{ inputs.task || 'weekly-review' }}
+        run: |
+          git restore --staged . 2>/dev/null || true
+          git checkout -- data 2>/dev/null || true
+          if [ -z "$(git status --porcelain -- . ':!data')" ]; then
+            echo "Agent made no changes."; exit 0
+          fi
+          branch="agent/${TASK}-${{ github.run_id }}"
+          git config user.name "TheAsianFish"
+          git config user.email "jmchung2006@gmail.com"
+          git checkout -b "$branch"
+          git add -- . ':!data'
+          git commit -m "agent: ${TASK} ($(date -u +%Y-%m-%d))"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "Agent: ${TASK} $(date -u +%Y-%m-%d)" \
+            --body "Automated ${TASK} run ${{ github.run_id }}. Review before merging."

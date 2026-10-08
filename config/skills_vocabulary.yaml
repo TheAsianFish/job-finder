@@ -1,0 +1,83 @@
+# Skill / ATS-keyword vocabulary for `opportunity-radar insights skills`.
+# Edit freely. Each entry: name (as it should appear on a resume), category,
+# and patterns (case-insensitive regexes matched on word boundaries unless
+# the pattern supplies its own). Add aliases rather than new entries.
+
+skills:
+  # Languages
+  - {name: Python, category: language, patterns: ['python']}
+  - {name: Java, category: language, patterns: ['java(?!script)']}
+  - {name: C++, category: language, patterns: ['(?<![a-z0-9])c\+\+(?:1[1-9]|2[0-9])?(?![a-z0-9])', 'cpp']}
+  - {name: C, category: language, patterns: ['(?<![\w+#])c(?=\s*(?:/|,|and|or)\s*c\+\+)', '\bc programming', 'c language']}
+  - {name: C#, category: language, patterns: ['c#', 'c sharp']}
+  - {name: Go, category: language, patterns: ['golang', '\bgo\s*(?:/|,)\s*', '(?<=, )go(?=,)']}
+  - {name: Rust, category: language, patterns: ['rust']}
+  - {name: JavaScript, category: language, patterns: ['javascript', '\bjs\b']}
+  - {name: TypeScript, category: language, patterns: ['typescript']}
+  - {name: SQL, category: language, patterns: ['sql']}
+  - {name: Kotlin, category: language, patterns: ['kotlin']}
+  - {name: Swift, category: language, patterns: ['swift(?!ly)']}
+  - {name: Scala, category: language, patterns: ['scala']}
+  - {name: Ruby, category: language, patterns: ['ruby']}
+  - {name: Bash/Shell, category: language, patterns: ['bash', 'shell script']}
+  - {name: MATLAB, category: language, patterns: ['matlab']}
+  - {name: R, category: language, patterns: ['(?<=[,/] )r(?=[,/ ])', '\br programming']}
+  # Frontend / web
+  - {name: React, category: frontend, patterns: ['react(?:\.js|js)?(?! native)']}
+  - {name: Next.js, category: frontend, patterns: ['next\.?js']}
+  - {name: HTML/CSS, category: frontend, patterns: ['html', 'css']}
+  - {name: Node.js, category: backend, patterns: ['node\.?js', '\bnode\b']}
+  - {name: REST APIs, category: backend, patterns: ['rest(?:ful)? api', '\brest\b']}
+  - {name: GraphQL, category: backend, patterns: ['graphql']}
+  - {name: gRPC, category: backend, patterns: ['grpc']}
+  - {name: Microservices, category: backend, patterns: ['microservice']}
+  - {name: Django, category: backend, patterns: ['django']}
+  - {name: Flask, category: backend, patterns: ['flask']}
+  - {name: FastAPI, category: backend, patterns: ['fastapi']}
+  - {name: Spring, category: backend, patterns: ['spring boot', 'spring framework', 'spring (?:mvc|cloud|data)']}
+  - {name: .NET, category: backend, patterns: ['\.net\b', 'asp\.net']}
+  # Data
+  - {name: PostgreSQL, category: data, patterns: ['postgres(?:ql)?']}
+  - {name: MySQL, category: data, patterns: ['mysql']}
+  - {name: MongoDB, category: data, patterns: ['mongodb', 'mongo']}
+  - {name: Redis, category: data, patterns: ['redis']}
+  - {name: NoSQL, category: data, patterns: ['nosql']}
+  - {name: Kafka, category: data, patterns: ['kafka']}
+  - {name: Spark, category: data, patterns: ['spark', 'pyspark']}
+  - {name: Pandas/NumPy, category: data, patterns: ['pandas', 'numpy']}
+  - {name: Data pipelines/ETL, category: data, patterns: ['etl', 'data pipeline']}
+  # Cloud / infra
+  - {name: AWS, category: cloud, patterns: ['aws', 'amazon web services']}
+  - {name: GCP, category: cloud, patterns: ['gcp', 'google cloud']}
+  - {name: Azure, category: cloud, patterns: ['azure']}
+  - {name: Docker, category: cloud, patterns: ['docker', 'containeri[sz]', 'containers?(?= (?:orchestration|technolog|runtime))']}
+  - {name: Kubernetes, category: cloud, patterns: ['kubernetes', 'k8s']}
+  - {name: Terraform, category: cloud, patterns: ['terraform', 'infrastructure as code']}
+  - {name: CI/CD, category: cloud, patterns: ['ci/cd', 'continuous integration', 'github actions', 'jenkins']}
+  - {name: Linux, category: cloud, patterns: ['linux', 'unix']}
+  - {name: Git, category: tooling, patterns: ['\bgit\b', 'github', 'version control']}
+  # ML / AI
+  - {name: Machine learning, category: ml, patterns: ['machine learning', '\bml\b']}
+  - {name: PyTorch, category: ml, patterns: ['pytorch']}
+  - {name: TensorFlow, category: ml, patterns: ['tensorflow']}
+  - {name: LLMs/GenAI, category: ml, patterns: ['llm', 'large language model', 'generative ai', 'genai']}
+  - {name: Deep learning, category: ml, patterns: ['deep learning', 'neural network']}
+  - {name: Computer vision, category: ml, patterns: ['computer vision']}
+  - {name: CUDA/GPU, category: ml, patterns: ['cuda', '\bgpu']}
+  # CS fundamentals / concepts (frequent ATS phrases)
+  - {name: Data structures & algorithms, category: concept, patterns: ['data structure', 'algorithm']}
+  - {name: Object-oriented programming, category: concept, patterns: ['object[- ]oriented', '\boop\b']}
+  - {name: Distributed systems, category: concept, patterns: ['distributed system']}
+  - {name: Operating systems, category: concept, patterns: ['operating system']}
+  - {name: Networking, category: concept, patterns: ['computer network', 'tcp/ip', 'network protocol', 'networking protocol', 'network(?:ing)? stack', 'network engineering']}
+  - {name: Concurrency/multithreading, category: concept, patterns: ['concurren', 'multithread', 'multi-thread', 'parallel programming']}
+  - {name: System design, category: concept, patterns: ['system design', 'software architecture', 'scalab']}
+  - {name: Testing, category: concept, patterns: ['unit test', 'testing framework', 'test-driven', 'automated test']}
+  - {name: Debugging, category: concept, patterns: ['debug(?:ging)?']}
+  - {name: Agile/Scrum, category: concept, patterns: ['agile', 'scrum']}
+  - {name: Embedded systems, category: concept, patterns: ['embedded (?:systems?|software|c|linux|firmware|development)', 'firmware', 'rtos', 'microcontroller']}
+  - {name: Security, category: concept, patterns: ['cyber ?security', 'application security', 'security engineer', 'secure coding', 'cryptograph', 'vulnerabilit', 'threat model', 'penetration test']}
+  # Soft-skill ATS phrases
+  - {name: Communication, category: soft, patterns: ['communication skill', 'communicate effectively', 'written and verbal']}
+  - {name: Collaboration/teamwork, category: soft, patterns: ['collaborat', 'teamwork', 'cross-functional']}
+  - {name: Problem solving, category: soft, patterns: ['problem[- ]solving']}

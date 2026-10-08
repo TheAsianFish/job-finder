@@ -871,6 +871,42 @@ def companies_repair(
     asyncio.run(run())
 
 
+insights_app = typer.Typer(help="Career analytics over stored postings.")
+app.add_typer(insights_app, name="insights")
+
+
+@insights_app.command("skills")
+def insights_skills(
+    output: str = typer.Option(
+        "reports/skill-demand.md", "--output", "-o", help="Markdown report path"
+    ),
+    include_new_grad: bool = typer.Option(
+        False, "--include-new-grad", help="Also count non-intern early-career roles"
+    ),
+) -> None:
+    """Rank the skills/ATS keywords internships ask for against your profile."""
+    from pathlib import Path
+
+    from opportunity_radar.db.engine import session_scope
+    from opportunity_radar.insights.skills import (
+        build_report,
+        load_vocabulary,
+        render_markdown,
+        select_postings,
+    )
+
+    settings = get_settings()
+    with session_scope() as session:
+        postings = select_postings(session, internships_only=not include_new_grad)
+        report = build_report(postings, load_vocabulary(), settings.profile)
+    path = Path(output)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_markdown(report), encoding="utf-8")
+    console.print(f"Analyzed {report.postings} postings -> {path}")
+    for stat in report.gaps[:8]:
+        console.print(f"  gap: {stat.name} ({stat.share:.0%} of postings)")
+
+
 @db_app.command("migrate")
 def db_migrate() -> None:
     """Apply pending database migrations."""
