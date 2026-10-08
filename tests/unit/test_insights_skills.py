@@ -81,3 +81,16 @@ def test_report_shares_and_selection(tmp_path):
     text = render_markdown(report)
     assert "| Rust | language | 100% |" in text
     assert "2026-10-07" in text
+
+
+def test_keyword_fit_splits_have_and_missing():
+    from opportunity_radar.insights.skills import keyword_fit
+
+    profile = ProfileConfig()
+    have, missing = keyword_fit(
+        "Build backend services in Python and Go on Kubernetes. Strong communication skills.",
+        profile,
+    )
+    assert "Python" in have and "Kubernetes" in have
+    assert "Go" not in have
+    assert "Communication" not in have + missing  # soft skills excluded

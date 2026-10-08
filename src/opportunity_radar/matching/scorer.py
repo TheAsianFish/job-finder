@@ -10,7 +10,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 
-from opportunity_radar.config import ProfileConfig, ScoringConfig, TargetWindow
+from opportunity_radar.config import CompensationScoring, ProfileConfig, ScoringConfig, TargetWindow
 from opportunity_radar.matching.eligibility import EligibilityResult
 from opportunity_radar.matching.season_parser import SeasonResult
 from opportunity_radar.matching.title_classifier import TitleClassification
@@ -35,7 +35,8 @@ _US_LOCATION_HINTS = re.compile(
     # State abbreviations only count after a comma ("Portland, OR") — bare
     # two-letter words collide with English ("London or Dublin" is not Oregon).
     r"\b(united states|usa|u\.s\.|remote[\s\-]?\(?us)\b"
-    r"|,\s*(ca|ny|wa|tx|ma|il|co|ga|nc|va|az|or|ut|pa|fl)\b"
+    r"|,\s*(al|ak|az|ar|ca|co|ct|de|dc|fl|ga|hi|id|il|in|ia|ks|ky|la|me|md|ma|mi|mn|ms"
+    r"|mo|mt|ne|nv|nh|nj|nm|ny|nc|nd|oh|ok|or|pa|ri|sc|sd|tn|tx|ut|vt|va|wa|wv|wi|wy)\b"
     r"|california|new york|seattle|austin|boston|chicago|denver|atlanta|san francisco"
     r"|mountain view|palo alto|sunnyvale|san jose|los angeles|san diego|bellevue|redmond"
     r"|portland|salt lake|raleigh|arlington|washington",
@@ -168,7 +169,10 @@ def _score_location(locations: list[str], remote_type: str, profile: ProfileConf
     if not joined:
         return 2.0
     if _US_LOCATION_HINTS.search(joined):
-        for preferred in profile.preferences.preferred_locations:
+        preferred_list = profile.preferences.preferred_locations
+        if not preferred_list:
+            return 5.0  # no preference: any US location is ideal
+        for preferred in preferred_list:
             if preferred.lower() in joined.lower():
                 return 5.0
         return 4.0
@@ -190,6 +194,43 @@ def _score_freshness(first_seen_at: datetime, now: datetime | None = None) -> fl
         return 2.0
     if age_hours < 24 * 30:
         return 1.0
+    return 0.0
+
+
+_INTERN_TITLE_RE = re.compile(
+    r"(?<![a-z])(?:intern|internship|interns|co-?op|apprentice(?:ship)?)(?![a-z])", re.IGNORECASE
+)
+_SEASON_YEAR_TITLE_RE = re.compile(r"(?:winter|spring|summer|fall|autumn)\s*'?(?:20)?\d{2}", re.I)
+_LIST_INTERNSHIP_MARKER = "Internship listed on the Simplify internships list."
+
+
+def is_internship(title: str, description: str = "") -> bool:
+    """Internship/co-op by title, by an explicit season+year in the title
+    ("Software Engineer - Summer 2027"), or by coming from an internship list."""
+    return bool(
+        _INTERN_TITLE_RE.search(title or "")
+        or _SEASON_YEAR_TITLE_RE.search(title or "")
+        or _LIST_INTERNSHIP_MARKER in (description or "")
+    )
+
+
+def _score_compensation(
+    pay_hourly_max: float | None,
+    remote_type: str,
+    company_tier: str,
+    cfg: CompensationScoring,
+) -> float:
+    """Posted pay: bonus when strong, penalty when low. Low pay is softened
+    for remote roles or brand-name (core/strong) employers."""
+    if pay_hourly_max is None:
+        return 0.0
+    if pay_hourly_max >= cfg.strong_hourly:
+        return cfg.strong_bonus
+    if pay_hourly_max >= cfg.good_hourly:
+        return cfg.good_bonus
+    if pay_hourly_max < cfg.low_hourly:
+        softened = remote_type == "remote" or company_tier in ("core", "strong")
+        return -(cfg.softened_low_penalty if softened else cfg.low_penalty)
     return 0.0
 
 
@@ -234,6 +275,7 @@ def score_job(
     profile: ProfileConfig,
     scoring: ScoringConfig,
     now: datetime | None = None,
+    pay_hourly_max: float | None = None,
 ) -> ScoreResult:
     result = ScoreResult()
     if classification.hard_excluded:
@@ -261,6 +303,9 @@ def score_job(
     components["production_relevance"] = _score_production(text)
     components["location"] = _score_location(locations, remote_type, profile)
     components["freshness"] = _score_freshness(first_seen_at, now)
+    components["compensation"] = _score_compensation(
+        pay_hourly_max, remote_type, company_tier, scoring.compensation
+    )
     components["eligibility_adjustment"] = _eligibility_adjustment(eligibility)
     components["risk_adjustment"] = _risk_adjustment(classification, classification.is_early_career)
 
@@ -282,6 +327,8 @@ def decide_alert_level(
     thresholds_suppress: int,
     now: datetime | None = None,
     us_accessible: bool = True,
+    internship: bool = True,
+    require_internship: bool = False,
 ) -> str:
     """Return one of: immediate, digest, dashboard, suppress (spec §13.5)."""
     now = now or utcnow()
@@ -297,6 +344,10 @@ def decide_alert_level(
     # Roles clearly workable only outside the US never notify either — a US
     # citizen can't take them without foreign work authorization.
     if not us_accessible:
+        return "dashboard" if score >= thresholds_dashboard else "suppress"
+
+    # Internship-focused search: full-time roles never notify.
+    if require_internship and not internship:
         return "dashboard" if score >= thresholds_dashboard else "suppress"
 
     if score >= thresholds_immediate:

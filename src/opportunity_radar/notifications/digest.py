@@ -22,12 +22,15 @@ logger = structlog.get_logger(__name__)
 LAST_DIGEST_KEY = "last_digest_at"
 
 
-def _digest_relevant(job: JobRow) -> bool:
+def _digest_relevant(job: JobRow, internships_only: bool = False) -> bool:
     """Notification bar shared by every digest section: software role that a
-    US citizen can actually work. Score alone never overrides either."""
-    from opportunity_radar.matching.scorer import is_us_accessible
+    US citizen can actually work (and an internship, when that is the focus).
+    Score alone never overrides any of these."""
+    from opportunity_radar.matching.scorer import is_internship, is_us_accessible
 
     if job.role_family in (None, "irrelevant", "adjacent"):
+        return False
+    if internships_only and not is_internship(job.title, job.description_text):
         return False
     return is_us_accessible(job.all_locations or [], job.compensation_currency)
 
@@ -85,7 +88,8 @@ def build_digest(settings: AppSettings, db_url: str | None = None) -> dict | Non
         # Non-software and non-US roles never notify, whatever their score
         # (belt to the scanner's suspenders: stale pending flags survive rule
         # changes).
-        pending = [j for j in pending if _digest_relevant(j)]
+        internships_only = settings.profile.preferences.internships_only
+        pending = [j for j in pending if _digest_relevant(j, internships_only)]
         # Best first: sections truncate to 10 lines, so the cut must keep the
         # top-scored roles, not an arbitrary insertion-order slice.
         pending.sort(key=lambda j: j.match_score, reverse=True)
@@ -132,7 +136,9 @@ def build_digest(settings: AppSettings, db_url: str | None = None) -> dict | Non
                 continue
             # Same relevance bar as new-job digest entries: senior/non-SWE
             # and non-US roles never notify, whatever their score.
-            if job.match_score < alerts.digest_min_score or not _digest_relevant(job):
+            if job.match_score < alerts.digest_min_score or not _digest_relevant(
+                job, internships_only
+            ):
                 continue
             if change.field == "description":
                 detail = f"description updated ({change.new_value or 'rewritten'})"
@@ -142,11 +148,13 @@ def build_digest(settings: AppSettings, db_url: str | None = None) -> dict | Non
         scored_changes.sort(key=lambda pair: pair[0], reverse=True)
         changed_lines = [line for _, line in scored_changes]
 
+        enabled_ids = {c.id for c in settings.companies if c.enabled}
         failures = [
             f"{state.company_id}: {state.consecutive_failures} consecutive failures — "
             f"{(state.last_error or '')[:120]}"
             for state in repo.list_source_states(session)
             if state.consecutive_failures >= 3
+            and (not settings.companies or state.company_id in enabled_ids)
         ]
         # A source that "succeeds" with zero jobs is almost always a stale
         # board token, not an empty company — surface it next to hard failures.
@@ -158,6 +166,7 @@ def build_digest(settings: AppSettings, db_url: str | None = None) -> dict | Non
             and state.last_success_at is not None
             and state.last_job_count == 0
             and state.company_id not in prefiltering
+            and (not settings.companies or state.company_id in enabled_ids)
         )
         if silent:
             failures.append(

@@ -312,3 +312,61 @@ def test_expired_target_windows_are_ignored():
     # No live window left -> treated like "season known, no overlap" (7 pts
     # for an early-career role), never a stale 20.
     assert result.components["timing"] <= 7.0
+
+
+def test_internship_detection():
+    from opportunity_radar.matching.scorer import is_internship
+
+    assert is_internship("Software Engineer Intern")
+    assert is_internship("Backend Co-op (Spring)")
+    assert is_internship("Software Engineer - Summer 2027")
+    assert is_internship("Software Engineer", "Internship listed on the Simplify internships list.")
+    assert not is_internship("Graduate Software Engineer (DV Commodities)")
+    assert not is_internship("Mission Software Engineer, Mission Systems")
+    assert not is_internship("Internal Tools Engineer")
+
+
+def test_full_time_roles_never_notify_when_internships_only():
+    title = "AI Engineer"
+    classification = classify(title, "")
+    season = parse_season(title, "")
+    kwargs = dict(
+        score=90.0,
+        season=season,
+        classification=classification,
+        company_tier="core",
+        posted_at=None,
+        deadline=None,
+        thresholds_immediate=78,
+        thresholds_digest=50,
+        thresholds_dashboard=35,
+        thresholds_suppress=20,
+        now=NOW,
+        internship=False,
+    )
+    assert decide_alert_level(**kwargs, require_internship=True) == "dashboard"
+    assert decide_alert_level(**kwargs, require_internship=False) == "immediate"
+
+
+def test_posted_pay_adjusts_score():
+    from opportunity_radar.config import CompensationScoring
+    from opportunity_radar.matching.scorer import _score_compensation
+
+    cfg = CompensationScoring()
+    assert _score_compensation(None, "onsite", "broad", cfg) == 0.0
+    assert _score_compensation(55.0, "onsite", "broad", cfg) == cfg.strong_bonus
+    assert _score_compensation(42.0, "onsite", "broad", cfg) == cfg.good_bonus
+    assert _score_compensation(30.0, "onsite", "broad", cfg) == 0.0
+    assert _score_compensation(20.0, "onsite", "broad", cfg) == -cfg.low_penalty
+    # Low pay is softened by remote work or a brand-name employer.
+    assert _score_compensation(20.0, "remote", "broad", cfg) == -cfg.softened_low_penalty
+    assert _score_compensation(20.0, "onsite", "core", cfg) == -cfg.softened_low_penalty
+
+
+def test_no_location_preference_makes_any_us_location_ideal():
+    from opportunity_radar.matching.scorer import _score_location
+
+    open_profile = ProfileConfig()
+    open_profile.preferences.preferred_locations = []
+    assert _score_location(["Omaha, NE"], "onsite", open_profile) == 5.0
+    assert _score_location(["Omaha, NE"], "onsite", ProfileConfig()) == 4.0

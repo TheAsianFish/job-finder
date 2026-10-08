@@ -532,6 +532,20 @@ def jobs_applied(
     _set_status(job_id, "applied", resume_variant=resume, notes=notes)
 
 
+@jobs_app.command("status")
+def jobs_status(
+    job_id: int,
+    status: str = typer.Argument(..., help="oa | interview | offer | rejected"),
+    stage: str = typer.Option(None, "--stage", help="Interview stage, e.g. 'final round'"),
+    notes: str = typer.Option(None, "--notes"),
+) -> None:
+    """Record an application outcome (feeds `insights outcomes`)."""
+    if status not in ("oa", "interview", "offer", "rejected"):
+        console.print("[red]status must be oa, interview, offer, or rejected.[/red]")
+        raise typer.Exit(1)
+    _set_status(job_id, status, interview_stage=stage, notes=notes)
+
+
 @jobs_app.command("export")
 def jobs_export(
     fmt: str = typer.Option("csv", "--format", help="csv or json"),
@@ -905,6 +919,36 @@ def insights_skills(
     console.print(f"Analyzed {report.postings} postings -> {path}")
     for stat in report.gaps[:8]:
         console.print(f"  gap: {stat.name} ({stat.share:.0%} of postings)")
+
+
+@insights_app.command("outcomes")
+def insights_outcomes(
+    output: str = typer.Option(
+        "reports/private/outcomes.md",
+        "--output",
+        "-o",
+        help="Markdown report path (default is git-ignored: applications are personal)",
+    ),
+) -> None:
+    """What works: response rates by tier, role, season, resume version, speed."""
+    from pathlib import Path
+
+    from opportunity_radar.db.engine import session_scope
+    from opportunity_radar.insights.outcomes import collect, render
+
+    with session_scope() as session:
+        dims = collect(session)
+    path = Path(output)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render(dims), encoding="utf-8")
+    overall = dims.get("Overall", {}).get("all")
+    if overall:
+        console.print(
+            f"{overall.applied} applications, {overall.responded} responses "
+            f"({overall.response_rate:.0%}) -> {path}"
+        )
+    else:
+        console.print(f"No applications logged yet -> {path}")
 
 
 @db_app.command("migrate")

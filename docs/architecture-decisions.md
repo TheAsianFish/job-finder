@@ -292,3 +292,20 @@ Bachelor's are dropped at the adapter. Live sample: 230 of 7,541 active
 early-career jobs excluded, no false positives in review ("MS Teams" and
 "Southaven, MS" are kept). `NORMALIZATION_VERSION` 2 re-scores stored jobs.
 The Simplify new-grad feed is disabled while the focus is internships.
+
+## AD-26: Patrick's stated priorities encoded in scoring, not prose
+
+2026-10-08: internships only; Winter/Spring/Summer/Fall 2027 first; backend,
+AI backend, AI/ML, full stack; any US location; startups need reasonable pay
+unless remote or a brand name compensates. Encoded as: `internships_only`
+gates alerts and every digest section (full-time roles stay dashboard-only;
+an internship is an intern/co-op title, a season+year title, or an
+internship-list row); target-window priorities (fall_2026 55, 2027 seasons
+95-100, new grad 40); role weights (ml_systems 20, fullstack 19, embedded 8);
+empty `preferred_locations` = any US location scores full; and a posted-pay
+component (-8..+4) parsed only from explicit "$X-$Y per hour/year" text,
+with low pay softened for remote roles and core/strong employers. Profile
+skills are synced from the resume and drive a have/missing keyword line on
+every alert. Disabled sources no longer raise silent-source warnings.
+`NORMALIZATION_VERSION` 3 re-scores stored jobs. All changes audited in
+`tuning_history`.

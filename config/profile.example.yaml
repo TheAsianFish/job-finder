@@ -1,5 +1,10 @@
 # Copy to config/profile.yaml and edit for your own situation.
 # null means "unknown" — the eligibility engine surfaces the question instead of guessing.
+#
+# Skills below are synced from Patrick's resume (resume/private/resume.tex,
+# 2026-10-07). Only skills the resume evidences are listed; they drive the
+# skill score and the "Your keywords" line on every alert. Add a skill here
+# only when it is also true on the resume.
 
 candidate:
   expected_graduation: 2027-12-01
@@ -14,32 +19,29 @@ candidate:
 
 preferences:
   countries: [US]
+  # Internship search: full-time roles stay on the dashboard, never notify.
+  internships_only: true
   allow_remote: true
   willing_to_relocate: true
-  preferred_locations:
-    - California
-    - New York
-    - Seattle
-    - Boston
-    - Austin
-    - Remote
+  # Empty = any US location is ideal (remote, hybrid and onsite all fine).
+  preferred_locations: []
 
   role_families:
-    - general_swe
     - backend
-    - infrastructure
     - ml_systems
-    - developer_tools
-    - data_infrastructure
     - fullstack
+    - general_swe
+    - infrastructure
+    - data_infrastructure
+    - developer_tools
 
+  # Priority: Winter / Spring / Summer / Fall 2027; Fall 2026 is lower.
   target_seasons:
-    - fall_2026
     - winter_2027
     - spring_2027
     - summer_2027
     - fall_2027
-    - new_grad_late_2027
+    - fall_2026
 
 skills:
   languages:
@@ -48,36 +50,59 @@ skills:
     - C#
     - C
     - C++
+    - SQL
     - JavaScript
     - TypeScript
-    - SQL
+    - HTML/CSS
   technologies:
     - React
     - .NET
     - Blazor
     - Entity Framework Core
+    - EF Core
     - FastAPI
     - Flask
     - PostgreSQL
     - SQL Server
+    - ChromaDB
+    - Tree-sitter
+    - Ollama
     - AWS
+    - AWS Lambda
     - Docker
     - Kubernetes
     - Kubeflow
     - Jenkins
     - Azure DevOps
-    - Jest
+    - CI/CD
     - Git
-    - Tree-sitter
-    - ChromaDB
+    - GitHub
+    - Jest
+    - Postman
+    - MediatR
   concepts:
     - production software
+    - full-stack development
     - backend systems
+    - REST APIs
     - cloud infrastructure
-    - distributed systems
-    - machine learning systems
+    - machine learning
+    - machine learning pipelines
+    - time-series clustering
+    - LLM
+    - retrieval-augmented generation
+    - vector search
     - developer tooling
     - databases
-    - operating systems
-    - concurrency
+    - SQL query optimization
+    - performance optimization
+    - debugging
+    - unit testing
     - data pipelines
+    - data structures
+    - algorithms
+    - object-oriented programming
+    - operating systems
+    - virtual memory
+    - concurrency
+    - CQRS

@@ -7,6 +7,7 @@
 #   Production/systems relevance: 0-10
 #   Location/remote fit:          0-5
 #   Freshness:                    0-5
+#   Posted pay (when stated):    -8-+4
 #   Eligibility adjustment:     -50-0
 #   Risk/noise adjustment:      -30-0
 
@@ -20,16 +21,16 @@ role_family_weights:
   general_swe: 20
   backend: 20
   infrastructure: 20
-  ml_systems: 19
+  ml_systems: 20
   developer_tools: 19
   data_infrastructure: 18
-  fullstack: 16
+  fullstack: 19
   quant_developer: 15
-  research_engineering: 15
-  security: 14
-  robotics: 14
-  frontend: 12
-  embedded: 10
+  research_engineering: 16
+  security: 13
+  robotics: 11
+  frontend: 11
+  embedded: 8
   adjacent: 5
   irrelevant: 0
 
@@ -40,11 +41,11 @@ target_windows:
   - name: fall_2026
     start: 2026-10-01
     end: 2026-12-31
-    priority: 75
+    priority: 55
   - name: winter_2027
     start: 2026-12-01
     end: 2027-03-31
-    priority: 90
+    priority: 95
   - name: spring_2027
     start: 2027-01-01
     end: 2027-06-15
@@ -56,11 +57,22 @@ target_windows:
   - name: fall_2027
     start: 2027-08-01
     end: 2027-12-31
-    priority: 80
+    priority: 95
   - name: new_grad_late_2027
     start: 2027-10-01
     end: 2028-06-30
-    priority: 70
+    priority: 40
+
+# Posted pay (only when a posting states it): strong pay earns a bonus; low
+# pay is penalised, softened for remote roles or core/strong brands.
+compensation:
+  strong_hourly: 50
+  good_hourly: 40
+  low_hourly: 25
+  strong_bonus: 4
+  good_bonus: 2
+  low_penalty: 8
+  softened_low_penalty: 2
 
 alerts:
   immediate_min_score: 78
@@ -80,3 +92,11 @@ tuning_history:
       Summer 2027 SWE intern roles with thin descriptions scored 78-81 and only reached
       the digest. Paired with target windows fall_2026/winter_2027 and a Summer
       immediate-alert override for core/strong companies.
+- at: '2026-10-08T07:00:00+00:00'
+  changes:
+  - key: target_windows / role_family_weights / compensation
+    old: fall_2026 75, winter 90, fall_2027 80, new_grad 70; ml 19, fullstack 16
+    new: fall_2026 55, winter 95, fall_2027 95, new_grad 40; ml 20, fullstack 19
+    reason: Patrick's stated priorities (2026-10-08) - Winter/Spring/Summer/Fall 2027
+      internships, backend / AI backend / AI / full stack; startups need reasonable pay
+      unless remote or brand-name. Embedded/robotics/frontend lowered.

@@ -14,9 +14,12 @@ Write reports/weekly-review.md (overwrite it) containing:
 2. "Skill gaps to act on": the 3 gaps from reports/skill-demand.md with the best
    demand-to-effort ratio, each with one concrete, small action (a resume line if
    Patrick plausibly already has it, otherwise a 1-2 week project idea).
-3. "Trends": anything notable vs. the previous weekly-review.md in git history
+3. "What works": run `uv run opportunity-radar insights outcomes -o /tmp/outcomes.md`
+   and summarise response rates if any applications are logged (respect its
+   "too early" markers; say so plainly if there is no data yet).
+4. "Trends": anything notable vs. the previous weekly-review.md in git history
    (new companies hiring, season shifts). Say "first review" if none exists.
-4. "Roadmap": if a phase in docs/roadmap.md changed status, update that file too.
+5. "Roadmap": if a phase in docs/roadmap.md changed status, update that file too.
 
 Rules: cite numbers from the data you queried; never invent postings or claims;
 keep the review under 600 words; do not modify code, config, or workflows.

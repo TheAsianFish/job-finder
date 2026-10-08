@@ -106,6 +106,9 @@ class CandidateProfile(BaseModel):
 
 class Preferences(BaseModel):
     countries: list[str] = Field(default_factory=lambda: ["US"])
+    # When true, only internship/co-op postings ever notify (alerts and
+    # digests); full-time roles stay on the dashboard.
+    internships_only: bool = False
     allow_remote: bool = True
     willing_to_relocate: bool = True
     preferred_locations: list[str] = Field(
@@ -194,15 +197,27 @@ class ProfileConfig(BaseModel):
 # Off-season windows are deliberately first-class: an off-cycle internship
 # starting late 2026 or early 2027 is exactly what community lists miss.
 DEFAULT_TARGET_WINDOWS = [
-    TargetWindow(name="fall_2026", start=date(2026, 10, 1), end=date(2026, 12, 31), priority=75),
-    TargetWindow(name="winter_2027", start=date(2026, 12, 1), end=date(2027, 3, 31), priority=90),
+    TargetWindow(name="fall_2026", start=date(2026, 10, 1), end=date(2026, 12, 31), priority=55),
+    TargetWindow(name="winter_2027", start=date(2026, 12, 1), end=date(2027, 3, 31), priority=95),
     TargetWindow(name="spring_2027", start=date(2027, 1, 1), end=date(2027, 6, 15), priority=95),
     TargetWindow(name="summer_2027", start=date(2027, 5, 15), end=date(2027, 9, 15), priority=100),
-    TargetWindow(name="fall_2027", start=date(2027, 8, 1), end=date(2027, 12, 31), priority=80),
+    TargetWindow(name="fall_2027", start=date(2027, 8, 1), end=date(2027, 12, 31), priority=95),
     TargetWindow(
-        name="new_grad_late_2027", start=date(2027, 10, 1), end=date(2028, 6, 30), priority=70
+        name="new_grad_late_2027", start=date(2027, 10, 1), end=date(2028, 6, 30), priority=40
     ),
 ]
+
+
+class CompensationScoring(BaseModel):
+    """Posted-pay adjustment (only when a posting states pay explicitly)."""
+
+    strong_hourly: float = 50.0  # >= this: +strong_bonus
+    good_hourly: float = 40.0  # >= this: +good_bonus
+    low_hourly: float = 25.0  # < this: penalty (softened for remote / brand)
+    strong_bonus: float = 4.0
+    good_bonus: float = 2.0
+    low_penalty: float = 8.0
+    softened_low_penalty: float = 2.0
 
 
 class ScoringConfig(BaseModel):
@@ -214,22 +229,23 @@ class ScoringConfig(BaseModel):
             "general_swe": 20.0,
             "backend": 20.0,
             "infrastructure": 20.0,
-            "ml_systems": 19.0,
+            "ml_systems": 20.0,
             "developer_tools": 19.0,
             "data_infrastructure": 18.0,
-            "fullstack": 16.0,
+            "fullstack": 19.0,
             "quant_developer": 15.0,
-            "research_engineering": 15.0,
-            "security": 14.0,
-            "robotics": 14.0,
-            "frontend": 12.0,
-            "embedded": 10.0,
+            "research_engineering": 16.0,
+            "security": 13.0,
+            "robotics": 11.0,
+            "frontend": 11.0,
+            "embedded": 8.0,
             "adjacent": 5.0,
             "irrelevant": 0.0,
         }
     )
     target_windows: list[TargetWindow] = Field(default_factory=lambda: list(DEFAULT_TARGET_WINDOWS))
     alerts: AlertSettings = Field(default_factory=AlertSettings)
+    compensation: CompensationScoring = Field(default_factory=CompensationScoring)
 
 
 class AppSettings(BaseModel):

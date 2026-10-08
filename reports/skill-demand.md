@@ -6,21 +6,21 @@ Generated 2026-10-07 by `opportunity-radar insights skills` from **449** active,
 
 | Skill | Category | Share of postings |
 |---|---|---|
-| Debugging | concept | 17% |
 | Linux | cloud | 15% |
 | Embedded systems | concept | 14% |
-| LLMs/GenAI | ml | 10% |
 | Deep learning | ml | 10% |
 | Rust | language | 10% |
 | Computer vision | ml | 10% |
 | PyTorch | ml | 9% |
 | CUDA/GPU | ml | 8% |
 | Go | language | 8% |
-| Object-oriented programming | concept | 6% |
 | Spark | data | 6% |
 | TensorFlow | ml | 6% |
 | Agile/Scrum | concept | 5% |
 | MATLAB | language | 4% |
+| GCP | cloud | 3% |
+| Data structures & algorithms | concept | 3% |
+| System design | concept | 3% |
 
 ## Top demanded skills
 
@@ -31,7 +31,7 @@ Generated 2026-10-07 by `opportunity-radar insights skills` from **449** active,
 | 3 | Collaboration/teamwork | soft | 28% | **no** |
 | 4 | Machine learning | ml | 26% | yes |
 | 5 | Problem solving | soft | 22% | **no** |
-| 6 | Debugging | concept | 17% | **no** |
+| 6 | Debugging | concept | 17% | yes |
 | 7 | Java | language | 16% | yes |
 | 8 | Linux | cloud | 15% | **no** |
 | 9 | Git | tooling | 15% | yes |
@@ -39,7 +39,7 @@ Generated 2026-10-07 by `opportunity-radar insights skills` from **449** active,
 | 11 | C | language | 14% | yes |
 | 12 | SQL | language | 13% | yes |
 | 13 | TypeScript | language | 12% | yes |
-| 14 | LLMs/GenAI | ml | 10% | **no** |
+| 14 | LLMs/GenAI | ml | 10% | yes |
 | 15 | Deep learning | ml | 10% | **no** |
 | 16 | Rust | language | 10% | **no** |
 | 17 | Computer vision | ml | 10% | **no** |
@@ -51,16 +51,16 @@ Generated 2026-10-07 by `opportunity-radar insights skills` from **449** active,
 | 23 | React | frontend | 8% | yes |
 | 24 | AWS | cloud | 7% | yes |
 | 25 | CI/CD | cloud | 7% | yes |
-| 26 | Object-oriented programming | concept | 6% | **no** |
+| 26 | Object-oriented programming | concept | 6% | yes |
 | 27 | Spark | data | 6% | **no** |
 | 28 | TensorFlow | ml | 6% | **no** |
 | 29 | Operating systems | concept | 5% | yes |
 | 30 | Agile/Scrum | concept | 5% | **no** |
 | 31 | MATLAB | language | 4% | **no** |
 | 32 | Kubernetes | cloud | 4% | yes |
-| 33 | HTML/CSS | frontend | 4% | **no** |
+| 33 | HTML/CSS | frontend | 4% | yes |
 | 34 | C# | language | 4% | yes |
-| 35 | REST APIs | backend | 3% | **no** |
+| 35 | REST APIs | backend | 3% | yes |
 | 36 | PostgreSQL | data | 3% | yes |
 | 37 | GCP | cloud | 3% | **no** |
 | 38 | Azure | cloud | 3% | yes |

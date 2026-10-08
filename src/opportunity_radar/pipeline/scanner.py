@@ -21,7 +21,7 @@ from opportunity_radar.config import AppSettings
 from opportunity_radar.constants import NORMALIZATION_VERSION
 from opportunity_radar.db import repositories as repo
 from opportunity_radar.db.engine import session_scope
-from opportunity_radar.matching.scorer import decide_alert_level, is_us_accessible
+from opportunity_radar.matching.scorer import decide_alert_level, is_internship, is_us_accessible
 from opportunity_radar.models.company import CompanySource
 from opportunity_radar.models.job import JobRecord, RawJob
 from opportunity_radar.models.scan import ScanOutcome
@@ -245,6 +245,7 @@ def _persist_company_jobs(
     )
     now = utcnow()
     alerts = settings.scoring.alerts
+    internships_only = settings.profile.preferences.internships_only
 
     resolver = (
         CompanyResolver(settings.companies, default_tier=company.tier, source_id=company.id)
@@ -352,8 +353,18 @@ def _persist_company_jobs(
                 outcome.new_count += 1
                 outcome.new_job_ids.append(job_row.id)
                 if not source_baseline:
-                    _classify_alert(job_row.id, record, job_company, alerts, summary, session)
-                elif not baseline and _worth_summarising(record, job_company, alerts):
+                    _classify_alert(
+                        job_row.id,
+                        record,
+                        job_company,
+                        alerts,
+                        summary,
+                        session,
+                        require_internship=internships_only,
+                    )
+                elif not baseline and _worth_summarising(
+                    record, job_company, alerts, require_internship=internships_only
+                ):
                     summary.baselined_job_ids.append(job_row.id)
             else:
                 changes = change_detector.detect_changes(existing, record)
@@ -385,6 +396,10 @@ def _persist_company_jobs(
                         and existing.role_family not in (None, "irrelevant", "adjacent")
                         and is_us_accessible(
                             existing.all_locations or [], existing.compensation_currency
+                        )
+                        and (
+                            not internships_only
+                            or is_internship(existing.title, existing.description_text)
                         )
                     ):
                         summary.changed_job_ids.append(existing.id)
@@ -507,7 +522,9 @@ def _reuse_detail_fields(raw: RawJob, existing) -> RawJob:
     return raw.model_copy(update=update) if update else raw
 
 
-def _worth_summarising(record: JobRecord, company: CompanySource, alerts) -> bool:
+def _worth_summarising(
+    record: JobRecord, company: CompanySource, alerts, require_internship: bool = False
+) -> bool:
     """Would this job have reached Discord had the source already been live?"""
     from opportunity_radar.matching.season_parser import SeasonResult
     from opportunity_radar.matching.title_classifier import classify
@@ -531,6 +548,8 @@ def _worth_summarising(record: JobRecord, company: CompanySource, alerts) -> boo
         thresholds_dashboard=alerts.dashboard_min_score,
         thresholds_suppress=alerts.suppress_below_score,
         us_accessible=is_us_accessible(record.all_locations, record.compensation_currency),
+        internship=is_internship(record.title, record.description_text),
+        require_internship=require_internship,
     )
     return level in ("immediate", "digest")
 
@@ -542,6 +561,7 @@ def _classify_alert(
     alerts,  # AlertSettings
     summary: ScanSummary,
     session,
+    require_internship: bool = False,
 ) -> None:
     from opportunity_radar.matching.season_parser import SeasonResult
     from opportunity_radar.matching.title_classifier import classify
@@ -566,6 +586,8 @@ def _classify_alert(
         thresholds_dashboard=alerts.dashboard_min_score,
         thresholds_suppress=alerts.suppress_below_score,
         us_accessible=is_us_accessible(record.all_locations, record.compensation_currency),
+        internship=is_internship(record.title, record.description_text),
+        require_internship=require_internship,
     )
     if level == "immediate":
         summary.immediate_job_ids.append(job_id)

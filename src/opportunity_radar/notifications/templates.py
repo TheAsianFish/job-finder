@@ -54,6 +54,25 @@ def _season_label(job: JobRow) -> str:
     return label
 
 
+def _keyword_line(job: JobRow) -> str | None:
+    """Cross-reference the posting against your profile/resume skills."""
+    from opportunity_radar.config import get_settings
+    from opportunity_radar.insights.skills import keyword_fit
+
+    text = f"{job.title}\n{job.description_text or ''}"
+    if len(job.description_text or "") < 200:
+        return None  # list-sourced rows have no real description to compare
+    have, missing = keyword_fit(text, get_settings().profile)
+    if not have and not missing:
+        return None
+    parts = []
+    if have:
+        parts.append("✅ " + ", ".join(have[:8]))
+    if missing:
+        parts.append("🔸 missing: " + ", ".join(missing[:6]))
+    return truncate(sanitize(" · ".join(parts)), _FIELD_VALUE_LIMIT)
+
+
 def build_job_embed(job: JobRow, *, header: str = "🚨 NEW HIGH-PRIORITY ROLE") -> dict[str, Any]:
     reasons = "\n".join(f"• {sanitize(reason)}" for reason in (job.match_reasons or [])[:8])
     risks = "\n".join(f"• {sanitize(risk)}" for risk in (job.risk_flags or [])[:8])
@@ -82,6 +101,9 @@ def build_job_embed(job: JobRow, *, header: str = "🚨 NEW HIGH-PRIORITY ROLE")
                 "inline": True,
             }
         )
+    keyword_line = _keyword_line(job)
+    if keyword_line:
+        fields.append({"name": "Your keywords", "value": keyword_line, "inline": False})
     if reasons:
         fields.append(
             {

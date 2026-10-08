@@ -22,6 +22,7 @@ from opportunity_radar.utilities.hashing import (
     identity_hash,
     url_hash,
 )
+from opportunity_radar.utilities.pay import HOURS_PER_YEAR, extract_pay
 from opportunity_radar.utilities.text import html_to_text, normalize_title
 from opportunity_radar.utilities.urls import canonicalize_url
 
@@ -56,6 +57,49 @@ def _country_codes(locations: list[str], remote_type: str) -> list[str]:
     return codes
 
 
+def _with_posted_pay(raw: RawJob, description_text: str) -> RawJob:
+    """Fill compensation from explicit description text when the adapter had none."""
+    if raw.compensation_min is not None or raw.compensation_max is not None:
+        return raw
+    pay = extract_pay(description_text)
+    if pay is None:
+        return raw
+    return raw.model_copy(
+        update={
+            "compensation_min": pay.minimum,
+            "compensation_max": pay.maximum,
+            "compensation_period": pay.period,
+            "compensation_currency": raw.compensation_currency or "USD",
+        }
+    )
+
+
+def _hourly(raw: RawJob) -> float | None:
+    if raw.compensation_max is None or (raw.compensation_currency or "USD").upper() != "USD":
+        return None
+    value = float(raw.compensation_max)
+    period = (raw.compensation_period or "").lower()
+    if period.startswith("hour"):
+        return value
+    if period.startswith("month"):
+        return value * 12 / HOURS_PER_YEAR
+    if period.startswith("year") or value >= 20000:
+        return value / HOURS_PER_YEAR
+    return None
+
+
+def _pay_label(raw: RawJob) -> str | None:
+    if raw.compensation_max is None:
+        return None
+    period = (raw.compensation_period or "").lower()
+    low, high = raw.compensation_min or raw.compensation_max, raw.compensation_max
+    if period.startswith("hour"):
+        return f"${float(low):,.0f}-${float(high):,.0f}/hr"
+    if period.startswith("month"):
+        return f"${float(low):,.0f}-${float(high):,.0f}/month"
+    return f"${float(low):,.0f}-${float(high):,.0f}/yr"
+
+
 def normalize(
     raw: RawJob,
     company: CompanySource,
@@ -82,6 +126,8 @@ def normalize(
 
     remote_type = _remote_type(raw, description_text)
     apply_url = raw.apply_url or raw.url
+    raw = _with_posted_pay(raw, description_text)
+    pay_hourly_max = _hourly(raw)
     score = scorer.score_job(
         title=raw.title,
         description_text=description_text,
@@ -95,6 +141,7 @@ def normalize(
         profile=settings.profile,
         scoring=settings.scoring,
         now=now,
+        pay_hourly_max=pay_hourly_max,
     )
     reasons = explanations.build_reasons(
         company_tier=company.tier,
@@ -103,6 +150,7 @@ def normalize(
         eligibility=eligibility,
         score=score,
         freshness_label=humanize_age(first_seen, now),
+        pay_label=_pay_label(raw),
     )
     risks = explanations.build_risks(eligibility, classification)
 

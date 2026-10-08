@@ -15,6 +15,7 @@ import re
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -88,6 +89,27 @@ def load_vocabulary(path: Path | None = None) -> list[Skill]:
                 for entry in raw.get("skills", [])
             ]
     return []
+
+
+@lru_cache(maxsize=1)
+def default_vocabulary() -> tuple[Skill, ...]:
+    return tuple(load_vocabulary())
+
+
+def keyword_fit(
+    text: str, profile: ProfileConfig, vocabulary: tuple[Skill, ...] | None = None
+) -> tuple[list[str], list[str]]:
+    """(skills the posting asks for that you have, ones you don't), in
+    vocabulary order, soft skills excluded."""
+    vocab = vocabulary if vocabulary is not None else default_vocabulary()
+    terms = _profile_terms(profile)
+    have: list[str] = []
+    missing: list[str] = []
+    for skill in vocab:
+        if skill.category == "soft" or not skill.found_in(text):
+            continue
+        (have if on_profile(skill, terms) else missing).append(skill.name)
+    return have, missing
 
 
 def _profile_terms(profile: ProfileConfig) -> list[str]:

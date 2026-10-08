@@ -20,14 +20,20 @@ def test_family_weight_boost_on_positive_signals():
     report = compute_adjustments(stats, ScoringConfig())
     changes = {a.key: a for a in report.adjustments}
     assert "role_family_weights.robotics" in changes
-    assert changes["role_family_weights.robotics"].new == 15.0  # 14 + 1
+    assert (
+        changes["role_family_weights.robotics"].new
+        == ScoringConfig().role_family_weights["robotics"] + 1
+    )
 
 
 def test_family_weight_drop_on_dismissals():
     stats = FeedbackStats(family_neg={"frontend": 4}, family_pos={"frontend": 1}, total_events=5)
     report = compute_adjustments(stats, ScoringConfig())
     changes = {a.key: a for a in report.adjustments}
-    assert changes["role_family_weights.frontend"].new == 11.0  # 12 - 1
+    assert (
+        changes["role_family_weights.frontend"].new
+        == ScoringConfig().role_family_weights["frontend"] - 1
+    )
 
 
 def test_minimum_sample_size_respected():

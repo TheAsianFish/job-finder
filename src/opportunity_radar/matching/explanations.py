@@ -57,6 +57,7 @@ def build_reasons(
     eligibility: EligibilityResult,
     score: ScoreResult,
     freshness_label: str | None = None,
+    pay_label: str | None = None,
 ) -> list[str]:
     reasons: list[str] = []
     tier_label = _TIER_LABELS.get(company_tier)
@@ -87,6 +88,9 @@ def build_reasons(
             reasons.append("Graduation window appears compatible")
         else:
             reasons.append("No eligibility blockers found")
+
+    if pay_label:
+        reasons.append(f"Posted pay {pay_label}")
 
     if freshness_label:
         reasons.append(f"First seen {freshness_label}")

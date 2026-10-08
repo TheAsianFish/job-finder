@@ -215,3 +215,38 @@ def test_digest_flags_silent_zero_job_sources(db):
     text = json.dumps(payload)
     assert "returning 0 jobs" in text
     assert "quietco" in text
+
+
+def test_digest_keeps_only_internships_when_focus_is_internships(db):
+    settings = AppSettings()
+    settings.profile.preferences.internships_only = True
+    with session_scope(db) as session:
+        repo.sync_companies(session, [CompanySource(id="stripe", name="Stripe", tier="core")])
+        for job_id, title in (("i1", "Backend Engineer Intern"), ("f1", "AI Engineer")):
+            record = make_record(job_id, title)
+            row = repo.insert_job(session, record, alias_hashes(record))
+            row.match_score = 70.0
+            row.digest_pending = True
+    text = json.dumps(build_digest(settings, db_url=db))
+    assert "Backend Engineer Intern" in text
+    assert "AI Engineer" not in text.replace("Backend Engineer Intern", "")
+
+
+def test_disabled_sources_do_not_raise_silent_warnings(db):
+    settings = AppSettings()
+    settings.companies = [
+        CompanySource(id="stripe", name="Stripe", tier="core"),
+        CompanySource(id="canva", name="Canva", tier="broad", enabled=False),
+        CompanySource(id="quietco", name="QuietCo", tier="broad"),
+    ]
+    with session_scope(db) as session:
+        repo.sync_companies(session, settings.companies)
+        repo.update_source_state_success(session, "canva", 0)
+        repo.update_source_state_success(session, "quietco", 0)
+        record = make_record("q1", "Software Engineer Intern - Summer 2027")
+        row = repo.insert_job(session, record, alias_hashes(record))
+        row.match_score = 70.0
+        row.digest_pending = True
+    text = json.dumps(build_digest(settings, db_url=db))
+    assert "quietco" in text
+    assert "canva" not in text

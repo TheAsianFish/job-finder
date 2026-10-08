@@ -12,6 +12,11 @@ real skill gaps. Every agent working in this repo should read this file and
 - Current focus: **internships** (Summer 2027 plus off-season Fall 2026 /
   Winter / Spring 2027). New-grad search is paused.
 - Not eligible for PhD/Master's/MBA-only roles; those are filtered out.
+- Priorities (2026-10-08): Winter/Spring/Summer/Fall 2027 internships first;
+  Fall 2026 lower. Backend, AI backend, AI/ML, full stack. FAANG+ ideal;
+  startups fine if they fit and pay reasonably, unless remote or brand-name
+  compensates. Any US location (remote, hybrid, onsite) is fine. Full-time
+  roles never notify (`preferences.internships_only`).
 
 ## Ground rules for every agent
 
@@ -29,9 +34,9 @@ real skill gaps. Every agent working in this repo should read this file and
 | # | Phase | Status | Notes |
 |---|---|---|---|
 | 1 | Skill and ATS-keyword demand report | **Done** (2026-10-07) | `opportunity-radar insights skills` -> `reports/skill-demand.md`; vocabulary in `config/skills_vocabulary.yaml` |
-| 2 | Master resume ingestion | Waiting on resume | Structured master resume (every true bullet) in `resume/master.yaml`; profile skills regenerated from it |
+| 2 | Master resume ingestion | **In progress** | Resume in `resume/private/` (git-ignored). Profile skills synced from it (2026-10-08); every alert shows a have/missing keyword line. Next: structured bullet bank |
 | 3 | Per-posting match + tailored versions | Planned | Match score and missing keywords on each alert; role-family resume versions (backend / ML / infra / quant), later per-job, rendered to PDF |
-| 4 | Outcome loop | Planned | Log applied / OA / interview / reject (DB already supports it); report response rate by resume version, tier, season, time-to-apply |
+| 4 | Outcome loop | **Tooling ready** | `jobs applied <id> --resume <version>`, `jobs status <id> oa\|interview\|offer\|rejected`, `insights outcomes` -> `reports/private/outcomes.md` (tier, role, season, resume version, referral, source, apply speed). Needs logged applications |
 | 5 | Agent-guided projects | Planned | Agent proposes projects that close the top gaps; Patrick builds them with Claude Code as pair programmer, each in its own repo |
 
 ## Autonomous agents
