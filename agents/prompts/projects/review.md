@@ -14,13 +14,19 @@ really met.
   (correctness, security, tests/evals, design), `fable` for the subtle ones and
   `haiku`/`sonnet` for mechanical checks. Then have a `fable` subagent try to
   refute each finding before you act on it; drop findings that don't survive.
-- Check that `.agent/pr.md` has a `## What you need to know` section that
-  would genuinely prepare Patrick for interview questions on this milestone;
-  improve it if it is thin or inaccurate.
+- Check `.agent/learn.md`: would it genuinely prepare Patrick for interview
+  questions on this milestone? Improve it if it is thin or inaccurate.
+- Check authorship (see the standards): nothing saying or implying that AI
+  wrote or reviewed the work, and no "Patrick", anywhere in the diff, commit messages
+  (`git log main..HEAD`), or `.agent/pr.md`; no CLAUDE.md/AGENTS.md/.claude/
+  tracked. Fix any you find (reword commits with an interactive-free rebase
+  only if they have not been pushed; otherwise fix the text in a new commit).
 - Fix every real problem you find directly on this branch (focused commits,
-  quality gate green). Do not rewrite working code to taste.
-- Append a `## Review` section to `.agent/pr.md`: what you checked, what you
-  fixed, remaining concerns. End the file with the line
-  `<!-- fable-review: pass -->` only if the milestone now genuinely meets its
-  definition of done; otherwise end with `<!-- fable-review: changes -->` and
-  say what is missing.
+  quality gate green). Do not rewrite working code to taste. If you fix
+  things, add a short first-person "Review follow-ups" list to `.agent/pr.md`.
+- Write your review to `.agent/review.md` (private, for Patrick): what you
+  checked, what you fixed, remaining concerns.
+- Write the verdict to `.agent/verdict`: exactly `pass` only if the
+  milestone now genuinely meets its definition of done, otherwise `changes`
+  (and say what is missing in `.agent/review.md` and as an open item in
+  `.agent/pr.md`).

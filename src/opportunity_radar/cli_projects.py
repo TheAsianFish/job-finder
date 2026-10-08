@@ -373,6 +373,23 @@ def hub_project_summary(
     console.print(f"Project summary updated ({git}).")
 
 
+@hub_app.command("study-note")
+def hub_study_note(
+    slug: str,
+    name: str,
+    file: Path = typer.Argument(..., exists=True),
+) -> None:
+    """Save a builder run's teaching notes to study/<slug>/<name>.md (private)."""
+    from opportunity_radar.hub import write_study_note
+
+    text = file.read_text(encoding="utf-8")
+    if not text.strip():
+        console.print("No study notes this run.")
+        return
+    path = write_study_note(slug, name, text)
+    console.print(f"Study notes saved: {path.parent.name}/{path.name}")
+
+
 # ---------------------------------------------------------------------------
 # Discord hub
 

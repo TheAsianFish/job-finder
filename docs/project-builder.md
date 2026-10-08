@@ -25,12 +25,23 @@ flowchart LR
 - **One project and one open PR at a time.** A run that finds an agent PR
   waiting for Patrick spends no compute. The pace follows his reviews.
 - **Autopilot (opt-in per project).** With `autopilot: true` in
-  `projects.yaml`, a PR that passed the Fable review (`<!-- fable-review:
-  pass -->` in its body), has green CI, and had no activity for 12 hours is
+  `projects.yaml`, a PR that passed the Fable review (a hidden `<!-- review:
+  pass -->` marker in its body; the review itself is private), has green CI, and had no activity for 12 hours is
   merged by the builder. Off by default.
 - **Cadence.** A builder step every 3 hours (`17 */3 * * *`), a scout run on
   Mondays 09:00 PT. A build step uses up to ~5 hours of agent time (Opus
   build ≤ 230 min, Fable review ≤ 70 min).
+
+## Authorship (AD-34)
+
+Everything in a project repo reads as Patrick's own work: commits authored
+and committed as TheAsianFish (commit-msg hook strips attribution lines),
+`dev/...` branches, first-person PR text, CONTRIBUTING.md instead of a tracked
+CLAUDE.md (copied to an untracked one for sessions), no mention of AI
+authorship or of Patrick in third person. Agents commit often, one logical
+step per commit. All teaching, "his piece", review notes and the verdict stay
+private: `.agent/learn.md` and `.agent/review.md` are saved to
+`career-private/study/<slug>/<date>-<stage>.md` and announced in `#study`.
 
 ## What Patrick does
 

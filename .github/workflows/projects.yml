@@ -113,6 +113,7 @@ jobs:
       interview: ${{ steps.collect.outputs.interview }}
       summary: ${{ steps.memory.outputs.summary }}
       journal: ${{ steps.memory.outputs.journal }}
+      learn: ${{ steps.memory.outputs.learn }}
       pr_url: ${{ steps.pr.outputs.url }}
     env:
       STAGE: ${{ needs.control.outputs.stage }}
@@ -139,7 +140,9 @@ jobs:
           git config user.name "TheAsianFish"
           git config user.email "jmchung2006@gmail.com"
           install -m 755 ../radar/scripts/commit_msg_hook.sh .git/hooks/commit-msg
-          echo ".agent/" >> .git/info/exclude
+          # Agent-only files never get committed (AD-34): handover notes, and
+          # the session's CLAUDE.md, copied from the repo's CONTRIBUTING.md.
+          printf '%s\n' .agent/ CLAUDE.md AGENTS.md .claude/ >> .git/info/exclude
           if ! git rev-parse -q --verify HEAD >/dev/null; then
             git checkout -q -b main
             title=$(jq -r .project.title <<< "$CONTEXT")
@@ -150,11 +153,14 @@ jobs:
           case "$STAGE" in
             address) git fetch -q origin "$(jq -r .pr_branch <<< "$CONTEXT")"
                      git checkout -q -B "$(jq -r .pr_branch <<< "$CONTEXT")" FETCH_HEAD ;;
-            plan)    git checkout -q -b agent/plan ;;
-            finish)  git checkout -q -b agent/finish ;;
+            plan)    git checkout -q -b dev/plan ;;
+            finish)  git checkout -q -b dev/release ;;
             build)   n=$(( $(jq -r .milestones_done <<< "$CONTEXT") + 1 ))
-                     git checkout -q -b "agent/m${n}" ;;
+                     git checkout -q -b "dev/m${n}" ;;
           esac
+          if [ -f CONTRIBUTING.md ] && ! git ls-files --error-unmatch CLAUDE.md >/dev/null 2>&1; then
+            cp CONTRIBUTING.md CLAUDE.md
+          fi
           echo "BRANCH=$(git branch --show-current)" >> "$GITHUB_ENV"
           mkdir -p .agent
 
@@ -186,7 +192,7 @@ jobs:
           GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
         run: |
           gh pr view "$(jq -r .pr_number <<< "$CONTEXT")" --repo "$(jq -r .repo <<< "$CONTEXT")" \
-            --json body -q .body | grep -v 'fable-review:' > work/.agent/pr.md || true
+            --json body -q .body | grep -vE '<!-- (fable-)?review:' > work/.agent/pr.md || true
 
       - name: Agent sessions
         working-directory: work
@@ -211,7 +217,7 @@ jobs:
           git add -A
           if ! git diff --cached --quiet; then
             msg=$(head -1 .agent/commit.txt 2>/dev/null || true)
-            git commit -q -m "${msg:-Agent work: ${STAGE}}"
+            git commit -q -m "${msg:-Continue ${STAGE} work}"
           fi
           echo "commits ahead of main: $(git rev-list --count origin/main..HEAD 2>/dev/null || git rev-list --count HEAD)"
 
@@ -227,10 +233,14 @@ jobs:
             echo "No commits produced; nothing to open."; echo "url=" >> "$GITHUB_OUTPUT"; exit 0
           fi
           git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${repo}.git" "HEAD:refs/heads/${BRANCH}"
-          [ -s .agent/pr.md ] || echo "Automated ${STAGE} run." > .agent/pr.md
+          [ -s .agent/pr.md ] || echo "See the commits on this branch." > .agent/pr.md
+          # Autopilot reads a neutral hidden marker; the review itself stays private.
+          if grep -qx pass .agent/verdict 2>/dev/null; then
+            printf '\n<!-- review: pass -->\n' >> .agent/pr.md
+          fi
           if [ "$STAGE" = "address" ]; then
             number=$(jq -r .pr_number <<< "$CONTEXT")
-            { cat .agent/reply.md 2>/dev/null || echo "Addressed your comments."; echo; echo "<!-- project-builder -->"; } > .agent/reply-final.md
+            { cat .agent/reply.md 2>/dev/null || echo "Addressed the review comments."; echo; echo "<!-- ack -->"; } > .agent/reply-final.md
             gh pr comment "$number" --repo "$repo" --body-file .agent/reply-final.md
             gh pr edit "$number" --repo "$repo" --body-file .agent/pr.md
             echo "url=$(jq -r .pr_url <<< "$CONTEXT")" >> "$GITHUB_OUTPUT"
@@ -238,7 +248,7 @@ jobs:
             case "$STAGE" in
               plan)   title="Plan: $(jq -r .project.title <<< "$CONTEXT")" ;;
               build)  title=$(jq -r .milestone <<< "$CONTEXT" | cut -c1-110) ;;
-              finish) title="Release readiness and resume entry" ;;
+              finish) title="Release readiness" ;;
             esac
             url=$(gh pr create --repo "$repo" --base main --head "$BRANCH" --title "$title" --body-file .agent/pr.md)
             echo "url=$url" >> "$GITHUB_OUTPUT"
@@ -261,8 +271,14 @@ jobs:
         if: always()
         working-directory: work
         run: |
-          { echo "summary<<SUM_EOF"; head -c 20000 .agent/summary.md 2>/dev/null; echo; echo "SUM_EOF"; } >> "$GITHUB_OUTPUT"
-          { echo "journal<<JRN_EOF"; head -c 4000 .agent/journal.md 2>/dev/null; echo; echo "JRN_EOF"; } >> "$GITHUB_OUTPUT"
+          {
+            echo "summary<<SUM_EOF"; head -c 20000 .agent/summary.md 2>/dev/null; echo; echo "SUM_EOF"
+            echo "journal<<JRN_EOF"; head -c 4000 .agent/journal.md 2>/dev/null; echo; echo "JRN_EOF"
+            echo "learn<<LRN_EOF"
+            head -c 40000 .agent/learn.md 2>/dev/null
+            [ -s .agent/review.md ] && { echo; echo "## Review notes"; head -c 15000 .agent/review.md; }
+            echo; echo "LRN_EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Tell Patrick
         if: always()
@@ -339,6 +355,9 @@ jobs:
           CONTEXT: ${{ needs.control.outputs.context }}
           SUMMARY: ${{ needs.build.outputs.summary }}
           JOURNAL: ${{ needs.build.outputs.journal }}
+          LEARN: ${{ needs.build.outputs.learn }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_STUDY: ${{ secrets.DISCORD_WEBHOOK_STUDY }}
           PR_URL: ${{ needs.build.outputs.pr_url }}
           RESULT: ${{ needs.build.result }}
         run: |
@@ -352,7 +371,21 @@ jobs:
             [ "$stage" = build ] && echo "Milestone: $(jq -r .milestone <<< "$CONTEXT")"
             printf '%s\n' "$JOURNAL"
           } > "$RUNNER_TEMP/journal.md"
+          note=""
+          if [ -n "$(tr -d '[:space:]' <<< "$LEARN")" ]; then
+            name="$(date -u +%Y-%m-%d)-${stage}"
+            [ "$stage" = build ] && name="${name}-m$(( $(jq -r .milestones_done <<< "$CONTEXT") + 1 ))"
+            printf '%s\n' "$LEARN" > "$RUNNER_TEMP/learn.md"
+            uv run opportunity-radar hub study-note "$slug" "$name" "$RUNNER_TEMP/learn.md"
+            note="study/${slug}/${name}.md"
+            echo "Study notes: career-private/${note}" >> "$RUNNER_TEMP/journal.md"
+          fi
           uv run opportunity-radar hub log "builder/${slug}" --file "$RUNNER_TEMP/journal.md" --push
+          if [ -n "$note" ]; then
+            printf '**%s** (%s): new notes on what to know, why it was built this way, and likely interview questions.\nhttps://github.com/TheAsianFish/career-private/blob/main/%s\n' \
+              "$(jq -r .project.title <<< "$CONTEXT")" "$stage" "$note" > "$RUNNER_TEMP/study-ping.md"
+            uv run opportunity-radar notify markdown "$RUNNER_TEMP/study-ping.md" --title "📚 Study notes" --channel study
+          fi
 
   study:
     if: vars.ENABLE_PROJECT_BUILDER == 'true' && (github.event.schedule == '0 17 * * 0' || inputs.action == 'study')
@@ -380,7 +413,12 @@ jobs:
             gh pr list --repo "$repo" --state merged --search "merged:>=$since" --json title,body,url \
               --jq '.[] | "# \(.title)\n\(.url)\n\n\(.body)\n"' >> "$out" || true
           done
-          echo "merged PR notes: $(wc -c < "$out") bytes"
+          # The teaching notes live privately (study/<slug>/<date>-<stage>.md, AD-34).
+          for f in resume/private/study/*/*.md; do
+            [ -f "$f" ] || continue
+            [[ "$(basename "$f")" > "$since" ]] && { echo "# Study notes: ${f#resume/private/}"; cat "$f"; echo; } >> "$out"
+          done
+          echo "merged PR + study notes: $(wc -c < "$out") bytes"
       - name: Install Claude Code
         run: npm install -g @anthropic-ai/claude-code >/dev/null
       - name: Write the study pack (Fable)

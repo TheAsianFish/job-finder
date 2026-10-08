@@ -183,3 +183,20 @@ def test_upsert_env_replaces_and_appends(tmp_path):
     assert env.read_text() == (
         "DISCORD_WEBHOOK_URL=x\nDISCORD_WEBHOOK_RESUME=new\n# comment\nDISCORD_WEBHOOK_STUDY=s\n"
     )
+
+
+def test_study_notes_are_saved_privately(tmp_path):
+    from opportunity_radar.cli import app
+    from opportunity_radar.hub import study_dir
+
+    note = tmp_path / "learn.md"
+    note.write_text("## What you need to know\nCohen's kappa.")
+    runner = CliRunner()
+    result = runner.invoke(app, ["hub", "study-note", "replay", "2026-10-09-m1", str(note)])
+    assert result.exit_code == 0
+    saved = study_dir() / "replay" / "2026-10-09-m1.md"
+    assert saved.read_text() == "## What you need to know\nCohen's kappa.\n"
+    empty = tmp_path / "empty.md"
+    empty.write_text("  \n")
+    assert runner.invoke(app, ["hub", "study-note", "replay", "x", str(empty)]).exit_code == 0
+    assert not (study_dir() / "replay" / "x.md").exists()

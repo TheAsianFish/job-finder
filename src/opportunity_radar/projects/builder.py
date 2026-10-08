@@ -31,9 +31,14 @@ from datetime import UTC, datetime, timedelta
 
 from opportunity_radar.projects.portfolio import Project
 
-AGENT_BRANCH = "agent/"
-AGENT_MARK = "<!-- project-builder -->"
-REVIEW_PASS = "<!-- fable-review: pass -->"
+# Everything visible in a project repo reads as Patrick's own work (AD-34):
+# neutral branch names and hidden markers, legacy ones still recognised.
+WORK_BRANCH = "dev/"
+BRANCH_PREFIXES = (WORK_BRANCH, "agent/")
+AGENT_MARK = "<!-- ack -->"  # on the builder's replies to review comments
+_REPLY_MARKS = (AGENT_MARK, "<!-- project-builder -->")
+REVIEW_PASS = "<!-- review: pass -->"
+_PASS_MARKS = (REVIEW_PASS, "<!-- fable-review: pass -->")
 AUTOPILOT_QUIET = timedelta(hours=12)
 _CHECKBOX_RE = re.compile(r"^\s*[-*]\s*\[( |x|X)\]\s*(.+?)\s*$")
 
@@ -146,7 +151,7 @@ def read_pr(repo: str, raw: dict, gh: Gh) -> PullRequest:
             body = (item.get("body") or "").strip()
             when = _when(item.get(when_key))
             if body and when:
-                notes.append((when, body, AGENT_MARK in body))
+                notes.append((when, body, any(m in body for m in _REPLY_MARKS)))
     agent_times = [w for w, _, by_agent in notes if by_agent]
     cutoff = max([t for t in [last_commit, *agent_times] if t], default=None)
     feedback = [
@@ -183,7 +188,7 @@ def read_state(repo: str, gh: Gh) -> RepoState:
         ["pr", "list", "--repo", repo, "--state", "open",
          "--json", "number,url,headRefName,createdAt"],
     )  # fmt: skip
-    agent_prs = [p for p in prs or [] if str(p.get("headRefName", "")).startswith(AGENT_BRANCH)]
+    agent_prs = [p for p in prs or [] if str(p.get("headRefName", "")).startswith(BRANCH_PREFIXES)]
     pr = read_pr(repo, agent_prs[0], gh) if agent_prs else None
     return RepoState(exists=True, plan=plan, pr=pr)
 
@@ -202,7 +207,7 @@ def decide(project: Project, state: RepoState, now: datetime | None = None) -> S
         if (
             project.autopilot
             and pr.checks_green
-            and REVIEW_PASS in pr.body
+            and any(m in pr.body for m in _PASS_MARKS)
             and now - quiet_since >= AUTOPILOT_QUIET
         ):
             return Stage("merge", pr=pr, reason="autopilot: reviewed, green, quiet 12h")

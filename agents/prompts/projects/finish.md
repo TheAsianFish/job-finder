@@ -2,7 +2,9 @@
 
 All milestones are merged. Make sure the project is release-ready (README
 complete with real results, RELEASE.md, CI green, `make eval`/`make bench`
-documented). Commit any final polish.
+documented). Commit any final polish, and write `.agent/pr.md`: a short
+first-person release-readiness PR description. The resume entry and
+interview below are private files: never mention them in the repo or PR.
 
 Then write `.agent/RESUME.tex`: ONE project entry in Jake's resume template,
 exactly this shape:
@@ -24,6 +26,6 @@ metric per bullet with \textbf{}. Also copy RESULTS.md to `.agent/RESULTS.md`.
 
 Finally write `.agent/INTERVIEW.md`: a mock interview Patrick must pass before
 this goes on his resume: 12 questions a strong interviewer would ask about this
-project (overview, architecture, the hard part, Patrick's piece, trade-offs,
+project (overview, architecture, the hard part, his piece, trade-offs,
 failure modes, how each resume number was measured, what he'd do next), each
 with what a strong answer must contain.

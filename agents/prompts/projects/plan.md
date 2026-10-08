@@ -11,20 +11,26 @@ plan; do not implement features yet.
      impressive), `## Architecture` (components, data flow, Mermaid diagram,
      key design decisions with alternatives considered), `## Evaluation`
      (datasets, metrics, baselines, how each resume-worthy number will be
-     measured), `## Release` (how real users get it and what Patrick must
-     provide), `## Patrick's piece` (one core component, 100-250 lines, that
-     he writes himself: the most interview-worthy algorithm or mechanism; say
-     what interface, tests and baseline the agents provide around it, and the
-     milestone where he should write it), `## Learning path` (concepts he must
-     understand, in order, with one good resource each), `## Risks`, and
+     measured), `## Release` (how real users get it and what the maintainer
+     must provide), `## Risks`, and
      `## Milestones`: 5-8 checkbox items
      (`- [ ] M1: title — definition of done`). Each milestone is one PR of
-     focused work (roughly 2-5 hours of agent time), ends with green tests, and
+     focused work (roughly 2-5 hours of engineering), ends with green tests, and
      leaves the project runnable. M1 is scaffolding + CI + a thin vertical
      slice; the last milestone is release readiness + RESULTS.md.
-   - `CLAUDE.md` for future agents: commands, conventions, quality gates.
+   - `CONTRIBUTING.md`: setup, commands, conventions, quality gates (the
+     contributor guide; also what future sessions read first).
    - `README.md` skeleton (title, one-paragraph pitch, "status: in progress").
    - Scaffolding only if trivial (license, .gitignore, empty CI workflow).
-3. Write `.agent/pr.md`: a PR description summarising the plan and the
-   decisions Patrick should weigh in on (he reviews before building starts).
-4. Write `.agent/commit.txt`: one-line commit subject for the plan.
+3. Write `.agent/pr.md`: a PR description in the first person summarising the
+   plan and listing the open design decisions as questions (Patrick reviews it
+   before building starts; it must read like his own design PR).
+4. Write `.agent/learn.md` (private): `## His piece` (one core component,
+   100-250 lines, that he writes himself: the most interview-worthy algorithm
+   or mechanism; the interface, tests and baseline that will surround it, and
+   the milestone where he should write it), `## Learning path` (concepts he
+   must understand, in order, with one good resource each), and
+   `## Decisions to weigh` (each open decision with the options and your
+   recommendation, explained so he can answer confidently). Name his piece in
+   `.agent/summary.md` too.
+5. Write `.agent/commit.txt`: one-line commit subject for the plan.

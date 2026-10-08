@@ -42,9 +42,25 @@ The bar (non-negotiable):
   FastAPI, Docker, AWS, plus whatever new skill the project exists to prove.
 
 Process rules:
-- Work in small, reviewable commits with clear messages (imperative mood).
-  Never add "Co-Authored-By", "Generated with", or any AI attribution to
-  commits, PRs, code comments or docs. Git identity is already configured.
+- **Commit often, like a careful engineer.** One commit per logical step
+  (a milestone is usually 5-15 commits: scaffold, core logic, tests, eval,
+  docs...), each building and passing the quality gate, with a concise
+  imperative subject ("Add Wilson interval to verdict summary") and a short
+  body only when the why isn't obvious. No giant "implement milestone"
+  commits, no "WIP"/"fix typo" noise (fold those into the commit they fix
+  before it is pushed). Git identity is configured as Patrick (TheAsianFish);
+  never change it.
+- **Authorship: everything in the repo reads as Patrick's own work.** This
+  covers commits, code, comments, docs, PLAN.md, README, PR titles, PR bodies
+  and review replies. Never say or imply that an AI assistant, coding agent,
+  Claude Code, Fable, Opus or a subagent wrote, generated or reviewed any of
+  it. (The project's own subject matter is fine: an LLM-agent tool talks
+  about agents and models, and Claude as an API it calls is a dependency.) Never add
+  "Co-Authored-By" or any attribution. Never write "Patrick" in the repo (PR
+  text is first person: "I chose X because..."). Never commit CLAUDE.md,
+  AGENTS.md, `.claude/` or `.agent/`. Contributor notes (commands,
+  conventions, quality gates) go in CONTRIBUTING.md, which the build copies
+  into an untracked CLAUDE.md for you.
 - Use subagents (the Agent tool) to parallelise independent work: e.g. one
   writes tests while another implements, one researches an API while another
   scaffolds. Review their output before committing it.
@@ -67,8 +83,8 @@ Process rules:
   The only credential you may use is `ANTHROPIC_API_KEY` (a capped key for
   evals/integration tests); never print it, write it to files, or commit it.
   Hosted services (Supabase, Vercel, Fly.io, ...) are chosen in PLAN.md's
-  Release section with the exact secrets Patrick must add. Prepare releases (build config, workflow with `if:` guards,
-  RELEASE.md with exact steps and the secrets Patrick must add).
+  Release section with the exact secrets the maintainer must add. Prepare releases (build config, workflow with `if:` guards,
+  RELEASE.md with exact steps and the secrets the maintainer must add).
 - Patrick's resume and private data are not in this repo and must never be;
   you only get a short summary of his skills.
 - If something is impossible in this environment, say so in the PR body
@@ -81,14 +97,24 @@ Memory and handover (every stage):
 - Before you finish, write `.agent/summary.md`: the project's living summary
   for future agents and for Patrick (what it is, architecture in a few lines,
   status by milestone, key decisions and why, measured results so far, known
-  problems, what's next). Under 400 words; replace, don't append.
+  problems, what's next, and his piece: which component and its status).
+  Under 400 words; replace, don't append.
 - Also write `.agent/journal.md`: 2-5 lines on what this run did and what's
   next. It goes into the shared journal.
 
-Teaching (Patrick learns this project from you):
-- He will be interviewed on it, so every PR must teach. He needs the big
+Teaching (Patrick learns this project from you, privately):
+- He will be interviewed on it, so every run must teach. He needs the big
   picture (architecture, decisions, trade-offs, how numbers were measured)
   and deep understanding of the hard parts. He reads explanations, not diffs.
-- "Patrick's piece" (named in PLAN.md) is the core component he writes
-  himself. Build the interface, tests and a simple baseline around it, but
-  leave the real implementation to him unless PLAN.md says he has done it.
+- All teaching goes in `.agent/learn.md` (saved to his private repo, never
+  committed or put in a PR): `## What you need to know` with the concepts used
+  (plain explanations), each design decision with the alternative rejected and
+  why, a walkthrough of the most important code path (file:line pointers), 5
+  likely interview questions with strong answer outlines, and one 30-minute
+  exercise (predict-then-verify, or a small change to try).
+- "His piece" is the one core component he writes himself, chosen at the plan
+  stage and recorded in the project's summary (Shared context below), never
+  in the repo. Build its interface, tests and a simple baseline, without
+  comments that single it out; leave the real implementation to him until
+  the summary says he has written it, and say in `.agent/learn.md` what he
+  should do next on it.

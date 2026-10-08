@@ -9,6 +9,10 @@ Lives in the private career repo under hub/ (personal, so never public):
     hub/projects/<slug>.md  living summary of each portfolio project
                           (architecture, status, decisions, lessons), so each
                           new project builds on the previous ones
+    study/<slug>/<date>-<stage>.md  what Patrick needs to know from each
+                          builder run (concepts, decisions, interview prep,
+                          his piece, review notes); kept out of project repos
+                          and PRs so those read as his own work (AD-34)
 
 The whole hub is small (tens of KB), so agents read all of it every run
 instead of retrieving pieces; a retrieval index would only add failure modes
@@ -74,6 +78,17 @@ def recent_journal(limit: int = MAX_JOURNAL_ENTRIES) -> str:
 
 def write_project_summary(slug: str, text: str) -> Path:
     path = project_summary_path(slug)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text.strip() + "\n", encoding="utf-8")
+    return path
+
+
+def study_dir() -> Path:
+    return private_dir() / "study"
+
+
+def write_study_note(slug: str, name: str, text: str) -> Path:
+    path = study_dir() / slug / f"{name}.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text.strip() + "\n", encoding="utf-8")
     return path

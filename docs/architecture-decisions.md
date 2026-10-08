@@ -516,3 +516,28 @@ everything decided so far. Sessions don't remember; the repo does.
   Sunday study pack (Fable) quizzes him on the week's merged work; the finish
   stage writes a 12-question mock interview into the resume-entry PR as the
   gate before merging.
+
+## AD-34: Project repos read as Patrick's own work; teaching stays private
+
+Patrick wants every commit under his GitHub account with no sign of AI use,
+and agents committing often and sensibly. Commit identity alone was already
+right (TheAsianFish, no attribution); the visible traces were elsewhere: a
+tracked CLAUDE.md, `agent/` branches, PR bodies addressed to "Patrick" with
+teaching sections, and `fable-review` markers.
+
+Decision: the project standards require first-person repo and PR text, no
+AI-authorship mentions, one commit per logical step (typically 5-15 per
+milestone), contributor notes in CONTRIBUTING.md (copied to an untracked
+CLAUDE.md for sessions; CLAUDE.md, AGENTS.md, .claude/ and .agent/ are in
+.git/info/exclude), `dev/` branches and neutral hidden markers
+(`<!-- review: pass -->`, `<!-- ack -->`; legacy ones still recognised). The
+review checks authorship too. Teaching notes, his piece, review notes and the
+verdict live only in the private repo (`study/<slug>/`, the hub summary) and
+`#study`; the weekly study pack reads them from there. The Max OAuth token
+and the commit-msg hook are unchanged.
+
+Trade-off: PRs no longer teach inline, so Patrick reads the study note next
+to each PR (linked from `#study`). Honest-use note recorded with him: the
+learning layer exists so he can own and explain every project; if an
+interviewer asks how he built it, he should describe his AI-assisted
+workflow truthfully.

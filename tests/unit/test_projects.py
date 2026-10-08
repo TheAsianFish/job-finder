@@ -106,7 +106,7 @@ def _pr(**kwargs) -> PullRequest:
     base = dict(
         number=4,
         url="https://github.com/TheAsianFish/evalkit/pull/4",
-        branch="agent/m2",
+        branch="dev/m2",
         created=NOW - timedelta(hours=20),
         last_activity=NOW - timedelta(hours=20),
     )
@@ -145,12 +145,18 @@ def test_autopilot_merges_only_reviewed_green_quiet_prs():
     assert decide(project, RepoState(True, PLAN, ready), NOW).kind == "merge"
     for pr in (
         _pr(checks_green=False, body=REVIEW_PASS),
-        _pr(checks_green=True, body="<!-- fable-review: changes -->"),
+        _pr(checks_green=True, body="<!-- review: changes -->"),
         _pr(checks_green=True, body=REVIEW_PASS, last_activity=NOW - timedelta(hours=2)),
     ):
         assert decide(project, RepoState(True, PLAN, pr), NOW).kind == "wait"
     project.autopilot = False
     assert decide(project, RepoState(True, PLAN, ready), NOW).kind == "wait"
+
+
+def test_legacy_review_marker_still_counts():
+    project = Project(slug="e", title="E", status="building", autopilot=True)
+    legacy = _pr(checks_green=True, body="Summary\n<!-- fable-review: pass -->")
+    assert decide(project, RepoState(True, PLAN, legacy), NOW).kind == "merge"
 
 
 class FakeGh:
@@ -195,7 +201,7 @@ def test_read_state_finds_only_unaddressed_human_feedback():
     gh = FakeGh(
         prs=[
             {"number": 9, "url": "u9", "headRefName": "dependabot/x", "createdAt": commit_at},
-            {"number": 4, "url": "u4", "headRefName": "agent/m2", "createdAt": commit_at},
+            {"number": 4, "url": "u4", "headRefName": "dev/m2", "createdAt": commit_at},
         ],
         commits=[{"committedDate": commit_at}],
         comments=[

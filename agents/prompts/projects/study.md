@@ -2,7 +2,8 @@
 
 Read resume/private/hub/ (ABOUT.md, JOURNAL.md, projects/) and
 `$RUNNER_TEMP/merged-prs.md` (this week's merged milestone PRs of his
-portfolio projects, including their "What you need to know" sections).
+portfolio projects, plus the private study notes from each builder run:
+"What you need to know", his piece, review notes).
 
 Write `resume/private/reports/study-<YYYY-MM-DD>.md`, under 1200 words:
 1. **This week in one paragraph** per active project: what got built.
