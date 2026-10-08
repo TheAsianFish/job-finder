@@ -21,3 +21,9 @@ decision, the measured result), strong verbs, LaTeX-escaped (\%, \&, \#).
 **Every number must appear in RESULTS.md from a real run.** If a metric was
 not measured, describe the outcome without a number. Bold at most one headline
 metric per bullet with \textbf{}. Also copy RESULTS.md to `.agent/RESULTS.md`.
+
+Finally write `.agent/INTERVIEW.md`: a mock interview Patrick must pass before
+this goes on his resume: 12 questions a strong interviewer would ask about this
+project (overview, architecture, the hard part, Patrick's piece, trade-offs,
+failure modes, how each resume number was measured, what he'd do next), each
+with what a strong answer must contain.

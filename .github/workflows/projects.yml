@@ -19,12 +19,13 @@ on:
   schedule:
     - cron: "17 */3 * * *"   # next builder step
     - cron: "0 16 * * 1"     # Mondays 09:00 PT: scout new proposals
+    - cron: "0 17 * * 0"     # Sundays 10:00 PT: weekly study pack
   workflow_dispatch:
     inputs:
       action:
-        description: "auto (next step) | scout | approve | pause | reject"
+        description: "auto (next step) | scout | study | approve | pause | reject"
         type: choice
-        options: [auto, scout, approve, pause, reject]
+        options: [auto, scout, study, approve, pause, reject]
         default: auto
       project:
         description: "Project slug (required for approve/pause/reject; optional for auto)"
@@ -39,7 +40,7 @@ permissions:
 
 jobs:
   control:
-    if: vars.ENABLE_PROJECT_BUILDER == 'true' && (github.event_name == 'workflow_dispatch' && inputs.action != 'scout' || github.event.schedule == '17 */3 * * *')
+    if: vars.ENABLE_PROJECT_BUILDER == 'true' && (github.event_name == 'workflow_dispatch' && inputs.action != 'scout' && inputs.action != 'study' || github.event.schedule == '17 */3 * * *')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
@@ -86,6 +87,10 @@ jobs:
     outputs:
       resume_entry: ${{ steps.collect.outputs.resume_entry }}
       results: ${{ steps.collect.outputs.results }}
+      interview: ${{ steps.collect.outputs.interview }}
+      summary: ${{ steps.memory.outputs.summary }}
+      journal: ${{ steps.memory.outputs.journal }}
+      pr_url: ${{ steps.pr.outputs.url }}
     env:
       STAGE: ${{ needs.control.outputs.stage }}
       CONTEXT: ${{ needs.control.outputs.context }}
@@ -148,8 +153,8 @@ jobs:
           p=radar/agents/prompts/projects
           ctx=$(jq '{project, milestone, milestones_done, milestones_total, feedback, pr_url, candidate}' <<< "$CONTEXT")
           for s in plan build review address finish; do
-            { cat "$p/standards.md"; echo; cat "$p/$s.md"; echo; echo "## Context"; echo '```json'; echo "$ctx"; echo '```'; } \
-              > "$RUNNER_TEMP/prompt-$s.md"
+            { cat "$p/standards.md"; echo; cat "$p/$s.md"; echo; echo "## Context"; echo '```json'; echo "$ctx"; echo '```'
+              echo; echo "## Shared context"; jq -r '.hub // ""' <<< "$CONTEXT"; } > "$RUNNER_TEMP/prompt-$s.md"
           done
 
       - name: Existing PR description (address stage)
@@ -223,13 +228,23 @@ jobs:
             { echo "resume_entry<<TEX_EOF"; cat .agent/RESUME.tex; echo; echo "TEX_EOF"; } >> "$GITHUB_OUTPUT"
             results=.agent/RESULTS.md; [ -s "$results" ] || results=RESULTS.md
             { echo "results<<RES_EOF"; head -c 60000 "$results" 2>/dev/null; echo; echo "RES_EOF"; } >> "$GITHUB_OUTPUT"
+            { echo "interview<<INT_EOF"; head -c 30000 .agent/INTERVIEW.md 2>/dev/null; echo; echo "INT_EOF"; } >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Collect memory for the hub
+        id: memory
+        if: always()
+        working-directory: work
+        run: |
+          { echo "summary<<SUM_EOF"; head -c 20000 .agent/summary.md 2>/dev/null; echo; echo "SUM_EOF"; } >> "$GITHUB_OUTPUT"
+          { echo "journal<<JRN_EOF"; head -c 4000 .agent/journal.md 2>/dev/null; echo; echo "JRN_EOF"; } >> "$GITHUB_OUTPUT"
 
       - name: Tell Patrick
         if: always()
         working-directory: radar
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_PROJECTS: ${{ secrets.DISCORD_WEBHOOK_PROJECTS }}
           URL: ${{ steps.pr.outputs.url }}
           OUTCOME: ${{ job.status }}
         run: |
@@ -241,7 +256,7 @@ jobs:
             [ -n "$URL" ] && echo "Review: ${URL} (comment to request changes; merge to continue)."
             [ "$STAGE" = build ] && echo "Milestone: $(jq -r .milestone <<< "$CONTEXT")"
           } > "$RUNNER_TEMP/note.md"
-          uv run opportunity-radar notify markdown "$RUNNER_TEMP/note.md" --title "🔨 Project builder"
+          uv run opportunity-radar notify markdown "$RUNNER_TEMP/note.md" --title "🔨 Project builder" --channel projects
 
   record:
     needs: [control, build]
@@ -264,14 +279,106 @@ jobs:
         env:
           AGENT_GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_PROJECTS: ${{ secrets.DISCORD_WEBHOOK_PROJECTS }}
           ENTRY: ${{ needs.build.outputs.resume_entry }}
           RESULTS: ${{ needs.build.outputs.results }}
+          INTERVIEW: ${{ needs.build.outputs.interview }}
           CONTEXT: ${{ needs.control.outputs.context }}
         run: |
           printf '%s\n' "$ENTRY" > "$RUNNER_TEMP/RESUME.tex"
           printf '%s\n' "$RESULTS" > "$RUNNER_TEMP/RESULTS.md"
+          printf '%s\n' "$INTERVIEW" > "$RUNNER_TEMP/INTERVIEW.md"
           uv run opportunity-radar projects finish "$(jq -r .slug <<< "$CONTEXT")" \
-            --entry "$RUNNER_TEMP/RESUME.tex" --results "$RUNNER_TEMP/RESULTS.md" --push
+            --entry "$RUNNER_TEMP/RESUME.tex" --results "$RUNNER_TEMP/RESULTS.md" \
+            --interview "$RUNNER_TEMP/INTERVIEW.md" --push
+
+  remember:
+    needs: [control, build]
+    if: always() && needs.build.result != 'skipped' && needs.control.outputs.stage != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check out private career repo
+        uses: actions/checkout@v7
+        with:
+          repository: TheAsianFish/career-private
+          path: resume/private
+          ssh-key: ${{ secrets.CAREER_DEPLOY_KEY }}
+      - uses: astral-sh/setup-uv@v10.2.0  # no floating major tag is published
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen
+      - name: Update the shared hub
+        env:
+          CONTEXT: ${{ needs.control.outputs.context }}
+          SUMMARY: ${{ needs.build.outputs.summary }}
+          JOURNAL: ${{ needs.build.outputs.journal }}
+          PR_URL: ${{ needs.build.outputs.pr_url }}
+          RESULT: ${{ needs.build.result }}
+        run: |
+          slug=$(jq -r .slug <<< "$CONTEXT"); stage=$(jq -r .stage <<< "$CONTEXT")
+          if [ -n "$(tr -d '[:space:]' <<< "$SUMMARY")" ]; then
+            printf '%s\n' "$SUMMARY" > "$RUNNER_TEMP/summary.md"
+            uv run opportunity-radar hub project-summary "$slug" "$RUNNER_TEMP/summary.md"
+          fi
+          {
+            echo "Stage **${stage}** ${RESULT}.${PR_URL:+ PR: ${PR_URL}}"
+            [ "$stage" = build ] && echo "Milestone: $(jq -r .milestone <<< "$CONTEXT")"
+            printf '%s\n' "$JOURNAL"
+          } > "$RUNNER_TEMP/journal.md"
+          uv run opportunity-radar hub log "builder/${slug}" --file "$RUNNER_TEMP/journal.md" --push
+
+  study:
+    if: vars.ENABLE_PROJECT_BUILDER == 'true' && (github.event.schedule == '0 17 * * 0' || inputs.action == 'study')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check out private career repo
+        uses: actions/checkout@v7
+        with:
+          repository: TheAsianFish/career-private
+          path: resume/private
+          ssh-key: ${{ secrets.CAREER_DEPLOY_KEY }}
+      - uses: astral-sh/setup-uv@v10.2.0  # no floating major tag is published
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen
+      - name: Collect this week's merged PRs
+        env:
+          GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
+        run: |
+          since=$(date -u -d '8 days ago' +%Y-%m-%d)
+          out="$RUNNER_TEMP/merged-prs.md"; : > "$out"
+          for repo in $(uv run python -c "from opportunity_radar.projects.portfolio import load_projects; print(' '.join(p.repo for p in load_projects() if p.repo))"); do
+            gh pr list --repo "$repo" --state merged --search "merged:>=$since" --json title,body,url \
+              --jq '.[] | "# \(.title)\n\(.url)\n\n\(.body)\n"' >> "$out" || true
+          done
+          echo "merged PR notes: $(wc -c < "$out") bytes"
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code >/dev/null
+      - name: Write the study pack (Fable)
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          prompt="$(sed "s#\$RUNNER_TEMP#$RUNNER_TEMP#g" agents/prompts/projects/study.md)"
+          tools="Read,Glob,Grep,Write,Bash(date *),Bash(uv run opportunity-radar hub *)"
+          for model in fable opus; do
+            if timeout 40m claude -p "$prompt" --model "$model" --max-turns 60 \
+                 --allowedTools "$tools" > "$RUNNER_TEMP/study.log" 2>&1; then
+              echo "study pack written ($model)"; break
+            fi
+            echo "study failed with $model"
+          done
+      - name: Post to Discord and save
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_STUDY: ${{ secrets.DISCORD_WEBHOOK_STUDY }}
+        run: |
+          pack=$(find resume/private/reports -name "study-*.md" -mmin -60 | sort | tail -1)
+          [ -n "$pack" ] && uv run opportunity-radar notify markdown "$pack" --title "📚 Weekly study pack" --channel study
+          uv run python -c "from opportunity_radar.resume.ledger import commit_and_push; from opportunity_radar.resume.paths import private_dir; print(commit_and_push(private_dir(), 'study pack'))"
 
   scout:
     if: vars.ENABLE_PROJECT_BUILDER == 'true' && (github.event.schedule == '0 16 * * 1' || inputs.action == 'scout')
@@ -296,7 +403,7 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           prompt=agents/prompts/projects/scout.md
-          tools="Read,Glob,Grep,Write,WebSearch,WebFetch,Bash(date *)"
+          tools="Read,Glob,Grep,Write,WebSearch,WebFetch,Bash(date *),Bash(uv run opportunity-radar hub *)"
           for model in fable opus; do
             if timeout 45m claude -p "$(cat $prompt)" --model "$model" --max-turns 80 \
                  --allowedTools "$tools" > "$RUNNER_TEMP/scout.log" 2>&1; then
@@ -308,4 +415,5 @@ jobs:
       - name: Record proposals and ask Patrick
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_PROJECTS: ${{ secrets.DISCORD_WEBHOOK_PROJECTS }}
         run: uv run opportunity-radar projects scout-merge /tmp/scout.json --push

@@ -12,6 +12,15 @@ spec is `docs/opportunity-radar-master-spec.md`; deviations are recorded in
 `docs/architecture-decisions.md`; progress vs. acceptance criteria in
 `docs/implementation-status.md`. Read those before making significant changes.
 
+## Shared memory (do this every session)
+
+Start by reading the hub: `uv run opportunity-radar hub context` (Patrick's
+profile and standing preferences, every portfolio project, the recent
+journal; private, never copy it into public files). End every working
+session with `uv run opportunity-radar hub log "session" "<what changed, what's
+next>" --push`. Propose edits to `resume/private/hub/ABOUT.md` when a
+preference changes (AD-33). Discord channels and bot: `docs/discord-hub.md`.
+
 ## Mission (read docs/roadmap.md)
 
 This repo is growing from a job tracker into Patrick's **internship copilot**:

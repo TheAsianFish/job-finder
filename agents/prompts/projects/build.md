@@ -14,4 +14,9 @@ context below, to its definition of done, at the standard above.
   changes and why). Do not start the next milestone.
 - Finally write `.agent/pr.md`: what was built, how to try it, test/eval
   evidence (commands + results), decisions and trade-offs, anything not done
-  and why, and what you would like Patrick to check.
+  and why, and what you would like Patrick to check. Then a section
+  `## What you need to know` that teaches this milestone: the concepts used
+  (plain explanations), each design decision with the alternative rejected and
+  why, a short walkthrough of the most important code path (file:line
+  pointers), 5 likely interview questions with strong answer outlines, and one
+  30-minute exercise (predict-then-verify, or a small change to try).

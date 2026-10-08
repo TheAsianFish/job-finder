@@ -52,3 +52,22 @@ Process rules:
   you only get a short summary of his skills.
 - If something is impossible in this environment, say so in the PR body
   rather than faking it.
+
+Memory and handover (every stage):
+- The "Shared context" section below is the hub: who Patrick is, his
+  preferences, every portfolio project so far, and the recent journal. Honour
+  it, reuse what earlier projects learned, and never copy it into the repo.
+- Before you finish, write `.agent/summary.md`: the project's living summary
+  for future agents and for Patrick (what it is, architecture in a few lines,
+  status by milestone, key decisions and why, measured results so far, known
+  problems, what's next). Under 400 words; replace, don't append.
+- Also write `.agent/journal.md`: 2-5 lines on what this run did and what's
+  next. It goes into the shared journal.
+
+Teaching (Patrick learns this project from you):
+- He will be interviewed on it, so every PR must teach. He needs the big
+  picture (architecture, decisions, trade-offs, how numbers were measured)
+  and deep understanding of the hard parts. He reads explanations, not diffs.
+- "Patrick's piece" (named in PLAN.md) is the core component he writes
+  himself. Build the interface, tests and a simple baseline around it, but
+  leave the real implementation to him unless PLAN.md says he has done it.

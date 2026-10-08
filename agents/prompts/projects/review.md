@@ -7,6 +7,9 @@ behaviour or just run code?), measured claims vs RESULTS.md, design quality,
 readability, and whether the milestone's definition of done in PLAN.md is
 really met.
 
+- Check that `.agent/pr.md` has a `## What you need to know` section that
+  would genuinely prepare Patrick for interview questions on this milestone;
+  improve it if it is thin or inaccurate.
 - Fix every real problem you find directly on this branch (focused commits,
   quality gate green). Do not rewrite working code to taste.
 - Append a `## Review` section to `.agent/pr.md`: what you checked, what you

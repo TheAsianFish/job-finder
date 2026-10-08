@@ -136,12 +136,14 @@ def register(app: typer.Typer, jobs_app: typer.Typer, notify_app: typer.Typer) -
     def notify_markdown(
         path: Path = typer.Argument(..., exists=True, readable=True),
         title: str = typer.Option("Opportunity Radar report", "--title"),
+        channel: str = typer.Option(
+            "agent-log", "--channel", help="alerts | resume | projects | study | agent-log"
+        ),
     ) -> None:
-        """Post a markdown report (e.g. the weekly review) to Discord."""
-        from opportunity_radar.config import get_settings
-        from opportunity_radar.notifications.discord import DiscordNotifier
+        """Post a markdown report (e.g. the weekly review) to a Discord hub channel."""
+        from opportunity_radar.notifications.discord import notifier_for
 
-        notifier = DiscordNotifier(get_settings().discord_webhook_url)
+        notifier = notifier_for(channel)
         ok = asyncio.run(notifier.send_markdown(title, path.read_text(encoding="utf-8")))
         console.print(
             "Posted." if ok else "[yellow]Not posted (webhook missing or failed).[/yellow]"
@@ -415,14 +417,13 @@ def resume_deliver(
     max_jobs: int = typer.Option(3, "--max"),
 ) -> None:
     """Check fresh high-priority alerts; message only on a real resume disconnect."""
-    from opportunity_radar.config import get_settings
-    from opportunity_radar.notifications.discord import DiscordNotifier
+    from opportunity_radar.notifications.discord import notifier_for
     from opportunity_radar.resume.deliver import deliver_pending, pending_jobs
 
     if count:
         print(len(pending_jobs()))
         return
-    notifier = DiscordNotifier(get_settings().discord_webhook_url)
+    notifier = notifier_for("resume")
     report = asyncio.run(
         deliver_pending(notifier, runner=_runner(polish), push=push, max_jobs=max_jobs)
     )
@@ -443,11 +444,10 @@ def resume_review_url(
     company: str = typer.Option(None, "--company"),
 ) -> None:
     """Brutally honest review + tailored resume for any posting, sent to Discord."""
-    from opportunity_radar.config import get_settings
-    from opportunity_radar.notifications.discord import DiscordNotifier
+    from opportunity_radar.notifications.discord import notifier_for
     from opportunity_radar.resume.deliver import check_url
 
-    notifier = DiscordNotifier(get_settings().discord_webhook_url)
+    notifier = notifier_for("resume")
     outcome, fit = asyncio.run(
         check_url(url, notifier=notifier, runner=_runner(True), title=title, company=company)
     )
@@ -470,10 +470,9 @@ def resume_assess(
     ),
 ) -> None:
     """Does your standing resume compete for this role? (deterministic, instant)"""
-    from opportunity_radar.config import get_settings
     from opportunity_radar.db.engine import session_scope
     from opportunity_radar.db.tables import JobRow
-    from opportunity_radar.notifications.discord import DiscordNotifier
+    from opportunity_radar.notifications.discord import notifier_for
     from opportunity_radar.resume.assess import MIN_DESCRIPTION, assess
     from opportunity_radar.resume.deliver import check_job
     from opportunity_radar.resume.describe import fetch_description
@@ -492,7 +491,7 @@ def resume_assess(
     bank = load_bank()
     baseline = master_text(bank)
     if send:
-        notifier = DiscordNotifier(get_settings().discord_webhook_url)
+        notifier = notifier_for("resume")
         outcome, _ = asyncio.run(
             check_job(
                 job_id,

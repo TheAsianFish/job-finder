@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import os
 from typing import Any
 
 import httpx
@@ -21,6 +22,32 @@ from opportunity_radar.utilities.dates import utcnow
 logger = structlog.get_logger(__name__)
 
 _MAX_ATTEMPTS = 3
+
+
+# Hub channels the bot creates (`discord setup`, AD-33). Each has its own
+# webhook secret DISCORD_WEBHOOK_<NAME>; any that is unset falls back to
+# DISCORD_WEBHOOK_URL, the original #job channel, which stays the alerts feed.
+CHANNELS: dict[str, str] = {
+    "resume": "Resume checks, tailored PDFs, bullet proposals to approve",
+    "projects": "Project builder: proposals, plan/milestone PRs, finished projects",
+    "study": "Weekly study packs and quizzes for the projects on your resume",
+    "agent-log": "Weekly reviews, scans and what every agent did",
+}
+
+
+def webhook_env(channel: str) -> str:
+    return "DISCORD_WEBHOOK_" + channel.upper().replace("-", "_")
+
+
+def webhook_for(channel: str) -> str | None:
+    """The webhook for a hub channel, else the default one."""
+    from opportunity_radar.config import get_settings
+
+    return os.environ.get(webhook_env(channel)) or get_settings().discord_webhook_url
+
+
+def notifier_for(channel: str) -> DiscordNotifier:
+    return DiscordNotifier(webhook_for(channel))
 
 
 class DiscordError(Exception):

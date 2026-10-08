@@ -114,6 +114,7 @@ jobs:
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          DISCORD_WEBHOOK_RESUME: ${{ secrets.DISCORD_WEBHOOK_RESUME }}
           # Opens bullet-proposal PRs in the private repo (AD-31).
           CAREER_GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
         run: uv run opportunity-radar resume deliver --polish --push

@@ -18,6 +18,8 @@ from rich.table import Table
 
 console = Console()
 projects_app = typer.Typer(help="Agent-built portfolio projects (projects.yaml, private repo).")
+discord_app = typer.Typer(help="Discord hub: channels and webhooks created by the bot (AD-33).")
+hub_app = typer.Typer(help="Shared memory for every agent: hub/ in the private repo (AD-33).")
 
 
 def _token() -> str | None:
@@ -33,11 +35,10 @@ def _save_and_push(projects, message: str, push: bool) -> str:
     return commit_and_push(private_dir(), message, push=push)
 
 
-def _notify(title: str, markdown: str) -> None:
-    from opportunity_radar.config import get_settings
-    from opportunity_radar.notifications.discord import DiscordNotifier
+def _notify(title: str, markdown: str, channel: str = "projects") -> None:
+    from opportunity_radar.notifications.discord import notifier_for
 
-    notifier = DiscordNotifier(get_settings().discord_webhook_url)
+    notifier = notifier_for(channel)
     if notifier.configured:
         asyncio.run(notifier.send_markdown(title, markdown))
 
@@ -154,6 +155,9 @@ def projects_step(
             changed = True
         context["project"] = asdict(project)
         context["candidate"] = _candidate_summary()
+        from opportunity_radar.hub import bundle
+
+        context["hub"] = bundle()
         if changed and not dry_run:
             console.print(
                 _save_and_push(projects, f"projects: {project.slug} {project.status}", push)
@@ -218,6 +222,9 @@ def projects_finish(
     slug: str,
     entry: Path = typer.Option(..., "--entry", exists=True, help="RESUME.tex from the project"),
     results: Path = typer.Option(..., "--results", exists=True, help="RESULTS.md (measured)"),
+    interview: Path = typer.Option(
+        None, "--interview", help="INTERVIEW.md: the mock interview to pass first"
+    ),
     push: bool = typer.Option(True, "--push/--no-push"),
 ) -> None:
     """Propose the finished project's resume entry as a reserve entry (private PR)."""
@@ -266,8 +273,13 @@ def projects_finish(
             "```latex",
             block.strip(),
             "```",
+            "",
+            "**Before merging, pass the mock interview** in "
+            f"`prep/{project.slug}-interview.md` (on this branch). If you can't answer a "
+            "question, study that part first; that is the point of this gate.",
         ]
     )
+    mock = interview.read_text(encoding="utf-8") if interview else ""
 
     def write(work: Path) -> None:
         source = work / "resume.tex"
@@ -277,6 +289,12 @@ def projects_finish(
         evidence = work / "projects" / f"{project.slug}-RESULTS.md"
         evidence.parent.mkdir(parents=True, exist_ok=True)
         evidence.write_text(measured, encoding="utf-8")
+        prep = work / "prep" / f"{project.slug}-interview.md"
+        prep.parent.mkdir(parents=True, exist_ok=True)
+        prep.write_text(
+            mock.strip() + "\n" if mock.strip() else "# Mock interview\n\n(not generated)\n",
+            encoding="utf-8",
+        )
 
     url = open_private_pr(
         private_dir(),
@@ -297,5 +315,105 @@ def projects_finish(
     console.print(f"Resume entry PR: {url}")
 
 
+# ---------------------------------------------------------------------------
+# Hub (shared memory)
+
+
+@hub_app.command("context")
+def hub_context(
+    out: Path = typer.Option(None, "--out", help="Write here instead of printing"),
+    entries: int = typer.Option(40, "--entries", help="Recent journal entries to include"),
+) -> None:
+    """Everything an agent should know: ABOUT, project summaries, recent journal."""
+    from opportunity_radar.hub import bundle
+
+    text = bundle(entries)
+    if out:
+        out.write_text(text, encoding="utf-8")
+        console.print(f"Wrote {len(text)} characters to {out}")
+    else:
+        print(text)
+
+
+@hub_app.command("log")
+def hub_log(
+    source: str = typer.Argument(..., help="Who is writing, e.g. 'builder/replay' or 'session'"),
+    message: str = typer.Argument(None, help="Entry text (or use --file)"),
+    file: Path = typer.Option(None, "--file", exists=True),
+    push: bool = typer.Option(False, "--push/--no-push"),
+) -> None:
+    """Append one entry to hub/JOURNAL.md."""
+    from opportunity_radar.hub import append_journal
+    from opportunity_radar.resume.ledger import commit_and_push
+    from opportunity_radar.resume.paths import private_dir
+
+    text = file.read_text(encoding="utf-8") if file else (message or "")
+    append_journal(source, text)
+    git = commit_and_push(private_dir(), f"hub: {source}", push=push) if push else "saved"
+    console.print(f"Journal entry added ({git}).")
+
+
+@hub_app.command("project-summary")
+def hub_project_summary(
+    slug: str,
+    file: Path = typer.Argument(..., exists=True),
+    push: bool = typer.Option(False, "--push/--no-push"),
+) -> None:
+    """Replace hub/projects/<slug>.md with the builder's latest summary."""
+    from opportunity_radar.hub import write_project_summary
+    from opportunity_radar.resume.ledger import commit_and_push
+    from opportunity_radar.resume.paths import private_dir
+
+    text = file.read_text(encoding="utf-8")
+    if not text.strip():
+        console.print("[yellow]Empty summary; kept the previous one.[/yellow]")
+        return
+    write_project_summary(slug, text)
+    git = commit_and_push(private_dir(), f"hub: {slug} summary", push=push) if push else "saved"
+    console.print(f"Project summary updated ({git}).")
+
+
+# ---------------------------------------------------------------------------
+# Discord hub
+
+
+@discord_app.command("setup")
+def discord_setup(
+    guild: str = typer.Option(..., "--guild", help="Server ID (Developer Mode -> Copy Server ID)"),
+) -> None:
+    """Create the hub channels + webhooks with the bot (DISCORD_BOT_TOKEN in .env).
+
+    Webhooks are saved to .env (local runs) and .env.discord (git-ignored), which
+    you upload yourself: gh secret set -f .env.discord --repo TheAsianFish/job-finder
+    """
+    from opportunity_radar.config import get_settings, project_root
+    from opportunity_radar.notifications.discord_bot import DiscordBotError, setup_hub, upsert_env
+
+    get_settings()  # loads .env
+    token = os.environ.get("DISCORD_BOT_TOKEN")
+    if not token:
+        console.print("[red]Set DISCORD_BOT_TOKEN in .env first (see docs/discord-hub.md).[/red]")
+        raise typer.Exit(1)
+    try:
+        result = setup_hub(token, guild)
+    except DiscordBotError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+    root = project_root()
+    upsert_env(root / ".env", result.env)
+    upsert_env(root / ".env.discord", result.env)
+    console.print(
+        f"Channels: {', '.join('#' + c for c in result.webhooks)} "
+        f"(created: {', '.join(result.created_channels) or 'none'}; "
+        f"new webhooks: {', '.join(result.created_webhooks) or 'none'})."
+    )
+    console.print(
+        "Saved to .env and .env.discord. Upload them for the cloud agents with:\n"
+        "  gh secret set -f .env.discord --repo TheAsianFish/job-finder"
+    )
+
+
 def register(app: typer.Typer) -> None:
     app.add_typer(projects_app, name="projects")
+    app.add_typer(hub_app, name="hub")
+    app.add_typer(discord_app, name="discord")

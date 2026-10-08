@@ -172,12 +172,23 @@ async def run_check(
     sent = await notifier.send_files(payload, files)
     if not sent and notifier.configured:
         return "failed", fit
+    review_link = None
     if result.polish and result.polish.proposals:
-        await _propose(result.polish.proposals, notifier, bank, title, company, url, runner)
+        review_link = await _propose(
+            result.polish.proposals, notifier, bank, title, company, url, runner
+        )
+    from opportunity_radar.hub import append_journal
+
+    append_journal(
+        "resume-check",
+        f"{title} @ {company} ({url}): {fit.severity}; {result.summary}."
+        + (f" Verdict: {rev.verdict}" if rev.verdict else "")
+        + (f" Bullet proposals: {review_link}" if review_link else ""),
+    )
     return "flagged", fit
 
 
-async def _propose(proposals, notifier, bank, title, company, url, runner) -> None:
+async def _propose(proposals, notifier, bank, title, company, url, runner) -> str | None:
     from opportunity_radar.resume.proposals import submit
 
     outcome = submit(
@@ -202,6 +213,7 @@ async def _propose(proposals, notifier, bank, title, company, url, runner) -> No
                 title, company, outcome.proposals, outcome.pr_url, saved
             )
         )
+    return outcome.pr_url or (str(outcome.saved) if outcome.saved else None)
 
 
 async def check_job(

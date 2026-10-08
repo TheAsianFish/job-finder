@@ -184,6 +184,10 @@ dbt Labs, Canva, Grammarly, Tempus, Rippling.
   in their own repos one milestone PR at a time (Fable plan/review, Opus
   build), comments addressed automatically, resume entry proposed from
   measured results. `opportunity-radar projects list|approve|pause|reject|step`.
+- Shared memory + Discord hub (AD-33): `hub/` in the private repo (ABOUT,
+  journal, project summaries) read by every agent; bot-created channels
+  (#resume, #projects, #study, #agent-log); learning layer (PR study notes,
+  Patrick's piece, Sunday study pack, mock-interview gate).
 
 ## Known gaps / deferred (with reasons)
 

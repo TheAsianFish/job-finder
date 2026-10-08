@@ -485,3 +485,34 @@ and his approval.
   reserve project via a private-repo PR, with any unbacked number flagged.
 - The one-shot `project-plan` agent task (a brief Patrick had to build
   himself) is retired in favour of this pipeline.
+
+## AD-33: One memory (private hub/), one inbox (Discord channels)
+
+Patrick wants every agent, and every future working session, to know
+everything decided so far. Sessions don't remember; the repo does.
+
+- **Memory = `career-private/hub/`**: `ABOUT.md` (curated: who he is,
+  goals, standing preferences), `JOURNAL.md` (append-only, one entry per
+  agent run, session or flagged resume check) and `projects/<slug>.md`
+  (each project's living summary, rewritten by the builder after every run so
+  later projects build on earlier ones). `opportunity-radar hub context|log|
+  project-summary`. Builder sessions get the bundle in their prompt; scout,
+  study and weekly review read the files and log an entry.
+- **No retrieval database.** The hub is tens of KB; reading all of it every
+  run is cheaper and more reliable than retrieval. Revisit only past ~1 MB.
+- **Private, because personal.** The public repo stays public: Actions
+  minutes are unlimited for public repos and the 10-minute scan alone would
+  exhaust a private free-tier quota (2,000 min/month) within days. Builder
+  sessions do see ABOUT.md (preferences and goals, no resume text) and are
+  told never to copy it into project repos.
+- **Inbox = Discord.** A bot Patrick creates once makes an "Opportunity
+  Radar" category with #resume, #projects, #study and #agent-log and a webhook
+  in each (`discord setup`, idempotent); alerts stay in #job. Webhook secrets
+  are uploaded by Patrick (`gh secret set -f .env.discord`); tooling never
+  writes secrets itself. Unset channels fall back to #job.
+- **Learning layer.** Every milestone PR carries "What you need to know"
+  (concepts, decisions, code walkthrough, interview questions, an exercise);
+  each plan names "Patrick's piece", the core component he writes himself; a
+  Sunday study pack (Fable) quizzes him on the week's merged work; the finish
+  stage writes a 12-question mock interview into the resume-entry PR as the
+  gate before merging.

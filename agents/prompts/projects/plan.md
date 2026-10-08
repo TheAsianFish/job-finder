@@ -12,7 +12,12 @@ plan; do not implement features yet.
      key design decisions with alternatives considered), `## Evaluation`
      (datasets, metrics, baselines, how each resume-worthy number will be
      measured), `## Release` (how real users get it and what Patrick must
-     provide), `## Risks`, and `## Milestones`: 5-8 checkbox items
+     provide), `## Patrick's piece` (one core component, 100-250 lines, that
+     he writes himself: the most interview-worthy algorithm or mechanism; say
+     what interface, tests and baseline the agents provide around it, and the
+     milestone where he should write it), `## Learning path` (concepts he must
+     understand, in order, with one good resource each), `## Risks`, and
+     `## Milestones`: 5-8 checkbox items
      (`- [ ] M1: title — definition of done`). Each milestone is one PR of
      focused work (roughly 2-5 hours of agent time), ends with green tests, and
      leaves the project runnable. M1 is scaffolding + CI + a thin vertical

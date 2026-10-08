@@ -94,6 +94,7 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           ROLE_URL: ${{ inputs.url }}
+          DISCORD_WEBHOOK_RESUME: ${{ secrets.DISCORD_WEBHOOK_RESUME }}
           CAREER_GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
         run: uv run opportunity-radar resume review-url "$ROLE_URL"
 
@@ -130,12 +131,13 @@ jobs:
         if: always() && env.HAS_CAREER_KEY == 'true'
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_AGENT_LOG: ${{ secrets.DISCORD_WEBHOOK_AGENT_LOG }}
           TASK: ${{ inputs.task || 'weekly-review' }}
         run: |
           report=$(find resume/private/reports -name "${TASK}-*.md" -type f 2>/dev/null | sort | tail -1)
           if [ -n "$report" ]; then
             title="Weekly review"
-            uv run opportunity-radar notify markdown "$report" --title "📊 $title — $(date -u +%Y-%m-%d)"
+            uv run opportunity-radar notify markdown "$report" --title "📊 $title — $(date -u +%Y-%m-%d)" --channel agent-log
           fi
           cd resume/private
           git add -A

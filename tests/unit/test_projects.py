@@ -273,6 +273,7 @@ def test_cli_step_creates_repo_marks_building_and_writes_context(tmp_path, monke
     assert context["stage"] == "plan" and context["repo"] == "TheAsianFish/evalkit"
     assert created and created[0][2] == "TheAsianFish/evalkit" and "--private" in created[0]
     assert context["candidate"]["skills"] == {"L": ["Python"]}
+    assert context["hub"].startswith("# Shared context")  # agents get the shared memory
     saved = load_projects(private_dir() / "projects.yaml")
     assert saved[0].status == "building" and saved[0].repo == "TheAsianFish/evalkit"
 
