@@ -77,7 +77,10 @@ roles are excluded. Skill demand: `uv run opportunity-radar insights skills`
 
 ## Operational state (update when it changes)
 
-- Discord webhook configured in `.env`; alerts verified working live.
+- Discord: alerts on `#job` (`DISCORD_WEBHOOK_URL`); bot-created hub channels
+  `#resume`, `#projects`, `#study`, `#agent-log` with webhooks in `.env` and
+  Actions secrets (`DISCORD_WEBHOOK_<NAME>`), all verified live 2026-10-08
+  (`docs/discord-hub.md`). `notifier_for(channel)` routes; missing -> `#job`.
 - GitHub remote: https://github.com/TheAsianFish/job-finder (push to main).
 - Cloud scanning: `.github/workflows/scan.yml`, gated on the repo variable
   `ENABLE_CLOUD_SCAN=true` + `DISCORD_WEBHOOK_URL` Actions secret. Runs
@@ -94,19 +97,41 @@ roles are excluded. Skill demand: `uv run opportunity-radar insights skills`
   plans, Opus builds one milestone PR at a time in the project's own repo
   (`TheAsianFish/<slug>`, private by default), Fable reviews; pipeline state in
   the private repo's `projects.yaml` (`opportunity-radar projects ...`). Only
-  autopilot projects (opt-in per project) may merge their own PRs.
+  autopilot projects (opt-in per project) may merge their own PRs (Fable review
+  pass + green CI + 12 quiet hours). The scan chain wakes the builder within
+  ~10 min when it has work (`scripts/wake_builder.sh`, AD-35); builds post
+  progress to `#projects` every 20 min (AD-36). Project repos must read as
+  Patrick's own work: commits as TheAsianFish, frequent focused commits,
+  `dev/` branches, first-person PRs, CONTRIBUTING.md (never a tracked
+  CLAUDE.md), no AI mentions; teaching notes go to the private repo's
+  `study/<slug>/` and `#study` (AD-34). Sessions get a capped API key for real
+  evals (`PROJECTS_ANTHROPIC_API_KEY` secret; verify with the `keycheck`
+  workflow action). Status: Replay (`TheAsianFish/agent-replay`, autopilot)
+  is building milestone by milestone (M1 = PR #2); Kiln is queued; live state
+  is in `projects.yaml` and `hub/projects/<slug>.md`.
 - Private career repo `TheAsianFish/career-private` is cloned at
   `resume/private/` (git-ignored; `CAREER_DEPLOY_KEY` deploy key for CI).
   Resume engine: `src/opportunity_radar/resume/` (AD-28, AD-29: assessment-gated
   checks, STAR story rewrites behind the guard, Simplify CSV import; AD-31:
   experience fixed, projects reshuffled, bullets needing Patrick's word become
-  approval PRs in the private repo -> `verified.yaml`). `AGENT_GH_TOKEN` secret
+  approval PRs in the private repo -> `verified.yaml`; AD-37: flagged roles get
+  a hiring panel (`resume/panel.py`: recruiter, hiring manager, interviewer +
+  deterministic ATS seat) whose lead writes ranked changes; `apply <url>`
+  links the tailored resume used, and `insights.outcomes.lessons()` feeds
+  logged outcomes into the next review; no applications are logged yet). `AGENT_GH_TOKEN` secret
   (fine-grained PAT, all repos) opens those PRs and the project builders' repos.
   Never copy resume or application content into the public repo, PRs, or CI logs.
 - pdfLaTeX via TinyTeX (`scripts/install_tinytex.sh`); resume tests that
   compile are skipped when it is absent.
+- Registry: 282 companies in `config/companies.example.yaml` (core/strong
+  polled every ~10 min, broad/exploratory hourly), incl. health-tech, AI and
+  YC-style startups added 2026-10-08 (AD-35). Explicit Winter/Spring/Fall SWE
+  roles alert immediately at any tier for target role families (Patrick can
+  take a gap quarter or work remotely).
 - Simplify lists are ingested as a secondary source (`simplify` adapter,
   AD-21); employers we scan directly are skipped to avoid double alerts.
+  Company career sites without a public API (Tesla, Google...) reach us only
+  this way, with no description, so their resume line says so.
   Patrick explicitly approved using the Simplify lists (2026-10-07).
 - Local daemon: `scripts/install_launchd.sh`; weekly self-maintenance
   (`tune` + `companies repair`) runs when `scheduler.auto_tune: true`.

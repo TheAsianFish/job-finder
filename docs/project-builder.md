@@ -31,9 +31,16 @@ flowchart LR
 - **Wake-up (AD-35).** The ~10-minute scan chain starts the builder as soon as
   it has work (your merge or comments, an autopilot merge, the next
   milestone) and posts what it started to `#projects`.
-- **Cadence.** A builder step every 3 hours (`17 */3 * * *`), a scout run on
-  Mondays 09:00 PT. A build step uses up to ~5 hours of agent time (Opus
-  build ≤ 230 min, Fable review ≤ 70 min).
+- **Cadence.** A builder step every 3 hours (`17 */3 * * *`, unreliable on
+  GitHub, hence the wake-up above), a scout run on Mondays 09:00 PT, a study
+  pack on Sundays. Hard caps: Opus build ≤ 230 min, Fable review ≤ 70 min.
+  Replay's M1 (scaffold, CI, first vertical slice, review) took 49 minutes.
+- **Progress pings (AD-36).** While a session runs, `#projects` gets a line
+  every 20 minutes (elapsed time, commits, latest commit, files changed);
+  two quiet intervals are flagged as possibly stuck.
+- **Notifications.** When a PR opens, `#projects` says whether autopilot will
+  merge it (review passed) or it needs Patrick; `#study` links the private
+  study notes for that run.
 
 ## Authorship (AD-34)
 
@@ -76,8 +83,12 @@ claims only, production engineering, AI stack used well, no AI attribution).
 - The build job never checks out the private career repo; sessions get only
   a skills summary. The resume stays private.
 - `AGENT_GH_TOKEN` is used in clone/push/PR steps only. The Claude sessions
-  run with credential-free remotes and only `CLAUDE_CODE_OAUTH_TOKEN` in the
-  environment, so an agent cannot push, create repos, or touch other repos.
+  run with credential-free remotes and only `CLAUDE_CODE_OAUTH_TOKEN` plus the
+  capped `ANTHROPIC_API_KEY` (from the `PROJECTS_ANTHROPIC_API_KEY` secret, for
+  real evals; never the Max token) in the environment, so an agent cannot
+  push, create repos, or touch other repos. Verify that key any time with
+  Actions → Project builder → Run workflow → `keycheck` (one 1-token call;
+  logs print the HTTP status only).
 - A `commit-msg` hook strips AI attribution; commits are authored as
   TheAsianFish.
 - This repo is public, so workflow logs print stages and run statistics only.
@@ -88,4 +99,6 @@ A project reaches the resume only through a pull request in the private repo
 that adds it as a commented-out (reserve) entry. The builder flags any number
 in its bullets that does not appear in the project's `RESULTS.md` (measured
 by a real run), and merging means "this is true". Patrick should be able to
-explain every line; the per-milestone PRs are how he learns the codebase.
+explain every line; the private study notes for each milestone
+(`career-private/study/<slug>/`), the Sunday study pack and the mock interview
+written at the finish stage are how he learns the codebase.

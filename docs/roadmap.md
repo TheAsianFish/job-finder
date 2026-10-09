@@ -38,9 +38,9 @@ real skill gaps. Every agent working in this repo should read this file and
 |---|---|---|---|
 | 1 | Skill and ATS-keyword demand report | **Done** (2026-10-07) | `opportunity-radar insights skills` -> `reports/skill-demand.md`; vocabulary in `config/skills_vocabulary.yaml` |
 | 2 | Master resume ingestion | **Done** (2026-10-08) | `resume.tex` in the private repo is parsed into a bullet bank (live + commented reserves); profile skills synced from it; `resume bank` shows it |
-| 3 | Per-posting match + tailored versions | **Done** (2026-10-08) | Keyword line on every alert; fit checks on important new roles with Claude review + STAR-rewritten PDF only on a real disconnect (AD-29); `resume assess` / `resume tailor` / dashboard buttons; weekly role-family `variants/`; ATS report |
-| 4 | Outcome loop | **Live** (Simplify CSV import + `apply`; needs logged applications) | `jobs applied <id> --resume <version>`, `jobs status <id> oa\|interview\|offer\|rejected`, `insights outcomes` -> `reports/private/outcomes.md` (tier, role, season, resume version, referral, source, apply speed). Needs logged applications |
-| 5 | Agent-built portfolio projects | **Live** (2026-10-08) | `projects.yml` (AD-32, `docs/project-builder.md`): Fable scouts 3 projects weekly from demand + per-role reviews; Patrick approves one; every 3h the builder plans (Fable), builds one milestone (Opus + subagents), has it reviewed (Fable) and opens a PR in the project's own repo; his comments are addressed next run; when done, the resume entry (measured numbers only) is proposed to the private repo |
+| 3 | Per-posting match + tailored versions | **Done** (2026-10-08) | Keyword line on every alert; fit checks on important new roles with a hiring-panel review (recruiter, hiring manager, interviewer + ATS check, lead synthesises ranked changes; AD-37) + STAR-rewritten PDF only on a real disconnect (AD-29); `resume assess` / `resume tailor` / dashboard buttons; weekly role-family `variants/`; ATS report |
+| 4 | Outcome loop | **Live** (Simplify CSV import + `apply`; needs logged applications) | `apply <url>` auto-records the tailored resume made for that role (AD-37); `jobs applied <id> --resume <version>`, `jobs status <id> oa\|interview\|offer\|rejected`, `insights outcomes` -> `reports/private/outcomes.md` (tier, role, season, resume version, project shown, panel vote, referral, source, apply speed); `lessons()` feeds that evidence to the next resume review. Needs logged applications |
+| 5 | Agent-built portfolio projects | **Live** (2026-10-08) | `projects.yml` (AD-32, `docs/project-builder.md`): Fable scouts 3 projects weekly from demand + per-role reviews; Patrick approves one; the builder plans (Fable), builds one milestone (Opus + per-task subagents), has it reviewed (Fable) and opens a PR in the project's own repo, started within ~10 min of a merge by the scan chain (AD-35); his comments are addressed next run; repos and commits read as his own work, teaching stays private (AD-34); when done, the resume entry (measured numbers only) is proposed to the private repo. Active: Replay (`TheAsianFish/agent-replay`, autopilot), then Kiln |
 
 ## Autonomous agents
 
@@ -51,14 +51,16 @@ real skill gaps. Every agent working in this repo should read this file and
   manual runs with a custom prompt. Prompts live in `agents/prompts/`.
   Output is a pull request.
 - **Project builder:** `.github/workflows/projects.yml` (ENABLE_PROJECT_BUILDER=true),
-  scout weekly + one builder step every 3 hours; see `docs/project-builder.md`.
+  scout weekly, builder woken by the scan chain (plus a 3-hourly cron), study
+  pack Sundays; see `docs/project-builder.md`.
 
 ## Where things live
 
 - Public repo (this one): code, docs, aggregate reports (`reports/skill-demand.md`).
 - Private repo `TheAsianFish/career-private`, cloned at `resume/private/`:
-  `resume.tex` (source of truth), `applications.yaml`, `tailored/`,
-  `variants/`, `reports/` (weekly reviews, project plans, outcomes).
+  `resume.tex` (source of truth), `verified.yaml`, `applications.yaml`,
+  `projects.yaml`, `tailored/`, `variants/`, `reports/`, `prep/`, `study/`
+  (per-milestone notes), `hub/` (ABOUT, JOURNAL, project summaries).
   Never copy anything from it into the public repo or public CI logs.
 
 ## Current skill-gap snapshot

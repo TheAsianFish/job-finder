@@ -14,6 +14,14 @@ where everything is remembered (AD-33).
 Any channel whose secret is missing falls back to `#job`, so nothing is lost
 before setup.
 
+**Status (2026-10-08):** set up. Bot created, the "Opportunity Radar" category
+with all four channels and webhooks exists, the webhooks are in `.env` and in
+the repo's Actions secrets, and a test post landed in each channel. Locally,
+`webhook_for()` loads `.env` before resolving a channel (it once fell back to
+`#job` because it didn't). `#study` also gets a link to the private study
+notes after each builder run; `#projects` gets builder starts, 20-minute
+progress pings and PR links.
+
 ## One-time bot setup (about 3 minutes)
 
 1. https://discord.com/developers/applications → **New Application** → name it

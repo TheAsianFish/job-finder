@@ -186,8 +186,32 @@ dbt Labs, Canva, Grammarly, Tempus, Rippling.
   measured results. `opportunity-radar projects list|approve|pause|reject|step`.
 - Shared memory + Discord hub (AD-33): `hub/` in the private repo (ABOUT,
   journal, project summaries) read by every agent; bot-created channels
-  (#resume, #projects, #study, #agent-log); learning layer (PR study notes,
-  Patrick's piece, Sunday study pack, mock-interview gate).
+  (#resume, #projects, #study, #agent-log), live and verified; learning layer
+  (private study notes per run, "his piece", Sunday study pack,
+  mock-interview gate). The journal is union-merged (`.gitattributes`) so
+  cloud and local writers never conflict.
+
+## Builder, coverage and resume panel (2026-10-08/09)
+
+- Authorship (AD-34): project repos read as Patrick's own work (commits as
+  TheAsianFish, frequent focused commits, `dev/` branches, first-person PRs,
+  CONTRIBUTING.md); teaching, his piece, review notes go to
+  `career-private/study/<slug>/` and `#study`.
+- Builder wake-up (AD-35): `scripts/wake_builder.sh` at the end of every scan
+  dispatches `projects.yml` when there is work; guarded against overlap and
+  failure loops. Per-task subagent models; review re-runs tests and evals;
+  Fable finishes. `keycheck` action verifies the capped API key.
+- Progress pings every 20 minutes during builds (AD-36).
+- Coverage (AD-35): 282 companies (+71 verified health-tech, AI and startup
+  boards, e.g. Replit, Cognition, LangChain, Ambience, OpenEvidence, PostHog);
+  explicit Winter/Spring/Fall SWE roles alert immediately at any tier for
+  target role families; Simplify-only alerts explain why the resume wasn't
+  assessed (company careers site vs fetchable ATS).
+- Resume hiring panel (AD-37): recruiter, hiring manager and interviewer
+  personas in parallel plus the ATS seat; the lead review adds ranked changes
+  that guide tailoring; panel votes in Discord and meta.json; `apply`
+  auto-links the tailored resume; outcomes gain "project shown" and panel-vote
+  breakdowns; `lessons()` feeds the next review.
 
 ## Known gaps / deferred (with reasons)
 
@@ -199,7 +223,14 @@ dbt Labs, Canva, Grammarly, Tempus, Rippling.
 - **Optional local-LLM features (spec §27)**: not built; deterministic app is
   complete without them, per spec ordering.
 - **Secondary sources (spec §28)**: Simplify lists done (AD-21). YC /
-  Wellfound still open; see `docs/proposals/yc-spring-radar.md`.
+  Wellfound still open; see `docs/proposals/yc-spring-radar.md`. Company
+  career sites without a public API (Tesla, Google, ...) are reached only via
+  Simplify, never by bypassing bot protection.
+- **Second-opinion model for resumes** (AD-37): waits for a capped OpenAI or
+  Gemini key; would be one more seat in `resume/panel.py`.
+- **Applications not logged yet**: the outcome loop and the panel's lessons
+  start working once Patrick logs applications (`apply <url>`,
+  `jobs status <url> ...`, or `applications import-simplify`).
 - **Some seed board tokens are best-effort**: run
   `opportunity-radar companies validate` after install; `companies discover`
   re-fingerprints failures.

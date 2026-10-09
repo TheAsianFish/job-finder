@@ -52,6 +52,10 @@ uv run playwright install chromium
 uv run opportunity-radar notify test
 ```
 
+Hub channels (`#resume`, `#projects`, `#study`, `#agent-log`) are created by a
+bot: `uv run opportunity-radar discord setup --guild <server id>`; steps in
+`docs/discord-hub.md`.
+
 ## First run — baseline (important)
 
 The first scan imports everything that is already posted **without sending
@@ -110,10 +114,17 @@ docker compose up -d          # daemon + dashboard on 127.0.0.1:8765
 
 ## GitHub Actions (optional)
 
-`.github/workflows/scan.yml` can scan hourly while your Mac is offline. It is
-off by default: set repository variable `ENABLE_CLOUD_SCAN=true` and add
-`DISCORD_WEBHOOK_URL` to Actions secrets. SQLite state persists as a workflow
-artifact (best-effort). Local mode remains canonical.
+`.github/workflows/scan.yml` scans in the cloud while your Mac is offline:
+repository variable `ENABLE_CLOUD_SCAN=true` plus the `DISCORD_WEBHOOK_URL`
+secret, self-chaining every ~10 minutes (`CHAIN_SCANS=true`, AD-24). SQLite
+state persists in the Actions cache; the cloud database is the live one.
+Each run also checks priority roles against your resume and wakes the project
+builder when it has work.
+
+Two more workflows run Claude Code headless on a Claude Max plan
+(`CLAUDE_CODE_OAUTH_TOKEN` secret): `agents.yml` (weekly review, on-demand
+`review-role`) and `projects.yml`, the portfolio project builder (scout, plan,
+build one milestone PR at a time, review; `docs/project-builder.md`).
 
 ---
 
@@ -207,7 +218,7 @@ already scans directly are skipped; everything else is stored under its own
 company (Google, Meta, Tesla, … get their registry tier; unknown employers
 get the list's tier). Disable either entry to turn it off.
 
-`scan --mode hot` scans core-tier employers plus the Simplify feeds;
+`scan --mode hot` scans core- and strong-tier employers plus the Simplify feeds;
 `--mode auto` runs a full scan when the last one is older than
 `scheduler.full_scan_interval_minutes` (60) and a hot scan otherwise. The
 GitHub Actions workflow runs `--mode auto` every 10 minutes.
@@ -241,9 +252,16 @@ Run workflow -> task `review-role` + the posting link, for a brutal review of an
 Cloud scans don't tailor every alert. For important new roles they run a fit
 check (`uv run opportunity-radar resume assess <job> [--review]` does the same
 locally) and only when your standing resume has a real disconnect do you get
-one Discord message: Claude's review (weak bullets, project and culture fit,
-competitiveness, swaps, a new-project idea) plus a tailored PDF rewritten as
-technical STAR stories. The dashboard's job page has "Tailored resume" buttons.
+one Discord message in `#resume`: a hiring panel's review (recruiter skim,
+hiring manager, interviewer and an ATS check, combined by a lead into ranked
+changes; weak bullets, project fit, swaps, a new-project idea) plus a tailored
+PDF rewritten as technical STAR stories. Stronger bullets that need a fact
+only you know arrive as a pull request in the private repo (merge = true).
+The dashboard's job page has "Tailored resume" buttons.
+
+`apply <url>` records which tailored resume you sent; `jobs status` records
+what happened. `insights outcomes` then shows response rates by resume,
+project shown and panel vote, and that evidence is fed into the next review.
 
 Import what you applied to through the Simplify extension: Simplify Job Tracker
 -> Export CSV, then `uv run opportunity-radar applications import-simplify
