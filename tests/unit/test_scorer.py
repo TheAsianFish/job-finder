@@ -446,3 +446,19 @@ def test_more_non_us_cities_are_recognised():
         assert not is_us_accessible([place]), place
     for place in ("Atlanta, Georgia", "Reading, PA", "Cambridge, MA", "Remote (US)"):
         assert is_us_accessible([place]), place
+
+
+def test_off_season_override_reaches_broad_and_exploratory_companies():
+    title = "Software Engineer Intern - Winter 2027"
+    assert _decide(title, "Build backend services.", tier="broad", score=60) == "immediate"
+    assert _decide(title, "Build backend services.", tier="exploratory", score=60) == "immediate"
+
+
+def test_off_season_override_outside_top_tiers_needs_a_target_role_family():
+    level = _decide("Embedded Firmware Intern - Winter 2027", "Microcontrollers.", tier="broad")
+    assert level != "immediate"
+
+
+def test_off_season_override_still_needs_the_digest_bar():
+    title = "Software Engineer Intern - Winter 2027"
+    assert _decide(title, "Build backend services.", tier="broad", score=45) != "immediate"

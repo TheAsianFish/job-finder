@@ -28,6 +28,9 @@ flowchart LR
   `projects.yaml`, a PR that passed the Fable review (a hidden `<!-- review:
   pass -->` marker in its body; the review itself is private), has green CI, and had no activity for 12 hours is
   merged by the builder. Off by default.
+- **Wake-up (AD-35).** The ~10-minute scan chain starts the builder as soon as
+  it has work (your merge or comments, an autopilot merge, the next
+  milestone) and posts what it started to `#projects`.
 - **Cadence.** A builder step every 3 hours (`17 */3 * * *`), a scout run on
   Mondays 09:00 PT. A build step uses up to ~5 hours of agent time (Opus
   build ≤ 230 min, Fable review ≤ 70 min).

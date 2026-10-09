@@ -411,6 +411,19 @@ def score_job(
     return result
 
 
+OFF_SEASON_FAMILIES = frozenset(
+    {
+        "general_swe",
+        "backend",
+        "infrastructure",
+        "ml_systems",
+        "developer_tools",
+        "data_infrastructure",
+        "fullstack",
+    }
+)
+
+
 def decide_alert_level(
     *,
     score: float,
@@ -451,13 +464,18 @@ def decide_alert_level(
     if score >= thresholds_immediate:
         return "immediate"
 
-    # Override: explicit Winter/Spring/Fall SWE role at a core/strong company.
+    # Override: explicit Winter/Spring/Fall SWE role. Off-season roles are rare
+    # and Patrick can take a gap quarter or work remotely, so any tier counts
+    # (health-tech, AI startups, YC companies), provided the role is in one of
+    # his target families when the company is outside core/strong (AD-35).
     if (
         classification.is_software
         and classification.is_early_career
         and season.season in ("winter", "spring", "fall", "off_cycle")
         and season.confidence >= 0.9
-        and company_tier in ("core", "strong")
+        and (
+            company_tier in ("core", "strong") or classification.role_family in OFF_SEASON_FAMILIES
+        )
         and score >= thresholds_digest
     ):
         return "immediate"

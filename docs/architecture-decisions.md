@@ -541,3 +541,27 @@ to each PR (linked from `#study`). Honest-use note recorded with him: the
 learning layer exists so he can own and explain every project; if an
 interviewer asks how he built it, he should describe his AI-assisted
 workflow truthfully.
+
+## AD-35: Builder wakes on the scan chain; off-season alerts from any tier
+
+**Builder.** GitHub's cron for `projects.yml` (`17 */3 * * *`) is unreliable
+(on 2026-10-08 the slot after Patrick merged the Replay plan never fired),
+so a merge could sit for hours. The scan chain already runs every ~10
+minutes, so its last step (`scripts/wake_builder.sh`) asks the builder for a
+dry-run decision and dispatches `projects.yml` when there is work (`build`,
+`address`, `merge`, `finish`, `plan`, `create`), posting what it starts to
+`#projects`. Guards: never while a builder run is queued or running, and not
+within 3 hours of a failed run (the cron retries), so a broken stage can't
+loop and burn the Max plan. Work stays incremental: one milestone, one PR,
+then it waits for Patrick's merge or comments, which the next scan notices.
+
+**Off-season alerts.** The Winter/Spring/Fall immediate-alert override only
+applied to core/strong companies. Patrick can take a gap quarter or work
+remotely, and off-season roles are rare, so explicit off-season early-career
+SWE roles now alert immediately at any tier when they clear the digest bar,
+provided the role is in a target family (general SWE, backend,
+infrastructure, ML systems, developer tools, data infrastructure, full stack)
+for companies outside core/strong. The registry gained health-tech, AI and
+YC-style startups with public ATS boards. Company career sites without a
+public API (e.g. Tesla, Google) stay covered only via the Simplify feed:
+reading them would mean bypassing bot protection, which the spec forbids.

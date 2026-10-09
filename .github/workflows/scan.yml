@@ -119,6 +119,20 @@ jobs:
           CAREER_GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
         run: uv run opportunity-radar resume deliver --polish --push
 
+      # The builder's own cron is unreliable, so the ~10-minute scan chain checks
+      # whether it has work (your merge or comments, autopilot merge, next
+      # milestone) and starts it right away (AD-35). Never fails the scan.
+      - name: Wake the project builder
+        if: always() && vars.ENABLE_PROJECT_BUILDER == 'true' && env.HAS_CAREER_KEY == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          AGENT_GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_PROJECTS: ${{ secrets.DISCORD_WEBHOOK_PROJECTS }}
+        run: bash scripts/wake_builder.sh
+
       - name: Persist database
         if: always()
         uses: actions/cache/save@v6
