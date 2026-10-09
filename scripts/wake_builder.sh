@@ -4,8 +4,9 @@
 # (read the project repo) and the private repo at resume/private.
 #
 # Guards: nothing while a builder run is queued or running; nothing for 3 hours
-# after a failed run (the builder's own schedule retries), so a broken stage
-# can't loop. Prints the stage only, never private context.
+# after a failed run, so a broken stage can't loop; a failed decision starts
+# a builder run whose failure is reported to #projects. Prints the stage only,
+# never private context.
 set -euo pipefail
 
 busy=$(gh run list --workflow projects.yml --limit 20 --json status \
@@ -20,7 +21,13 @@ if [[ "$last" == failure* ]]; then
 fi
 
 ctx="${RUNNER_TEMP:-/tmp}/builder-wake.json"
-uv run opportunity-radar projects step --dry-run --no-push --out "$ctx" >/dev/null
+if ! uv run opportunity-radar projects step --dry-run --no-push --out "$ctx" >/dev/null; then
+  # Surface the error through a real builder run, which reports it to
+  # #projects; the 3-hour guard above keeps that from repeating every scan.
+  gh workflow run projects.yml -f action=auto
+  echo "builder decision failed; started a builder run to report it"
+  exit 0
+fi
 stage=$(jq -r .stage "$ctx")
 case "$stage" in
   create|plan|build|address|merge|finish) ;;

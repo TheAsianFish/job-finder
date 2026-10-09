@@ -102,6 +102,19 @@ jobs:
           echo "stage=$(jq -r .stage "$RUNNER_TEMP/context.json")" >> "$GITHUB_OUTPUT"
           { echo "context<<CTX_EOF"; cat "$RUNNER_TEMP/context.json"; echo; echo "CTX_EOF"; } >> "$GITHUB_OUTPUT"
 
+      - name: Report a failed step to Discord
+        # A broken decision step (expired token, missing permission) must not
+        # leave the builder silent. The wake-up in the scan chain re-triggers
+        # this at most every 3 hours, so it repeats until fixed without spam.
+        if: failure()
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_PROJECTS: ${{ secrets.DISCORD_WEBHOOK_PROJECTS }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          printf '⚠️ The builder could not decide its next step, so it is paused until this is fixed.\nLogs: %s\n' "$RUN_URL" > "$RUNNER_TEMP/fail.md"
+          uv run opportunity-radar notify markdown "$RUNNER_TEMP/fail.md" --title "Project builder needs attention" --channel projects
+
   build:
     needs: control
     if: contains(fromJSON('["plan","build","address","finish"]'), needs.control.outputs.stage)

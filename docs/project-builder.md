@@ -89,6 +89,11 @@ claims only, production engineering, AI stack used well, no AI attribution).
   push, create repos, or touch other repos. Verify that key any time with
   Actions → Project builder → Run workflow → `keycheck` (one 1-token call;
   logs print the HTTP status only).
+- `AGENT_GH_TOKEN` (fine-grained PAT, all repos) needs read/write on
+  Contents, Pull requests, Administration (create repos) and Workflows, plus
+  **read** on Checks and Commit statuses: the builder reads a PR's CI result
+  before it decides anything. If any step can't decide, `#projects` gets a
+  "needs attention" message (repeats at most every 3 hours until fixed).
 - A `commit-msg` hook strips AI attribution; commits are authored as
   TheAsianFish.
 - This repo is public, so workflow logs print stages and run statistics only.
