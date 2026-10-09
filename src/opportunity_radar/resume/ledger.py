@@ -123,6 +123,32 @@ def upsert(
     return found
 
 
+def find_tailored(job_id: int | None, url: str | None) -> str | None:
+    """Newest tailored resume folder made for this job (by job id or apply URL).
+
+    Logging an application records it as the resume version, so outcomes can
+    be traced back to the exact resume, projects and panel verdict used.
+    """
+    import json
+
+    from opportunity_radar.resume.paths import private_dir
+
+    wanted = canonicalize_url(url) if url else None
+    root = private_dir() / "tailored"
+    if not root.is_dir():
+        return None
+    for folder in sorted(root.iterdir(), reverse=True):  # names start with the date
+        try:
+            meta = json.loads((folder / "meta.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        same_job = job_id is not None and meta.get("job_id") == job_id
+        same_url = wanted is not None and canonicalize_url(meta.get("apply_url") or "") == wanted
+        if same_job or same_url:
+            return folder.name
+    return None
+
+
 def find_job(session: Session, url: str) -> JobRow | None:
     key = canonicalize_url(url)
     for column in (JobRow.canonical_url, JobRow.apply_url, JobRow.source_url):

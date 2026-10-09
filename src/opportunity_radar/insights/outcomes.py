@@ -5,10 +5,19 @@ interview -> offer. Broken down by company tier, role family, season,
 resume version, referral, source (employer board vs Simplify list) and how
 fast you applied after the posting was first seen. Groups with fewer than
 MIN_SAMPLE applications are marked as too small to conclude anything.
+
+When an application's resume version is a tailored resume (a folder under
+the private repo's tailored/), its meta.json adds two breakdowns: which
+projects were shown, and what the hiring panel predicted (recruiter
+"advance", hiring manager "interview"). `lessons()` turns all of this into a
+few lines the panel lead reads before reviewing the next resume: the only
+"learning" the system does, and the honest kind (no fine-tuning; evidence in
+the prompt, labelled weak until samples are big enough).
 """
 
 from __future__ import annotations
 
+import json
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
@@ -57,6 +66,20 @@ def _speed_bucket(job: JobRow, app: ApplicationRow) -> str:
     return "7+ days"
 
 
+def tailored_meta(variant: str) -> dict:
+    """meta.json of a tailored resume folder, or {} for other resume versions."""
+    from opportunity_radar.resume.paths import private_dir
+
+    if not variant or "/" in variant or variant.startswith("."):
+        return {}
+    path = private_dir() / "tailored" / variant / "meta.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 def collect(session: Session) -> dict[str, dict[str, Funnel]]:
     tiers = {c.id: c.tier for c in session.scalars(select(CompanyRow))}
     rows = session.execute(
@@ -79,7 +102,52 @@ def collect(session: Session) -> dict[str, dict[str, Funnel]]:
         }
         for dim, key in keys.items():
             dims[dim][key].add(app.status)
+        meta = tailored_meta(app.resume_variant or "")
+        for project in meta.get("projects") or []:
+            dims["Project shown"][str(project)].add(app.status)
+        panel = meta.get("panel") or {}
+        for seat, dim in (("recruiter", "Panel: recruiter advance"),
+                          ("hiring_manager", "Panel: manager interview")):  # fmt: skip
+            if panel.get(seat):
+                dims[dim][str(panel[seat])].add(app.status)
     return dims
+
+
+LESSON_DIMS = (
+    "Resume version",
+    "Project shown",
+    "Panel: recruiter advance",
+    "Panel: manager interview",
+    "Role family",
+    "Company tier",
+    "Applied after first seen",
+)
+
+
+def lessons(dims: dict[str, dict[str, Funnel]]) -> str:
+    """A few lines of evidence for the resume panel lead (empty-safe)."""
+    overall = dims.get("Overall", {}).get("all")
+    if not overall or not overall.applied:
+        return "No applications logged yet, so there is no outcome evidence to use."
+    lines = [
+        f"{overall.applied} applications logged, {overall.responded} responses "
+        f"({overall.response_rate:.0%}), {overall.interviewed} interviews."
+    ]
+    if overall.applied < MIN_SAMPLE:
+        lines.append(
+            f"Fewer than {MIN_SAMPLE} applications: treat every pattern below as anecdote."
+        )
+    for dim in LESSON_DIMS:
+        groups = [(k, f) for k, f in dims.get(dim, {}).items() if f.applied >= 2]
+        if len(groups) < 2:
+            continue
+        groups.sort(key=lambda kv: -kv[1].response_rate)
+        parts = [
+            f"{k}: {f.responded}/{f.applied}" + ("" if f.applied >= MIN_SAMPLE else " (small)")
+            for k, f in groups[:5]
+        ]
+        lines.append(f"- {dim}: " + "; ".join(parts))
+    return "\n".join(lines)
 
 
 def render(dims: dict[str, dict[str, Funnel]], today: date | None = None) -> str:

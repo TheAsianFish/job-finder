@@ -38,3 +38,37 @@ def test_render_without_applications_explains_how_to_start():
     text = render({}, today=date(2026, 10, 8))
     assert "No applications logged yet" in text
     assert "jobs status" in text
+
+
+def test_tailored_resume_adds_project_and_panel_breakdowns(tmp_path):
+    import json
+
+    from opportunity_radar.resume.paths import private_dir
+
+    folder = private_dir() / "tailored" / "2026-10-08-stripe-backend"
+    folder.mkdir(parents=True)
+    (folder / "meta.json").write_text(
+        json.dumps(
+            {
+                "projects": ["Repolix", "OS Kernel"],
+                "panel": {"recruiter": "yes", "hiring_manager": "maybe"},
+            }
+        )
+    )
+    reset_engine()
+    url = f"sqlite:///{tmp_path}/outcomes.db"
+    Base.metadata.create_all(get_engine(url))
+    with session_scope(url) as session:
+        repo.sync_companies(session, [CompanySource(id="stripe", name="Stripe", tier="core")])
+        for i, (status, variant) in enumerate(
+            [("oa", "2026-10-08-stripe-backend"), ("rejected", "master")]
+        ):
+            record = make_record(str(i), f"Backend Intern {i}")
+            row = repo.insert_job(session, record, alias_hashes(record))
+            repo.set_application_status(session, row.id, status).resume_variant = variant
+        dims = collect(session)
+    reset_engine()
+    assert dims["Project shown"]["Repolix"].responded == 1
+    assert dims["Panel: recruiter advance"]["yes"].applied == 1
+    assert dims["Panel: manager interview"]["maybe"].responded == 1
+    assert "master" not in dims["Project shown"]

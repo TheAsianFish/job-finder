@@ -4,9 +4,11 @@ For each fresh immediate alert at a core/strong company (at most a few per
 scan): get the full description (fetching it from the ATS when the posting
 came from the Simplify list), run the deterministic fit assessment against
 the standing resume, and stay silent when it fits. When it doesn't:
-- Claude writes a candid review (weak bullets, project/culture fit,
-  competitiveness, swaps, a new-project proposal when the bank can't close
-  the gap),
+- a hiring panel (recruiter, hiring manager, interviewer + the ATS check;
+  panel.py) answers in parallel, then Claude writes the lead review (weak
+  bullets, project/culture fit, competitiveness, swaps, ranked changes, a
+  new-project proposal when the bank can't close the gap), informed by what
+  past applications taught us (insights.outcomes.lessons),
 - a tailored resume is built with technical STAR rewrites behind the guard,
 - Discord gets one message: verdict + flags + the PDF + the full review,
 - everything is archived in the private repo; project proposals are also
@@ -73,6 +75,18 @@ def pending_jobs(db_url: str | None = None, lookback_hours: int = LOOKBACK_HOURS
         )
 
 
+def _lessons(db_url: str | None) -> str:
+    """What past applications taught us, for the panel lead. Never raises."""
+    from opportunity_radar.insights.outcomes import collect, lessons
+
+    try:
+        with session_scope(db_url) as session:
+            return lessons(collect(session))
+    except Exception as exc:  # outcomes are advisory; never block a check
+        logger.warning("outcome_lessons_failed", error=str(exc)[:120])
+        return ""
+
+
 def _mark_checked(db_url: str | None, job_id: int) -> None:
     with session_scope(db_url) as session:
         job = session.get(JobRow, job_id)
@@ -119,8 +133,9 @@ async def run_check(
     baseline: str,
     runner: Runner | None,
     force: bool = False,
+    lessons: str = "",
 ) -> tuple[str, FitAssessment | None]:
-    """Assess -> (if flagged or forced) review + tailor + one Discord message."""
+    """Assess -> (if flagged or forced) panel review + tailor + one Discord message."""
     title, company, url = ref.title, ref.company_name, ref.apply_url
     description = ref.description
     if len(description) < MIN_DESCRIPTION:
@@ -139,7 +154,10 @@ async def run_check(
         description=description,
         fit=fit,
         runner=runner,
+        lessons=lessons,
     )
+    from opportunity_radar.resume.panel import summary as panel_summary
+
     out_dir = (
         private_dir() / "tailored" / f"{date.today().isoformat()}-{slug(company, 24)}-{slug(title)}"
     )
@@ -156,8 +174,12 @@ async def run_check(
             "apply_url": url,
             "severity": fit.severity,
             "reasons": fit.reasons,
+            "panel": panel_summary(rev.panel),
         },
-        guidance=[f"{w.get('bullet', '')[:90]}: {w.get('fix', '')}" for w in rev.weak_bullets[:6]]
+        guidance=(
+            rev.changes[:6]
+            or [f"{w.get('bullet', '')[:90]}: {w.get('fix', '')}" for w in rev.weak_bullets[:6]]
+        )
         + [f"Swap in: {s}" for s in rev.swaps[:2]],
         prefer=rev.swaps[:3],
     )
@@ -225,6 +247,7 @@ async def check_job(
     runner: Runner | None,
     db_url: str | None = None,
     force: bool = False,
+    lessons: str = "",
 ) -> tuple[str, FitAssessment | None]:
     """Check one stored job; non-priority roles are skipped unless forced."""
     with session_scope(db_url) as session:
@@ -245,7 +268,13 @@ async def check_job(
     if not force and (tier not in IMPORTANT_TIERS or family not in targets):
         return "skipped", None
     return await run_check(
-        ref, notifier=notifier, bank=bank, baseline=baseline, runner=runner, force=force
+        ref,
+        notifier=notifier,
+        bank=bank,
+        baseline=baseline,
+        runner=runner,
+        force=force,
+        lessons=lessons,
     )
 
 
@@ -282,7 +311,13 @@ async def check_url(
                 description="",
             )
     return await run_check(
-        ref, notifier=notifier, bank=bank, baseline=baseline, runner=runner, force=True
+        ref,
+        notifier=notifier,
+        bank=bank,
+        baseline=baseline,
+        runner=runner,
+        force=True,
+        lessons=_lessons(db_url),
     )
 
 
@@ -304,9 +339,16 @@ async def deliver_pending(
         return report
     bank = load_bank()
     baseline = master_text(bank)
+    lessons = _lessons(db_url)
     for job_id in job_ids[:max_jobs]:
         outcome, fit = await check_job(
-            job_id, notifier=notifier, bank=bank, baseline=baseline, runner=runner, db_url=db_url
+            job_id,
+            notifier=notifier,
+            bank=bank,
+            baseline=baseline,
+            runner=runner,
+            db_url=db_url,
+            lessons=lessons,
         )
         report.checked += 1
         if outcome == "failed":

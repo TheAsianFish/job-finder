@@ -362,9 +362,21 @@ def build_resume_check_message(job: Any, fit, rev, tailored_summary: str) -> dic
     ]
     if getattr(rev, "verdict", ""):
         lines.append(f"**Verdict:** {rev.verdict}")
+    panel = getattr(rev, "panel", None) or {}
+    votes = []
+    if "advance" in panel.get("recruiter", {}):
+        votes.append(f"recruiter advance: {panel['recruiter']['advance']}")
+    if "interview" in panel.get("hiring_manager", {}):
+        votes.append(f"manager interview: {panel['hiring_manager']['interview']}")
+    if votes:
+        lines.append("👥 Panel: " + " · ".join(votes))
     lines += [f"• {reason}" for reason in fit.reasons[:4]]
-    for weak in (getattr(rev, "weak_bullets", None) or [])[:2]:
-        lines.append(f"✏️ {weak.get('problem', '')} → {weak.get('fix', '')}")
+    changes = getattr(rev, "changes", None) or []
+    for change in changes[:3]:
+        lines.append(f"✏️ {change}")
+    if not changes:
+        for weak in (getattr(rev, "weak_bullets", None) or [])[:2]:
+            lines.append(f"✏️ {weak.get('problem', '')} → {weak.get('fix', '')}")
     project = getattr(rev, "new_project", None) or {}
     if project.get("needed"):
         lines.append(f"🚀 New project: **{project.get('title', '')}**: {project.get('pitch', '')}")

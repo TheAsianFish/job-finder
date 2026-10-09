@@ -576,3 +576,31 @@ files changed recently, flagging two quiet intervals as possibly stuck (each
 stage still has its hard timeout). The webhook is removed from the agent's
 own environment (`env -u HEARTBEAT_WEBHOOK`); it only exists in the
 background pinger.
+
+## AD-37: Hiring panel for resume checks; outcomes feed the next review
+
+Patrick asked whether one reviewer (one model, one viewpoint) is enough. Real
+screening has distinct stages: ATS keyword matching (not an LLM), a
+recruiter's few-second skim, the hiring manager's "can they do our work", and
+interviewers probing each bullet. Layered on the existing check (AD-29), not a
+rewrite:
+
+- `resume/panel.py`: recruiter, hiring-manager and interviewer personas run
+  in parallel (three `claude -p` calls on the Max plan), plus a deterministic
+  ATS seat (`ats.analyse`). A failing seat is recorded and skipped.
+- `review.review` becomes the panel lead: the same Review JSON plus a ranked
+  `changes` list, which now guides the tailored resume's rewrites. review.md
+  gains "Top changes", "Hiring panel" and "Be ready to defend"; the Discord
+  message shows the panel's votes. `use_panel=False` restores one reviewer.
+- Learning without fine-tuning: logging an application auto-records the
+  tailored resume made for that job (`ledger.find_tailored`), its meta.json
+  now stores the panel's verdicts, `insights outcomes` adds "Project shown"
+  and panel-vote breakdowns, and `outcomes.lessons()` puts that evidence (with
+  small-sample warnings) into the lead's prompt. The system improves as
+  applications and responses are logged; with none logged it says so.
+
+Deferred: a second-opinion model (GPT or Gemini) for top roles, to check the
+resume isn't tuned to one model's taste. It needs a capped OpenAI or Gemini
+key from Patrick; add it as an extra seat in `run_panel` when one exists.
+Rejected: multi-round agent debate; more cost and latency for little gain
+over focused seats plus one synthesis.

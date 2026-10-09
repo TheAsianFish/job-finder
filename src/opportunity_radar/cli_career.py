@@ -57,6 +57,12 @@ def record_application(
     from opportunity_radar.resume.paths import ledger_path, private_dir
 
     job_id, url, found_company, found_title = _resolve_target(target)
+    if status == "applied" and not resume:
+        from opportunity_radar.resume.ledger import find_tailored
+
+        resume = find_tailored(job_id, url)
+        if resume:
+            console.print(f"Resume version: tailored/{resume} (made for this role).")
     if job_id is not None:
         with session_scope() as session:
             fields = {"resume_variant": resume, "notes": notes, "referral_status": referral}

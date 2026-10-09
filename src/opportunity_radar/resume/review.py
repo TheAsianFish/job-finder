@@ -8,6 +8,11 @@ technical depth), whether each project fits the role and the company's
 apparent values, how the candidate stacks up against typical applicants,
 which reserves to swap in, and whether a new project is warranted.
 Advice only: it never writes resume content, so it cannot fabricate any.
+
+With a hiring panel (panel.py), recruiter / hiring-manager / interviewer
+personas and the deterministic ATS seat answer first, in parallel; this
+review then acts as the lead: it weighs their views (and what past
+applications taught us) and adds one ranked list of changes.
 """
 
 from __future__ import annotations
@@ -32,6 +37,8 @@ class Review:
     competitiveness: str = ""
     swaps: list[str] = field(default_factory=list)
     new_project: dict = field(default_factory=dict)  # needed, title, pitch, skills, why
+    changes: list[str] = field(default_factory=list)  # lead's ranked fixes, best first
+    panel: dict = field(default_factory=dict)  # persona -> raw answer (panel.py)
     error: str | None = None
 
 
@@ -98,12 +105,22 @@ def review(
     description: str,
     fit: FitAssessment,
     runner: Runner | None,
+    use_panel: bool = True,
+    lessons: str = "",
 ) -> Review:
     if runner is None:
         return Review(error="Claude Code CLI not available")
     prompt = build_prompt(
         bank, master_text, title=title, company=company, description=description, fit=fit
     )
+    panel: dict = {}
+    if use_panel:
+        from opportunity_radar.resume.panel import run_panel
+
+        panel = run_panel(
+            bank, master_text, title=title, company=company, description=description, runner=runner
+        )
+        prompt += lead_section(panel, lessons)
     try:
         data = parse_json_object(runner(prompt))
     except Exception as exc:
@@ -125,7 +142,29 @@ def review(
         competitiveness=str(data.get("competitiveness", "")),
         swaps=[str(s) for s in as_list("swaps")],
         new_project=new_project if isinstance(new_project, dict) else {},
+        changes=[str(c) for c in as_list("changes")][:8],
+        panel=panel,
     )
+
+
+def lead_section(panel: dict, lessons: str) -> str:
+    """Appended to the review prompt when a hiring panel ran."""
+    return f"""
+
+You are also the LEAD of a hiring panel. Your panel's views are below (the ATS seat
+is a deterministic keyword/format check, not an opinion). Where they disagree,
+decide and say why in the verdict. Weigh the recruiter for the first skim, the
+hiring manager for project choice and swaps, the interviewer for which bullets
+need to be more concrete. Add one more key to your JSON reply:
+"changes": up to 8 concrete changes to this resume for this role, most impactful
+first, each using only true facts above.
+
+What past applications taught us (treat small samples as weak evidence):
+{lessons or "No outcomes logged yet."}
+
+Panel:
+{json.dumps(panel, ensure_ascii=False)[:9000]}
+"""
 
 
 def render_markdown(
@@ -148,6 +187,13 @@ def render_markdown(
         lines += [f"_(Written review unavailable: {rev.error})_", ""]
         return "\n".join(lines)
     lines += [f"**Verdict:** {rev.verdict}", ""]
+    if rev.changes:
+        lines += [
+            "## Top changes (panel lead)",
+            *[f"{i}. {c}" for i, c in enumerate(rev.changes, 1)],
+            "",
+        ]
+    lines += _panel_markdown(rev.panel)
     if rev.strengths:
         lines += ["## Strengths", *[f"- {s}" for s in rev.strengths], ""]
     if rev.weak_bullets:
@@ -181,3 +227,43 @@ def render_markdown(
             "",
         ]
     return "\n".join(lines)
+
+
+def _panel_markdown(panel: dict) -> list[str]:
+    if not panel:
+        return []
+    lines = ["## Hiring panel"]
+    rec = panel.get("recruiter", {})
+    if rec and "error" not in rec:
+        lines.append(
+            f"- **Recruiter (6-second skim):** advance = {rec.get('advance', '?')}. {rec.get('why', '')}"
+        )
+        lines += [f"  - Red flag: {r}" for r in (rec.get("red_flags") or [])[:3]]
+    hm = panel.get("hiring_manager", {})
+    if hm and "error" not in hm:
+        lines.append(
+            f"- **Hiring manager:** interview = {hm.get('interview', '?')}. {hm.get('why', '')}"
+        )
+        lines += [f"  - Wanted to see: {m}" for m in (hm.get("missing_evidence") or [])[:3]]
+    ats = panel.get("ats", {})
+    if ats:
+        lines.append(
+            f"- **ATS check:** {float(ats.get('keyword_coverage') or 0):.0%} keyword coverage; "
+            f"shown-but-missing: {', '.join(ats.get('have_but_not_shown') or []) or 'none'}"
+        )
+    for name in ("recruiter", "hiring_manager", "interviewer"):
+        if "error" in panel.get(name, {}):
+            lines.append(f"- _{name.replace('_', ' ')} seat unavailable: {panel[name]['error']}_")
+    lines.append("")
+    iv = panel.get("interviewer", {})
+    if iv and "error" not in iv and iv.get("fragile_bullets"):
+        lines.append("## Be ready to defend (interviewer)")
+        for item in iv.get("fragile_bullets", [])[:5]:
+            if isinstance(item, dict):
+                lines.append(
+                    f'- **{item.get("bullet", "")}**: they\'ll ask "{item.get("likely_question", "")}"'
+                )
+        if iv.get("strongest_story"):
+            lines.append(f"- Strongest story for this role: {iv['strongest_story']}")
+        lines.append("")
+    return lines
