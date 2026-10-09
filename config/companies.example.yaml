@@ -2057,7 +2057,7 @@ companies:
   adapter_config:
     board_token: flatironhealth
   tags:
-  - health
+  - healthcare
   notes: Public greenhouse board, verified 2026-10-06.
 - id: veeva
   name: Veeva
@@ -2067,7 +2067,7 @@ companies:
   adapter_config:
     site: veeva
   tags:
-  - health
+  - healthcare
   - enterprise
   notes: Public lever board, verified 2026-10-06.
 - id: recursion
@@ -2088,9 +2088,773 @@ companies:
   adapter_config:
     job_board_name: cedar
   tags:
-  - health
+  - healthcare
   - fintech
   notes: Public ashby board, verified 2026-10-06.
+- id: ambience-healthcare
+  name: Ambience Healthcare
+  domain: ambiencehealthcare.com
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: ambiencehealthcare
+  tags:
+  - healthcare
+  - ai
+  notes: Public ashby board, verified 2026-10-08.
+- id: openevidence
+  name: OpenEvidence
+  domain: openevidence.com
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: openevidence
+  tags:
+  - healthcare
+  - ai
+  notes: Public ashby board, verified 2026-10-08.
+- id: oscar-health
+  name: Oscar Health
+  domain: hioscar.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: oscar
+  tags:
+  - healthcare
+  - insurance
+  notes: Public greenhouse board, verified 2026-10-08.
+- id: zocdoc
+  name: Zocdoc
+  domain: zocdoc.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: zocdoc
+  tags:
+  - healthcare
+  - consumer
+  notes: Public greenhouse board, verified 2026-10-08.
+- id: color-health
+  name: Color Health
+  domain: color.com
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: color-health
+  tags:
+  - healthcare
+  notes: Public ashby board, verified 2026-10-08.
+- id: headway
+  name: Headway
+  domain: headway.co
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: headway
+  tags:
+  - healthcare
+  notes: Public ashby board, verified 2026-10-08.
+- id: commure
+  name: Commure
+  domain: commure.com
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: commure
+  tags:
+  - healthcare
+  - ai
+  notes: Public ashby board, verified 2026-10-08.
+- id: freenome
+  name: Freenome
+  domain: freenome.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: freenome
+  tags:
+  - healthcare
+  - biotech
+  notes: Public greenhouse board, verified 2026-10-08.
+- id: included-health
+  name: Included Health
+  domain: includedhealth.com
+  tier: broad
+  adapter: lever
+  adapter_config:
+    site: includedhealth
+  tags:
+  - healthcare
+  notes: Public lever board, verified 2026-10-08.
+- id: hinge-health
+  name: Hinge Health
+  domain: hingehealth.com
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: hinge-health
+  tags:
+  - healthcare
+  notes: Public ashby board, verified 2026-10-08.
+- id: sword-health
+  name: Sword Health
+  domain: swordhealth.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: swordhealth
+  tags:
+  - healthcare
+  - ai
+  notes: Public greenhouse board, verified 2026-10-08.
+- id: elation-health
+  name: Elation Health
+  domain: elationhealth.com
+  tier: exploratory
+  adapter: greenhouse
+  adapter_config:
+    board_token: elationhealth
+  tags:
+  - healthcare
+  notes: Public greenhouse board, verified 2026-10-08.
+- id: nuna
+  name: Nuna
+  domain: nuna.com
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: nuna
+  tags:
+  - healthcare
+  - data
+  notes: Public ashby board, verified 2026-10-08.
+- id: garner-health
+  name: Garner Health
+  domain: getgarner.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: garnerhealth
+  tags:
+  - healthcare
+  - data
+  notes: Public greenhouse board, verified 2026-10-08.
+- id: tennr
+  name: Tennr
+  domain: tennr.com
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: tennr
+  tags:
+  - healthcare
+  - ai
+  notes: Public ashby board, verified 2026-10-08.
+- id: suki
+  name: Suki
+  domain: suki.ai
+  tier: exploratory
+  adapter: greenhouse
+  adapter_config:
+    board_token: suki
+  tags:
+  - healthcare
+  - ai
+  notes: Public greenhouse board, verified 2026-10-08.
+- id: nabla
+  name: Nabla
+  domain: nabla.com
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: nabla
+  tags:
+  - healthcare
+  - ai
+  notes: Public ashby board, verified 2026-10-08.
+- id: viz-ai
+  name: Viz.ai
+  domain: viz.ai
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: viz.ai
+  tags:
+  - healthcare
+  - ai
+  notes: Public ashby board, verified 2026-10-08.
+- id: komodo-health
+  name: Komodo Health
+  domain: komodohealth.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: komodohealth
+  tags:
+  - healthcare
+  - data
+  notes: Public greenhouse board, verified 2026-10-08.
+- id: ro
+  name: Ro
+  domain: ro.co
+  tier: broad
+  adapter: lever
+  adapter_config:
+    site: ro
+  tags:
+  - healthcare
+  - consumer
+  notes: Public lever board, verified 2026-10-08.
+- id: sprinter-health
+  name: Sprinter Health
+  domain: sprinterhealth.com
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: sprinter-health
+  tags:
+  - healthcare
+  notes: Public ashby board, verified 2026-10-08.
+- id: canvas-medical
+  name: Canvas Medical
+  domain: canvasmedical.com
+  tier: exploratory
+  adapter: lever
+  adapter_config:
+    site: canvasmedical
+  tags:
+  - healthcare
+  notes: Public lever board, verified 2026-10-08.
+- id: lyra-health
+  name: Lyra Health
+  domain: lyrahealth.com
+  tier: broad
+  adapter: lever
+  adapter_config:
+    site: lyrahealth
+  tags:
+  - healthcare
+  notes: Public lever board, verified 2026-10-08.
+- id: maven-clinic
+  name: Maven Clinic
+  domain: mavenclinic.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: mavenclinic
+  tags:
+  - healthcare
+  notes: Public greenhouse board, verified 2026-10-08.
+- id: notable-health
+  name: Notable
+  domain: notablehealth.com
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: notable
+  tags:
+  - healthcare
+  - ai
+  notes: Public ashby board, verified 2026-10-08.
+- id: rad-ai
+  name: Rad AI
+  domain: radai.com
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: radai
+  tags:
+  - healthcare
+  - ai
+  notes: Public ashby board, verified 2026-10-08.
+- id: infinitus
+  name: Infinitus
+  domain: infinitus.ai
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: infinitus
+  tags:
+  - healthcare
+  - ai
+  notes: Public ashby board, verified 2026-10-08.
+- id: replit
+  name: Replit
+  domain: replit.com
+  tier: strong
+  adapter: ashby
+  adapter_config:
+    job_board_name: replit
+  tags:
+  - ai
+  - developer-tools
+  notes: Public ashby board, verified 2026-10-08.
+- id: cognition
+  name: Cognition
+  domain: cognition.ai
+  tier: strong
+  adapter: ashby
+  adapter_config:
+    job_board_name: cognition
+  tags:
+  - ai
+  - developer-tools
+  notes: Public ashby board, verified 2026-10-08.
+- id: writer
+  name: Writer
+  domain: writer.com
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: writer
+  tags:
+  - ai
+  - enterprise
+  notes: Public ashby board, verified 2026-10-08.
+- id: langchain
+  name: LangChain
+  domain: langchain.com
+  tier: strong
+  adapter: ashby
+  adapter_config:
+    job_board_name: langchain
+  tags:
+  - ai
+  - developer-tools
+  notes: Public ashby board, verified 2026-10-08.
+- id: llamaindex
+  name: LlamaIndex
+  domain: llamaindex.ai
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: llamaindex
+  tags:
+  - ai
+  - developer-tools
+  notes: Public ashby board, verified 2026-10-08.
+- id: fireworks-ai
+  name: Fireworks AI
+  domain: fireworks.ai
+  tier: strong
+  adapter: ashby
+  adapter_config:
+    job_board_name: fireworks
+  tags:
+  - ai
+  - infrastructure
+  notes: Public ashby board, verified 2026-10-08.
+- id: character-ai
+  name: Character.AI
+  domain: character.ai
+  tier: strong
+  adapter: ashby
+  adapter_config:
+    job_board_name: character
+  tags:
+  - ai
+  - consumer
+  notes: Public ashby board, verified 2026-10-08.
+- id: imbue
+  name: Imbue
+  domain: imbue.com
+  tier: exploratory
+  adapter: greenhouse
+  adapter_config:
+    board_token: imbue
+  tags:
+  - ai
+  - research
+  notes: Public greenhouse board, verified 2026-10-08.
+- id: sourcegraph
+  name: Sourcegraph
+  domain: sourcegraph.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: sourcegraph91
+  tags:
+  - ai
+  - developer-tools
+  notes: Public greenhouse board, verified 2026-10-08.
+- id: warp
+  name: Warp
+  domain: warp.dev
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: warp
+  tags:
+  - ai
+  - developer-tools
+  notes: Public greenhouse board, verified 2026-10-08.
+- id: factory-ai
+  name: Factory
+  domain: factory.ai
+  tier: strong
+  adapter: ashby
+  adapter_config:
+    job_board_name: factory
+  tags:
+  - ai
+  - developer-tools
+  notes: Public ashby board, verified 2026-10-08.
+- id: anyscale
+  name: Anyscale
+  domain: anyscale.com
+  tier: strong
+  adapter: ashby
+  adapter_config:
+    job_board_name: anyscale
+  tags:
+  - ai
+  - infrastructure
+  notes: Public ashby board, verified 2026-10-08.
+- id: physical-intelligence
+  name: Physical Intelligence
+  domain: physicalintelligence.company
+  tier: strong
+  adapter: ashby
+  adapter_config:
+    job_board_name: physicalintelligence
+  tags:
+  - ai
+  - robotics
+  - research
+  notes: Public ashby board, verified 2026-10-08.
+- id: reflection-ai
+  name: Reflection AI
+  domain: reflection.ai
+  tier: strong
+  adapter: ashby
+  adapter_config:
+    job_board_name: reflectionai
+  tags:
+  - ai
+  - research
+  notes: Public ashby board, verified 2026-10-08.
+- id: thinking-machines
+  name: Thinking Machines Lab
+  domain: thinkingmachines.ai
+  tier: strong
+  adapter: ashby
+  adapter_config:
+    job_board_name: thinkingmachines
+  tags:
+  - ai
+  - research
+  notes: Public ashby board, verified 2026-10-08.
+- id: hebbia
+  name: Hebbia
+  domain: hebbia.com
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: hebbia-ai
+  tags:
+  - ai
+  - fintech
+  notes: Public ashby board, verified 2026-10-08.
+- id: fal
+  name: fal
+  domain: fal.ai
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: fal-ai
+  tags:
+  - ai
+  - infrastructure
+  notes: Public ashby board, verified 2026-10-08.
+- id: cartesia
+  name: Cartesia
+  domain: cartesia.ai
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: cartesia
+  tags:
+  - ai
+  notes: Public ashby board, verified 2026-10-08.
+- id: suno
+  name: Suno
+  domain: suno.com
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: suno
+  tags:
+  - ai
+  - consumer
+  notes: Public ashby board, verified 2026-10-08.
+- id: exa
+  name: Exa
+  domain: exa.ai
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: exa
+  tags:
+  - ai
+  - infrastructure
+  notes: Public ashby board, verified 2026-10-08.
+- id: openrouter
+  name: OpenRouter
+  domain: openrouter.ai
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: openrouter
+  tags:
+  - ai
+  - infrastructure
+  notes: Public ashby board, verified 2026-10-08.
+- id: hex
+  name: Hex
+  domain: hex.tech
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: hex
+  tags:
+  - ai
+  - data
+  notes: Public ashby board, verified 2026-10-08.
+- id: clay
+  name: Clay
+  domain: clay.com
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: claylabs
+  tags:
+  - ai
+  - product
+  notes: Public ashby board, verified 2026-10-08.
+- id: vapi
+  name: Vapi
+  domain: vapi.ai
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: vapi
+  tags:
+  - ai
+  - developer-tools
+  notes: Public ashby board, verified 2026-10-08.
+- id: retell-ai
+  name: Retell AI
+  domain: retellai.com
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: retell-ai
+  tags:
+  - ai
+  notes: Public ashby board, verified 2026-10-08.
+- id: mintlify
+  name: Mintlify
+  domain: mintlify.com
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: mintlify
+  tags:
+  - ai
+  - developer-tools
+  notes: Public ashby board, verified 2026-10-08.
+- id: browserbase
+  name: Browserbase
+  domain: browserbase.com
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: browserbase
+  tags:
+  - ai
+  - infrastructure
+  notes: Public ashby board, verified 2026-10-08.
+- id: turbopuffer
+  name: turbopuffer
+  domain: turbopuffer.com
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: turbopuffer
+  tags:
+  - databases
+  - infrastructure
+  notes: Public ashby board, verified 2026-10-08.
+- id: webflow
+  name: Webflow
+  domain: webflow.com
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: webflow
+  tags:
+  - product
+  notes: Public ashby board, verified 2026-10-08.
+- id: posthog
+  name: PostHog
+  domain: posthog.com
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: posthog
+  tags:
+  - developer-tools
+  - product
+  notes: Public ashby board, verified 2026-10-08.
+- id: gecko-robotics
+  name: Gecko Robotics
+  domain: geckorobotics.com
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: gecko-robotics
+  tags:
+  - robotics
+  - hardware
+  notes: Public ashby board, verified 2026-10-08.
+- id: zip
+  name: Zip
+  domain: ziphq.com
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: zip
+  tags:
+  - enterprise
+  notes: Public ashby board, verified 2026-10-08.
+- id: rho
+  name: Rho
+  domain: rho.co
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: rho
+  tags:
+  - fintech
+  notes: Public ashby board, verified 2026-10-08.
+- id: ironclad
+  name: Ironclad
+  domain: ironcladapp.com
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: ironcladhq
+  tags:
+  - enterprise
+  - ai
+  notes: Public ashby board, verified 2026-10-08.
+- id: persona
+  name: Persona
+  domain: withpersona.com
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: persona
+  tags:
+  - security
+  notes: Public ashby board, verified 2026-10-08.
+- id: hightouch
+  name: Hightouch
+  domain: hightouch.com
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: hightouch
+  tags:
+  - data
+  notes: Public ashby board, verified 2026-10-08.
+- id: clerk
+  name: Clerk
+  domain: clerk.com
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: clerk
+  tags:
+  - developer-tools
+  - security
+  notes: Public ashby board, verified 2026-10-08.
+- id: resend
+  name: Resend
+  domain: resend.com
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: resend
+  tags:
+  - developer-tools
+  notes: Public ashby board, verified 2026-10-08.
+- id: inngest
+  name: Inngest
+  domain: inngest.com
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: inngest
+  tags:
+  - developer-tools
+  - infrastructure
+  notes: Public ashby board, verified 2026-10-08.
+- id: railway
+  name: Railway
+  domain: railway.com
+  tier: exploratory
+  adapter: ashby
+  adapter_config:
+    job_board_name: railway
+  tags:
+  - cloud
+  - infrastructure
+  notes: Public ashby board, verified 2026-10-08.
+- id: render
+  name: Render
+  domain: render.com
+  tier: broad
+  adapter: ashby
+  adapter_config:
+    job_board_name: render
+  tags:
+  - cloud
+  - infrastructure
+  notes: Public ashby board, verified 2026-10-08.
+- id: fly-io
+  name: Fly.io
+  domain: fly.io
+  tier: exploratory
+  adapter: lever
+  adapter_config:
+    site: fly
+  tags:
+  - cloud
+  - infrastructure
+  notes: Public lever board, verified 2026-10-08.
+- id: wealthfront
+  name: Wealthfront
+  domain: wealthfront.com
+  tier: broad
+  adapter: lever
+  adapter_config:
+    site: wealthfront
+  tags:
+  - fintech
+  notes: Public lever board, verified 2026-10-08.
+- id: navan
+  name: Navan
+  domain: navan.com
+  tier: broad
+  adapter: greenhouse
+  adapter_config:
+    board_token: tripactions
+  tags:
+  - enterprise
+  - product
+  notes: Public greenhouse board, verified 2026-10-08.
 - id: simplify-internships
   name: Simplify internships list
   domain: github.com/SimplifyJobs
