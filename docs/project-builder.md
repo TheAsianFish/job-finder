@@ -91,8 +91,9 @@ claims only, production engineering, AI stack used well, no AI attribution).
   logs print the HTTP status only).
 - `AGENT_GH_TOKEN` (fine-grained PAT, all repos) needs read/write on
   Contents, Pull requests, Administration (create repos) and Workflows, plus
-  **read** on Checks and Commit statuses: the builder reads a PR's CI result
-  before it decides anything. If any step can't decide, `#projects` gets a
+  **read** on Actions and Commit statuses: the builder reads a PR's CI result
+  before it decides anything (from the PR's checks, or from the Actions runs of
+  its head commit when the token can't read check runs). If any step can't decide, `#projects` gets a
   "needs attention" message (repeats at most every 3 hours until fixed).
 - A `commit-msg` hook strips AI attribution; commits are authored as
   TheAsianFish.

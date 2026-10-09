@@ -162,8 +162,9 @@ def test_legacy_review_marker_still_counts():
 class FakeGh:
     """Answers the gh calls read_state makes, keyed by their first args."""
 
-    def __init__(self, *, exists=True, plan=PLAN, prs=None, comments=None, commits=None):
+    def __init__(self, *, exists=True, plan=PLAN, prs=None, comments=None, commits=None, runs=None):
         self.exists, self.plan = exists, plan
+        self.runs = runs  # set: the token can't read check runs, only Actions runs
         self.prs = prs or []
         self.comments = comments or []
         self.commits = commits or []
@@ -182,6 +183,10 @@ class FakeGh:
         if args[:2] == ["pr", "list"]:
             return json.dumps(self.prs)
         if args[:2] == ["pr", "view"]:
+            if self.runs is not None:
+                if "statusCheckRollup" in args[-1]:
+                    raise GhError("GraphQL: Resource not accessible by personal access token")
+                return json.dumps({"commits": self.commits, "body": REVIEW_PASS})
             return json.dumps(
                 {
                     "commits": self.commits,
@@ -189,6 +194,8 @@ class FakeGh:
                     "body": REVIEW_PASS,
                 }
             )
+        if args[0] == "api" and "actions/runs" in args[1]:
+            return json.dumps({"workflow_runs": self.runs})
         if args[0] == "api" and "issues" in args[1]:
             return json.dumps(self.comments)
         if args[0] == "api":
@@ -227,6 +234,19 @@ def test_read_state_finds_only_unaddressed_human_feedback():
     assert read_state("TheAsianFish/evalkit", replied).pr.feedback == []
     assert read_state("x/y", FakeGh(exists=False)).exists is False
     assert read_state("x/y", FakeGh(plan=None)).plan is None
+
+
+def test_ci_is_read_from_actions_runs_when_check_runs_are_off_limits():
+    prs = [{"number": 4, "url": "u4", "headRefName": "dev/m2", "createdAt": "2026-10-09T08:00:00Z"}]
+    commits = [{"committedDate": "2026-10-09T08:00:00Z", "oid": "abc123"}]
+    passed = FakeGh(prs=prs, commits=commits, runs=[{"conclusion": "success"}])
+    assert read_state("x/y", passed).pr.checks_green
+    assert any(a[1] == "repos/x/y/actions/runs?head_sha=abc123" for a in passed.calls)
+    running = FakeGh(
+        prs=prs, commits=commits, runs=[{"conclusion": "success"}, {"conclusion": None}]
+    )
+    assert not read_state("x/y", running).pr.checks_green
+    assert not read_state("x/y", FakeGh(prs=prs, commits=commits, runs=[])).pr.checks_green
 
 
 # ---------------------------------------------------------------- resume entry

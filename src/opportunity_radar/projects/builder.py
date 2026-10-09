@@ -129,14 +129,30 @@ def _json(gh: Gh, args: list[str]):
     return json.loads(gh(args) or "null")
 
 
+def _actions_runs(repo: str, commits: list[dict], gh: Gh) -> list[dict]:
+    """Workflow runs for the PR's head commit, shaped like statusCheckRollup."""
+    sha = commits[-1].get("oid") if commits else None
+    if not sha:
+        return []
+    data = _json(gh, ["api", f"repos/{repo}/actions/runs?head_sha={sha}"]) or {}
+    # An unfinished run has no conclusion yet, so it never counts as green.
+    return [{"conclusion": r.get("conclusion") or ""} for r in data.get("workflow_runs") or []]
+
+
 def read_pr(repo: str, raw: dict, gh: Gh) -> PullRequest:
     number = int(raw["number"])
-    view = _json(
-        gh, ["pr", "view", str(number), "--repo", repo, "--json", "commits,statusCheckRollup,body"]
-    )
+    pr_view = ["pr", "view", str(number), "--repo", repo, "--json"]
+    try:
+        view = _json(gh, [*pr_view, "commits,statusCheckRollup,body"])
+        checks = view.get("statusCheckRollup") or []
+    except GhError:
+        # A fine-grained token can't always read check runs (GitHub doesn't
+        # offer "Checks" on every token); the Actions runs for the head commit
+        # say the same thing with only "Actions: read".
+        view = _json(gh, [*pr_view, "commits,body"])
+        checks = _actions_runs(repo, view.get("commits") or [], gh)
     commits = view.get("commits") or []
     last_commit = _when(commits[-1].get("committedDate")) if commits else None
-    checks = view.get("statusCheckRollup") or []
     green = bool(checks) and all(
         (c.get("conclusion") or c.get("state") or "").upper() in ("SUCCESS", "NEUTRAL", "SKIPPED")
         for c in checks
