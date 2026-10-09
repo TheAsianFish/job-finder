@@ -297,7 +297,13 @@ jobs:
           {
             result="failed ($OUTCOME)"; [ "$OUTCOME" = success ] && result="finished"
             echo "**${title}**: ${STAGE} ${result}."
-            [ -n "$URL" ] && echo "Review: ${URL} (comment to request changes; merge to continue)."
+            if [ -n "$URL" ]; then
+              if [ "$(jq -r .project.autopilot <<< "$CONTEXT")" = true ] && grep -q '<!-- review: pass -->' ../work/.agent/pr.md 2>/dev/null; then
+                echo "PR: ${URL}. Review passed: autopilot merges it after 12 quiet hours once checks are green (merge now to go faster, or comment to request changes)."
+              else
+                echo "Review: ${URL} (comment to request changes; merge to continue)."
+              fi
+            fi
             [ "$STAGE" = build ] && echo "Milestone: $(jq -r .milestone <<< "$CONTEXT")"
           } > "$RUNNER_TEMP/note.md"
           uv run opportunity-radar notify markdown "$RUNNER_TEMP/note.md" --title "🔨 Project builder" --channel projects
