@@ -38,6 +38,11 @@ def _client() -> httpx.Client:
     )
 
 
+def can_fetch(url: str) -> bool:
+    """True when the link points at a public ATS whose description we can read."""
+    return any(r.search(url or "") for r in (_GREENHOUSE_RE, _LEVER_RE, _ASHBY_RE, _WORKDAY_RE))
+
+
 def fetch_description(url: str, client: httpx.Client | None = None) -> str | None:
     """Full plain-text description for a public-ATS apply link, else None."""
     own = client is None

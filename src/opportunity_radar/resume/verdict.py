@@ -23,13 +23,15 @@ def _bank_and_master(mtime: float):  # cache keyed by resume.tex mtime
     return bank, master_text(bank)
 
 
-def resume_fit_line(title: str, description: str, important: bool) -> str | None:
+def resume_fit_line(
+    title: str, description: str, important: bool, apply_url: str = ""
+) -> str | None:
     """None when there is no resume to judge against (e.g. tests, no checkout)."""
     source = resume_source()
     if not source.exists():
         return None
     if len(description or "") < MIN_DESCRIPTION:
-        return "❔ Not assessed yet (no full description stored); a check runs if this role is a priority"
+        return _no_description_line(apply_url, important)
     try:
         bank, master = _bank_and_master(source.stat().st_mtime)
         fit = assess(bank, Posting.from_text(title, description), master)
@@ -47,3 +49,23 @@ def resume_fit_line(title: str, description: str, important: bool) -> str | None
     if fit.severity == "tune":
         return f"⚠️ Worth tuning: {fit.reasons[0]}; {follow}"
     return f"🛠️ Gap: {fit.reasons[-1]}; {follow}"
+
+
+def _no_description_line(apply_url: str, important: bool) -> str:
+    """The listing came without its description (e.g. from the Simplify feed)."""
+    from opportunity_radar.resume.describe import can_fetch
+
+    if not can_fetch(apply_url):
+        return (
+            "❔ Not assessed: the full posting is only on the company's own careers "
+            "site, which can't be read automatically. Open Apply to read it"
+        )
+    if important:
+        return (
+            "❔ The listing had only a summary; the full posting is being checked "
+            "and a review follows here if your resume needs work"
+        )
+    return (
+        "❔ The listing had only a summary; run a review-role check to compare "
+        "your resume against the full posting"
+    )

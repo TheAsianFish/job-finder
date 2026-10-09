@@ -60,7 +60,10 @@ def _resume_fit_line(job: JobRow) -> str | None:
 
     tier = next((c.tier for c in get_settings().companies if c.id == job.company_id), None)
     return resume_fit_line(
-        job.title, job.description_text or "", important=tier in ("core", "strong")
+        job.title,
+        job.description_text or "",
+        important=tier in ("core", "strong"),
+        apply_url=job.apply_url or "",
     )
 
 
