@@ -200,7 +200,10 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # Capped API key for real evals/integration tests (optional; never the Max token).
           ANTHROPIC_API_KEY: ${{ secrets.PROJECTS_ANTHROPIC_API_KEY }}
+          # Progress pings only; unset for the agent sessions themselves.
+          HEARTBEAT_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_PROJECTS || secrets.DISCORD_WEBHOOK_URL }}
         run: |
+          TITLE=$(jq -r .project.title <<< "$CONTEXT"); export TITLE
           agent=../radar/scripts/project_agent.sh
           case "$STAGE" in
             plan)    bash $agent fable "$RUNNER_TEMP/prompt-plan.md" 60 150 plan ;;

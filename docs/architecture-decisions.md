@@ -565,3 +565,14 @@ for companies outside core/strong. The registry gained health-tech, AI and
 YC-style startups with public ATS boards. Company career sites without a
 public API (e.g. Tesla, Google) stay covered only via the Simplify feed:
 reading them would mean bypassing bot protection, which the spec forbids.
+
+## AD-36: Builder progress pings
+
+A milestone build runs 1.5-4 hours and the public logs print statistics only,
+so Patrick couldn't tell a working session from a stuck one. While each agent
+session runs, `scripts/builder_heartbeat.sh` posts to `#projects` every 20
+minutes: elapsed time, commits on the branch, the latest commit subject, and
+files changed recently, flagging two quiet intervals as possibly stuck (each
+stage still has its hard timeout). The webhook is removed from the agent's
+own environment (`env -u HEARTBEAT_WEBHOOK`); it only exists in the
+background pinger.

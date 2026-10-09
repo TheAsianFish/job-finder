@@ -15,12 +15,17 @@ model="$1"; prompt="$2"; minutes="$3"; turns="$4"; label="$5"
 log="${RUNNER_TEMP:-/tmp}/claude-${label}.json"
 
 run() {
-  timeout "${minutes}m" claude -p "$(cat "$prompt")" \
+  timeout "${minutes}m" env -u HEARTBEAT_WEBHOOK claude -p "$(cat "$prompt")" \
     --model "$1" \
     --permission-mode bypassPermissions \
     --max-turns "$turns" \
     --output-format json > "$log" 2> "${log}.err"
 }
+
+# Progress pings to #projects every 20 minutes (AD-36).
+bash "$(dirname "$0")/builder_heartbeat.sh" "$label" "${HEARTBEAT_SECONDS:-1200}" &
+heartbeat=$!
+trap 'kill $heartbeat 2>/dev/null' EXIT
 
 run "$model"
 status=$?
