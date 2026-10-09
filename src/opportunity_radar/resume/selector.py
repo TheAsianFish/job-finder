@@ -110,6 +110,8 @@ class Selection:
     matched_skills: list[str] = field(default_factory=list)
     swapped_in: list[str] = field(default_factory=list)
     swapped_out: list[str] = field(default_factory=list)
+    # Posting skills Patrick truly has that the skills line now names (AD-38).
+    ats_added: list[str] = field(default_factory=list)
 
     @property
     def bullets(self) -> list[Bullet]:
@@ -187,6 +189,12 @@ def _fill_slots(
 def _matches_name(entry: Entry, wanted: str) -> bool:
     """Loose match of a reviewer's free-text suggestion to a bank entry."""
     target = re.sub(r"[^a-z0-9]+", " ", wanted.lower())
+    # The entry's own name ("SurgeonSight" in "SurgeonSight — AI Surgical...")
+    # is enough on its own: reviewers usually refer to projects by it.
+    own = re.split(r"\s+[\u2014\u2013-]+\s+", entry.name)[0]
+    own_words = [w for w in re.findall(r"[a-z0-9]+", own.lower()) if len(w) > 3]
+    if own_words and all(w in target.split() for w in own_words):
+        return True
     for candidate in (entry.name, entry.org, entry.title):
         words = [
             w for w in re.sub(r"[^a-z0-9]+", " ", (candidate or "").lower()).split() if len(w) > 3
@@ -194,6 +202,12 @@ def _matches_name(entry: Entry, wanted: str) -> bool:
         if words and sum(w in target for w in words) >= min(2, len(words)):
             return True
     return False
+
+
+def _pin_matches(entry: Entry, pin: str) -> bool:
+    """A pin ("Repolix", "OS Kernel") matches when all its words appear in the name."""
+    words = {w for w in re.findall(r"[a-z0-9]+", pin.lower()) if len(w) > 2}
+    return bool(words) and words <= set(re.findall(r"[a-z0-9]+", entry.name.lower()))
 
 
 def _apply_preferences(
@@ -221,19 +235,32 @@ def _apply_preferences(
 
 def select(bank: Bank, posting: Posting, prefer: list[str] | None = None) -> Selection:
     """prefer: reserve projects a reviewer recommended (free text, loosely
-    matched); they replace the weakest live projects."""
+    matched); they replace the weakest unpinned projects. Pinned projects
+    (bank.pinned_projects, AD-38) are always shown; only the other slots
+    compete."""
     experiences = sorted(
         (e for e in bank.experiences if e.active), key=lambda e: e.start, reverse=True
     )
     live_proj = [e for e in bank.projects if e.active]
     reserves_proj = [e for e in bank.projects if not e.active]
     taken = frozenset(_entity(e) for e in experiences)
-    proj_chosen, proj_in, proj_out = _fill_slots(
-        live_proj, reserves_proj, len(live_proj), posting, exclude_entities=taken
+    pinned = [
+        e
+        for e in bank.projects
+        if any(_pin_matches(e, name) for name in bank.pinned_projects) and _entity(e) not in taken
+    ][: len(live_proj)]
+    free, proj_in, _ = _fill_slots(
+        [e for e in live_proj if e not in pinned],
+        [e for e in reserves_proj if e not in pinned],
+        len(live_proj) - len(pinned),
+        posting,
+        exclude_entities=taken,
     )
+    proj_chosen = pinned + free
+    proj_in = [e.name for e in proj_chosen if not e.active]
     if prefer:
-        proj_in += _apply_preferences(proj_chosen, reserves_proj, prefer, [], posting)
-        proj_out = [e.name for e in live_proj if e not in proj_chosen]
+        proj_in += _apply_preferences(proj_chosen, reserves_proj, prefer, pinned, posting)
+    proj_out = [e.name for e in live_proj if e not in proj_chosen]
 
     budget = sum(len(e.live_bullets) for e in experiences + live_proj)
 
@@ -252,6 +279,7 @@ def select(bank: Bank, posting: Posting, prefer: list[str] | None = None) -> Sel
         label: sorted(items, key=lambda item: (not _item_matches(item, posting), items.index(item)))
         for label, items in bank.skills.items()
     }
+    ats_added = guarantee_keywords(skills, posting, bank)
     shown_text = (
         " ".join(b.text for _, bs in exp_sel + proj_sel for b in bs)
         + " "
@@ -270,7 +298,49 @@ def select(bank: Bank, posting: Posting, prefer: list[str] | None = None) -> Sel
         matched_skills=matched,
         swapped_in=proj_in,
         swapped_out=proj_out,
+        ats_added=ats_added,
     )
+
+
+# Which skills-line row a vocabulary category belongs in, by words in the label.
+_ROW_HINTS = {
+    "language": ("language",),
+    "backend": ("framework", "librar", "db", "database"),
+    "frontend": ("framework", "librar", "frontend"),
+    "data": ("db", "database", "data", "framework"),
+    "ml": ("ml", "ai", "framework", "librar"),
+    "cloud": ("devops", "cloud", "tool"),
+    "tooling": ("tool", "devops"),
+}
+CONCEPTS_ROW = "Concepts"
+
+
+def guarantee_keywords(skills: dict[str, list[str]], posting: Posting, bank: Bank) -> list[str]:
+    """ATS guarantee (AD-38): every posting skill evidenced anywhere in the bank
+    (so truly Patrick's) is named on the skills line, whatever the bullets say.
+
+    Keyword coverage then never depends on how bullets are worded, which lets
+    the writer put narrative and STAR first. Skills he doesn't have are never
+    added (they stay reported as gaps). Mutates `skills`; returns what it added.
+    """
+    vocab = {s.name: s for s in default_vocabulary()}
+    line = " ".join(", ".join(items) for items in skills.values())
+    added: list[str] = []
+    for name in sorted(posting.skills, key=lambda n: -posting.skills[n]):
+        skill = vocab.get(name)
+        if skill is None or skill.category == "soft" or name not in bank.all_skills:
+            continue
+        if skill.found_in(line):
+            continue
+        hints = _ROW_HINTS.get(skill.category, ())
+        row = next(
+            (label for label in skills if any(h in label.lower() for h in hints)),
+            CONCEPTS_ROW,
+        )
+        skills.setdefault(row, []).append(name)
+        line += f", {name}"
+        added.append(name)
+    return added
 
 
 def _item_matches(item: str, posting: Posting) -> bool:

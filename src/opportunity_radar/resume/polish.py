@@ -243,21 +243,27 @@ def build_prompt(
     notes = ""
     if guidance:
         notes = (
-            "\nA hiring-side reviewer flagged these issues with the current resume for this role; "
-            "apply their fixes wherever the facts allow:\n"
+            "\nA hiring panel (recruiter, hiring manager, interviewer, resume editor) reviewed "
+            "the current resume for this role; its lead ranked these changes, most important "
+            "first. Apply them wherever the facts allow:\n"
             + "\n".join(f"- {g}" for g in guidance)
             + "\n"
         )
     return f"""You are an expert technical resume writer for software engineering internships and
 new-grad roles at top companies. Rewrite each entry below for a candidate applying to
-"{title}" at {company}. The resume must first pass the company's ATS keyword screen, then
-impress the engineer who reads it.
+"{title}" at {company}. The page must read as one strong engineer's record: a recruiter
+skimming it for six seconds and an engineer reading it closely should come away with the
+same clear story. ATS keyword coverage is guaranteed separately (the skills line names
+every skill from the posting that the candidate has), so never bend a bullet to fit a
+keyword.
 
 What great looks like:
-- Each bullet tells a compact technical story (STAR / Google XYZ): what was built or
-  solved, the specific engineering decisions that made it hard (architecture, data
-  structures, algorithms, concurrency, caching, indexing, query planning, API design,
-  testing strategy, failure handling), and the measurable result or concrete outcome.
+- Every bullet is a complete STAR story in one sentence (Google XYZ form): the Action with
+  a strong verb and its technical substance, the Situation/Task compressed into the hard
+  part (architecture, data structures, algorithms, concurrency, caching, indexing, query
+  planning, API design, testing strategy, failure handling), and the Result: the measured
+  outcome when the facts give a number, otherwise the concrete effect (what it enabled,
+  replaced or prevented). A bullet with no result is unfinished.
 - Use precise engineering vocabulary freely and confidently (e.g. memoized selectors,
   idempotent handlers, pagination pushed into the database, state-transition validation,
   incremental indexing, rank fusion, page-replacement policy). Specific beats generic.
@@ -277,13 +283,14 @@ What great looks like:
   instead of bullets_to_write) and you may build a bullet from ANY fact listed for the entry,
   not only the ones currently shown. Prefer the strongest stories for this role.
 
-ATS (this matters as much as the story):
-- Use the job description's exact terms for skills and concepts the facts support (if it
-  says "LLM orchestration", don't write "AI pipeline"; if it says "distributed systems",
-  say that where true). Spell out a key acronym once with its expansion when the
-  description uses the long form, e.g. "retrieval-augmented generation (RAG)".
-- Put the role's most important terms in the first words of the bullets that support them.
-- Never stuff keywords the facts don't support; a recruiter reads this next.
+Narrative (the page as a whole):
+- One consistent story across all entries: who this engineer is for this role. Each entry
+  adds different evidence; don't repeat the same claim, verb or keyword bullet after bullet.
+- Lead each bullet with the action and its substance, never with a keyword. Where a fact
+  truly is what the job description names, use the description's exact term in the natural
+  place (if it says "distributed systems" and the fact is one, say so; "LLM orchestration",
+  not "AI pipeline"). Spell out a key acronym once when the description uses the long form.
+- Never stuff keywords; precision and a believable story beat density.
 
 Truth rules (a strict automated check rejects any violation, and the original wording is
 kept instead):

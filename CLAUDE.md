@@ -115,8 +115,11 @@ roles are excluded. Skill demand: `uv run opportunity-radar insights skills`
   checks, STAR story rewrites behind the guard, Simplify CSV import; AD-31:
   experience fixed, projects reshuffled, bullets needing Patrick's word become
   approval PRs in the private repo -> `verified.yaml`; AD-37: flagged roles get
-  a hiring panel (`resume/panel.py`: recruiter, hiring manager, interviewer +
-  deterministic ATS seat) whose lead writes ranked changes; `apply <url>`
+  a hiring panel (`resume/panel.py`: recruiter, hiring manager, interviewer,
+  editor + deterministic ATS seat) whose lead writes ranked changes; AD-38:
+  the page is narrative- and STAR-first, ATS coverage is guaranteed in code
+  (skills line names every posting skill he has), and pinned projects in the
+  private `resume_rules.yaml` (Repolix, OS kernel) are always shown; `apply <url>`
   links the tailored resume used, and `insights.outcomes.lessons()` feeds
   logged outcomes into the next review; no applications are logged yet). `AGENT_GH_TOKEN` secret
   (fine-grained PAT, all repos) opens those PRs and the project builders' repos.

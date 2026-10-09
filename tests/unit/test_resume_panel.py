@@ -44,6 +44,14 @@ ANSWERS = {
         "strongest_story": "Repolix retrieval",
         "prep": ["p95 methodology"],
     },
+    "resume editor who coaches": {
+        "story": "Backend engineer who ships search and data tools",
+        "coherent": "Partly",
+        "star_gaps": [
+            {"bullet": "Built dashboard", "missing": "result", "fix": "say what it replaced"}
+        ],
+        "repetition": ["'Built' opens four bullets"],
+    },
 }
 LEAD = {
     "verdict": "Good fit once Go and PostgreSQL work is visible.",
@@ -94,10 +102,14 @@ def test_panel_runs_every_seat_and_the_ats_check(bank):
         bank, master_text(bank), title="Backend Intern", company="Acme",
         description=DESCRIPTION, runner=runner,
     )  # fmt: skip
-    assert seated(panel) == ["recruiter", "hiring_manager", "interviewer"]
-    assert len(runner.prompts) == 3
+    assert seated(panel) == ["recruiter", "hiring_manager", "interviewer", "editor"]
+    assert len(runner.prompts) == 4
+    recruiter = next(p for p in runner.prompts if "technical recruiter" in p)
+    assert "buried keywords" not in recruiter and "Don't count keywords" in recruiter
     assert 0 <= panel["ats"]["keyword_coverage"] <= 1
     assert summary(panel)["recruiter"] == "maybe" and summary(panel)["hiring_manager"] == "yes"
+    assert summary(panel)["editor"] == "partly"
+    assert "guaranteed_by_code_on_skills_line" in panel["ats"]
 
 
 def test_a_failing_seat_is_recorded_and_the_rest_still_answer(bank):
@@ -106,7 +118,7 @@ def test_a_failing_seat_is_recorded_and_the_rest_still_answer(bank):
         description=DESCRIPTION, runner=FakeRunner(fail="technical recruiter"),
     )  # fmt: skip
     assert "TimeoutError" in panel["recruiter"]["error"]
-    assert seated(panel) == ["hiring_manager", "interviewer"]
+    assert seated(panel) == ["hiring_manager", "interviewer", "editor"]
     assert "recruiter" not in summary(panel)
 
 
@@ -127,11 +139,15 @@ def test_lead_review_reads_the_panel_and_lessons(bank):
     )  # fmt: skip
     lead_prompt = next(p for p in runner.prompts if "LEAD of a hiring panel" in p)
     assert "3 applications logged" in lead_prompt and "Go not visible" in lead_prompt
+    assert "never recommend working a keyword into a" in lead_prompt
+    assert "complete STAR story" in lead_prompt
     assert rev.changes == LEAD["changes"] and rev.panel["hiring_manager"]["interview"] == "yes"
     md = render_markdown(rev, _fit(), title="Backend Intern", company="Acme")
     assert "## Top changes (panel lead)" in md and "1. Lead with the PostgreSQL work" in md
     assert "Recruiter (6-second skim):** advance = Maybe" in md
     assert "## Be ready to defend (interviewer)" in md and "How measured?" in md
+    assert "**Editor:** coherent = Partly" in md and "## STAR gaps (editor)" in md
+    assert "missing result. say what it replaced" in md
 
 
 def test_single_reviewer_mode_makes_one_call(bank):
@@ -204,8 +220,15 @@ def test_discord_message_shows_panel_votes_and_top_changes():
     rev = Review(
         verdict="Close.",
         changes=["Lead with PostgreSQL", "Name Kubernetes", "Cut the dashboard", "Fourth"],
-        panel={"recruiter": {"advance": "maybe"}, "hiring_manager": {"interview": "yes"}},
+        panel={
+            "recruiter": {"advance": "maybe"},
+            "hiring_manager": {"interview": "yes"},
+            "editor": {"coherent": "partly"},
+        },
     )
     text = build_resume_check_message(Job(), _fit(), rev, "1 page")["embeds"][0]["description"]
-    assert "👥 Panel: recruiter advance: maybe · manager interview: yes" in text
+    assert (
+        "👥 Panel: recruiter advance: maybe · manager interview: yes · page coherent: partly"
+        in text
+    )
     assert "✏️ Cut the dashboard" in text and "Fourth" not in text

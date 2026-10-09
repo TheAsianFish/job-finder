@@ -15,6 +15,8 @@ from dataclasses import asdict, dataclass, field
 from datetime import date
 from pathlib import Path
 
+import yaml
+
 from opportunity_radar.resume.ats import AtsReport, analyse, render_markdown
 from opportunity_radar.resume.bank import Bank, build_bank
 from opportunity_radar.resume.compiler import CompileError, compile_tex, inspect_pdf
@@ -69,6 +71,10 @@ class TailorResult:
         parts = [f"keyword coverage {self.report.coverage:.0%}"]
         if self.report.baseline_coverage is not None:
             parts[-1] += f" (master {self.report.baseline_coverage:.0%})"
+        if self.selection.ats_added:
+            parts.append("skills line now names " + ", ".join(self.selection.ats_added))
+        if self.report.true_gaps:
+            parts.append("not on your resume: " + ", ".join(self.report.true_gaps[:4]))
         if self.selection.swapped_in:
             parts.append("swapped in " + ", ".join(self.selection.swapped_in))
         if self.polish and self.polish.accepted:
@@ -93,7 +99,19 @@ def load_bank(path: Path | None = None) -> Bank:
         )
     bank = build_bank(source.read_text(encoding="utf-8"))
     apply_verified(bank, load_verified(source.parent / "verified.yaml"))
+    bank.pinned_projects = load_pinned(source.parent / RULES_FILE)
     return bank
+
+
+RULES_FILE = "resume_rules.yaml"
+
+
+def load_pinned(path: Path) -> list[str]:
+    """Project names Patrick always wants shown (private resume_rules.yaml)."""
+    if not path.exists():
+        return []
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return [str(name) for name in raw.get("pinned_projects") or [] if str(name).strip()]
 
 
 def master_text(bank: Bank) -> str:
@@ -222,6 +240,8 @@ def tailor(
         "swapped_in": selection.swapped_in,
         "swapped_out": selection.swapped_out,
         "matched_skills": selection.matched_skills,
+        "ats_added": selection.ats_added,
+        "pinned_projects": bank.pinned_projects,
         "polish_accepted": sorted(outcome.accepted) if outcome else [],
         "polish_rejected": outcome.rejected if outcome else {},
         "polish_skipped": outcome.skipped_reason if outcome else "not requested",

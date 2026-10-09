@@ -102,13 +102,14 @@ def test_writer_may_drop_one_weak_bullet_but_not_two(bank):
     assert "expected" in outcome.rejected[entry.id]
 
 
-def test_prompt_asks_for_ats_terms_and_proposals(bank):
+def test_prompt_uses_exact_terms_where_true_and_asks_for_proposals(bank):
     from opportunity_radar.resume.polish import build_prompt
 
     prompt = build_prompt(
         _acme(bank), title="AI Engineer Intern", company="Acme", description="LLM", skills_line=""
     )
-    assert "ATS" in prompt and "exact terms" in prompt
+    # AD-38: exact terms only where true and natural; coverage is guaranteed in code.
+    assert "exact term" in prompt and "guaranteed separately" in prompt
     assert '"proposals"' in prompt and "min_bullets" in prompt
 
 

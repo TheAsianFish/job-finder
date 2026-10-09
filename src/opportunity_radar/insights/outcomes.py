@@ -107,7 +107,8 @@ def collect(session: Session) -> dict[str, dict[str, Funnel]]:
             dims["Project shown"][str(project)].add(app.status)
         panel = meta.get("panel") or {}
         for seat, dim in (("recruiter", "Panel: recruiter advance"),
-                          ("hiring_manager", "Panel: manager interview")):  # fmt: skip
+                          ("hiring_manager", "Panel: manager interview"),
+                          ("editor", "Panel: page coherent")):  # fmt: skip
             if panel.get(seat):
                 dims[dim][str(panel[seat])].add(app.status)
     return dims
@@ -118,6 +119,7 @@ LESSON_DIMS = (
     "Project shown",
     "Panel: recruiter advance",
     "Panel: manager interview",
+    "Panel: page coherent",
     "Role family",
     "Company tier",
     "Applied after first seen",

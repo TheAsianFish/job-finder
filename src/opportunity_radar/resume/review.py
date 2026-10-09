@@ -9,7 +9,7 @@ apparent values, how the candidate stacks up against typical applicants,
 which reserves to swap in, and whether a new project is warranted.
 Advice only: it never writes resume content, so it cannot fabricate any.
 
-With a hiring panel (panel.py), recruiter / hiring-manager / interviewer
+With a hiring panel (panel.py), recruiter / hiring-manager / interviewer / editor
 personas and the deterministic ATS seat answer first, in parallel; this
 review then acts as the lead: it weighs their views (and what past
 applications taught us) and adds one ranked list of changes.
@@ -71,6 +71,7 @@ Be candid and specific, like a mentor who wants them to get the interview. Judge
 3. Competitiveness: how this resume compares with typical applicants for this role at this
    company. Be honest about where it falls short.
 4. Swaps: which reserve entries (listed below) should replace weaker shown ones, if any.
+   Never a pinned project (always shown): {", ".join(bank.pinned_projects) or "none"}.
 5. New project: only if the role centres on skills the candidate cannot truthfully claim
    from anything below, propose one 2-3 week project that would close that gap and earn a
    strong bullet; otherwise needed=false.
@@ -120,7 +121,7 @@ def review(
         panel = run_panel(
             bank, master_text, title=title, company=company, description=description, runner=runner
         )
-        prompt += lead_section(panel, lessons)
+        prompt += lead_section(panel, lessons, bank.pinned_projects)
     try:
         data = parse_json_object(runner(prompt))
     except Exception as exc:
@@ -147,23 +148,34 @@ def review(
     )
 
 
-def lead_section(panel: dict, lessons: str) -> str:
+def lead_section(panel: dict, lessons: str, pinned: list[str] | None = None) -> str:
     """Appended to the review prompt when a hiring panel ran."""
+    pinned_names = ", ".join(pinned or []) or "none"
     return f"""
 
-You are also the LEAD of a hiring panel. Your panel's views are below (the ATS seat
-is a deterministic keyword/format check, not an opinion). Where they disagree,
-decide and say why in the verdict. Weigh the recruiter for the first skim, the
-hiring manager for project choice and swaps, the interviewer for which bullets
-need to be more concrete. Add one more key to your JSON reply:
-"changes": up to 8 concrete changes to this resume for this role, most impactful
-first, each using only true facts above.
+You are also the LEAD of a hiring panel, and you own the page as a whole: it must
+read as one strong engineer's coherent story, every bullet a complete STAR story
+(action, the hard part, a result), while passing the ATS screen. Your panel's views
+are below. Where they disagree, decide and say why in the verdict.
+- Keywords: the ATS seat is a deterministic check, and code already guarantees that
+  every posting skill the candidate has is named on the skills line
+  ("guaranteed_by_code_on_skills_line"). So never recommend working a keyword into a
+  bullet for coverage; only use the posting's exact term where it makes a true bullet
+  more precise.
+- Story and STAR: weigh the editor most for how bullets are written and whether the
+  page adds up; the interviewer for bullets that need concrete substance.
+- Projects: pinned projects ({pinned_names}) always stay; the hiring manager decides what
+  fills the remaining slot ("swaps"), only if a reserve clearly proves more for this
+  team. A systems project can be stronger SWE proof than a keyword-matching one.
+- First impression: weigh the recruiter for the skim (clear impact up top).
+Add one more key to your JSON reply: "changes": up to 8 concrete changes to this
+resume for this role, most impactful first, each using only true facts above.
 
 What past applications taught us (treat small samples as weak evidence):
 {lessons or "No outcomes logged yet."}
 
 Panel:
-{json.dumps(panel, ensure_ascii=False)[:9000]}
+{json.dumps(panel, ensure_ascii=False)[:14000]}
 """
 
 
@@ -245,16 +257,32 @@ def _panel_markdown(panel: dict) -> list[str]:
             f"- **Hiring manager:** interview = {hm.get('interview', '?')}. {hm.get('why', '')}"
         )
         lines += [f"  - Wanted to see: {m}" for m in (hm.get("missing_evidence") or [])[:3]]
+    ed = panel.get("editor", {})
+    if ed and "error" not in ed:
+        lines.append(
+            f"- **Editor:** coherent = {ed.get('coherent', '?')}. Story: {ed.get('story', '')}"
+        )
+        lines += [f"  - Repeated: {r}" for r in (ed.get("repetition") or [])[:2]]
     ats = panel.get("ats", {})
     if ats:
         lines.append(
             f"- **ATS check:** {float(ats.get('keyword_coverage') or 0):.0%} keyword coverage; "
-            f"shown-but-missing: {', '.join(ats.get('have_but_not_shown') or []) or 'none'}"
+            f"shown-but-missing: {', '.join(ats.get('have_but_not_shown') or []) or 'none'}; "
+            f"added to the skills line by code: "
+            f"{', '.join(ats.get('guaranteed_by_code_on_skills_line') or []) or 'none needed'}"
         )
-    for name in ("recruiter", "hiring_manager", "interviewer"):
+    for name in ("recruiter", "hiring_manager", "interviewer", "editor"):
         if "error" in panel.get(name, {}):
             lines.append(f"- _{name.replace('_', ' ')} seat unavailable: {panel[name]['error']}_")
     lines.append("")
+    gaps = [g for g in (ed.get("star_gaps") or []) if isinstance(g, dict)] if ed else []
+    if gaps and "error" not in ed:
+        lines.append("## STAR gaps (editor)")
+        lines += [
+            f"- **{g.get('bullet', '')}**: missing {g.get('missing', '?')}. {g.get('fix', '')}"
+            for g in gaps[:6]
+        ]
+        lines.append("")
     iv = panel.get("interviewer", {})
     if iv and "error" not in iv and iv.get("fragile_bullets"):
         lines.append("## Be ready to defend (interviewer)")

@@ -253,8 +253,8 @@ Cloud scans don't tailor every alert. For important new roles they run a fit
 check (`uv run opportunity-radar resume assess <job> [--review]` does the same
 locally) and only when your standing resume has a real disconnect do you get
 one Discord message in `#resume`: a hiring panel's review (recruiter skim,
-hiring manager, interviewer and an ATS check, combined by a lead into ranked
-changes; weak bullets, project fit, swaps, a new-project idea) plus a tailored
+hiring manager, interviewer, a STAR/narrative editor and an ATS check, combined
+by a lead into ranked changes; weak bullets, project fit, swaps, a new-project idea) plus a tailored
 PDF rewritten as technical STAR stories. Stronger bullets that need a fact
 only you know arrive as a pull request in the private repo (merge = true).
 The dashboard's job page has "Tailored resume" buttons.
@@ -268,8 +268,11 @@ Import what you applied to through the Simplify extension: Simplify Job Tracker
 export.csv` (or upload it to the private repo's `imports/` folder; every cloud
 scan merges it).
 
-Guarantees: tailoring only selects, orders and rewords content already in
-`resume.tex`; Claude rewrites are discarded unless every number, skill and
+Guarantees: every skill the posting asks for that your resume evidences is
+named on the skills line (ATS coverage never depends on bullet wording, so
+bullets are written as coherent STAR stories); projects pinned in the private
+`resume_rules.yaml` always appear; tailoring only selects, orders and rewords
+content already in `resume.tex`; Claude rewrites are discarded unless every number, skill and
 name already exists in your resume. PDFs compile with real pdfLaTeX
 (`scripts/install_tinytex.sh`, no sudo) so they match your Overleaf output.
 

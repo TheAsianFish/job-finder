@@ -111,6 +111,8 @@ class Bank:
     skills: dict[str, list[str]]  # "Languages" -> [...], in resume order
     candidate_name: str
     section_names: dict[str, str]  # canonical -> heading as written
+    # Projects that are always shown (resume_rules.yaml, AD-38); loosely matched names.
+    pinned_projects: list[str] = field(default_factory=list)
 
     @property
     def entries(self) -> list[Entry]:

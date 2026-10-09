@@ -177,7 +177,8 @@ dbt Labs, Canva, Grammarly, Tempus, Rippling.
   Discord.
 
 - Resume rules v2 (AD-31): experience fixed, projects reshuffled per role,
-  ATS-first writer that may drop/replace weak bullets; bullets needing an
+  writer that may drop/replace weak bullets (ATS-first then; narrative/STAR-first
+  with a code-level ATS guarantee since AD-38); bullets needing an
   unwritten fact become an approval PR in the private repo with an interview
   prep sheet; merged ones live in `verified.yaml` and feed every later resume.
 - Project builder (AD-32): weekly Fable scout, Patrick-approved projects built
@@ -212,6 +213,13 @@ dbt Labs, Canva, Grammarly, Tempus, Rippling.
   that guide tailoring; panel votes in Discord and meta.json; `apply`
   auto-links the tailored resume; outcomes gain "project shown" and panel-vote
   breakdowns; `lessons()` feeds the next review.
+- Resume rules v3 (AD-38): pinned projects (private `resume_rules.yaml`:
+  Repolix, OS kernel) always shown, swaps only touch the free slot; the
+  skills line names every posting skill Patrick has (`guarantee_keywords`),
+  so the writer is narrative- and STAR-first; a fifth seat (editor) audits
+  STAR completeness and page coherence; the recruiter no longer counts
+  keywords; the lead owns the page; reviewer swaps by short project name
+  now match.
 
 ## Known gaps / deferred (with reasons)
 

@@ -1,17 +1,22 @@
-"""Hiring panel: three reviewers read the resume the way real screeners do.
+"""Hiring panel: four reviewers read the resume the way real screeners do.
 
 Layered on the single review (review.py), not a replacement for it. For a
-flagged role, three focused personas run in parallel, each with its own
+flagged role, four focused personas run in parallel, each with its own
 question:
 
-- recruiter: a 6-second skim. What stands out, what gets it rejected?
+- recruiter: a 6-second skim. Is the impact clear, what stands out, what
+  gets it passed over? (Not keyword counting: the ATS seat does that.)
 - hiring manager: given what this team builds, which projects and bullets
-  prove the candidate can do the work, and what should be swapped?
+  prove the candidate can do the work, and what should fill the one flexible
+  project slot? (Pinned projects, AD-38, are never swapped.)
 - interviewer: which bullets would fall apart under "tell me more"?
+- editor: does each bullet complete its STAR story, and does the page tell
+  one consistent story? (AD-38)
 
-A fourth, deterministic seat is the ATS check (ats.analyse: keyword
+A fifth, deterministic seat is the ATS check (ats.analyse: keyword
 coverage, sections, contact details) because real ATS filtering is keyword
-matching, not an LLM. The lead review (review.review) then reads all four
+matching, not an LLM. Keyword presence is guaranteed in code
+(selector.guarantee_keywords), so no seat needs to push keywords into bullets. The lead review (review.review) then reads all four
 plus what past applications taught us (insights.outcomes.lessons) and writes
 the usual Review with one ranked list of changes. Advice only: personas never
 write resume content, so they cannot fabricate any. A persona that fails is
@@ -26,7 +31,7 @@ from concurrent.futures import ThreadPoolExecutor
 from opportunity_radar.resume.ats import analyse
 from opportunity_radar.resume.bank import Bank
 from opportunity_radar.resume.polish import Runner, parse_json_object
-from opportunity_radar.resume.selector import Posting
+from opportunity_radar.resume.selector import Posting, guarantee_keywords
 
 DESCRIPTION_EXCERPT = 5000
 
@@ -44,7 +49,9 @@ PERSONAS: dict[str, str] = {
     "recruiter": """You are a technical recruiter at {company} screening hundreds of intern
 resumes for "{title}". You give each one about 6 seconds before deciding.
 Say what your eye lands on first, what makes you keep reading, and what makes you
-pass (unclear impact, buried keywords, weak first bullets, formatting noise).
+pass (unclear impact, no results, a weak first bullet per entry, a page that doesn't add
+up to a clear profile, formatting noise). Don't count keywords: an automated check
+already guarantees the posting's skills appear.
 
 Reply with only JSON:
 {{"first_impression": "...", "stands_out": ["..."], "red_flags": ["..."],
@@ -54,7 +61,8 @@ Reply with only JSON:
 {company}. Infer what the team builds and needs from the job description only.
 Decide which projects and bullets prove this candidate could contribute on your
 team, which are noise for this role, and which unused entries (listed below)
-would serve better.
+would serve better. These projects are always shown and can't be swapped out:
+{pinned}. Swap suggestions may only replace the other project(s).
 
 Unused true entries: {reserves}
 
@@ -73,6 +81,21 @@ Reply with only JSON:
 {{"fragile_bullets": [{{"bullet": "...", "likely_question": "...", "risk": "..."}}],
  "strongest_story": "...", "prep": ["what to be ready to explain"]}}
 """,
+    "editor": """You are a resume editor who coaches engineers for top tech companies, reviewing
+this candidate's resume for "{title}" at {company}. Judge the writing, not the experience:
+1. Story: in one sentence, what does this page say this engineer is? Does every entry
+   support that story for this role, or does it read as a collage of keywords?
+2. STAR: for each bullet, is there a clear Action (strong verb, technical substance), the
+   Situation/Task compressed into what made it hard, and a Result (a measured number or a
+   concrete effect)? Name the missing part and how to complete it from facts already on
+   the page; never invent a number.
+3. Repetition: the same verb, claim or keyword repeated across bullets.
+
+Reply with only JSON:
+{{"story": "one sentence", "coherent": "yes|partly|no",
+ "star_gaps": [{{"bullet": "...", "missing": "action|situation|result", "fix": "..."}}],
+ "repetition": ["..."]}}
+""",
 }
 
 
@@ -85,7 +108,10 @@ def persona_prompt(
         if not e.active
     ]
     body = PERSONAS[name].format(
-        title=title, company=company, reserves=json.dumps(reserves, ensure_ascii=False)
+        title=title,
+        company=company,
+        reserves=json.dumps(reserves, ensure_ascii=False),
+        pinned=", ".join(bank.pinned_projects) or "(none)",
     )
     common = _COMMON.format(
         title=title,
@@ -97,8 +123,11 @@ def persona_prompt(
 
 
 def ats_seat(bank: Bank, resume: str, *, title: str, description: str) -> dict:
-    report = analyse(resume, Posting.from_text(title, description), bank)
+    posting = Posting.from_text(title, description)
+    report = analyse(resume, posting, bank)
+    skills_line = {label: list(items) for label, items in bank.skills.items()}
     return {
+        "guaranteed_by_code_on_skills_line": guarantee_keywords(skills_line, posting, bank),
         "keyword_coverage": round(report.coverage, 2),
         "matched": report.matched,
         "have_but_not_shown": report.in_bank_not_shown,
@@ -149,6 +178,8 @@ def summary(panel: dict[str, dict]) -> dict[str, str]:
         out["recruiter"] = str(panel["recruiter"].get("advance", "")).lower()
     if "error" not in panel.get("hiring_manager", {"error": 1}):
         out["hiring_manager"] = str(panel["hiring_manager"].get("interview", "")).lower()
+    if "error" not in panel.get("editor", {"error": 1}):
+        out["editor"] = str(panel["editor"].get("coherent", "")).lower()
     if "ats" in panel:
         out["ats_coverage"] = str(panel["ats"].get("keyword_coverage", ""))
     return out

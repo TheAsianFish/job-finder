@@ -604,3 +604,37 @@ resume isn't tuned to one model's taste. It needs a capped OpenAI or Gemini
 key from Patrick; add it as an extra seat in `run_panel` when one exists.
 Rejected: multi-round agent debate; more cost and latency for little gain
 over focused seats plus one synthesis.
+
+## AD-38: Narrative and STAR first, ATS guaranteed in code, pinned projects
+
+A critique of AD-37 (shared by Patrick, checked against the code) was right:
+the panel judged better, but the writer was still told the resume "must first
+pass the ATS keyword screen" and to put the posting's terms "in the first
+words" of bullets, the recruiter counted "buried keywords", and nothing kept
+his strongest projects on the page. Result: keyword collages. Patrick's
+decision (2026-10-09): coherent page first, every bullet a STAR story, and
+passing ATS as an underlying guarantee; Repolix and the OS kernel always show.
+
+- **ATS guarantee in code** (`selector.guarantee_keywords`, inside `select`):
+  every posting skill evidenced anywhere in the bank (so truly his) is named
+  on the skills line, in the fitting row (a "Concepts" row when needed). Real
+  gaps are never added; they're reported ("not on your resume: ...").
+  Coverage no longer depends on bullet wording, which frees the writer.
+- **Writer** (`polish.py`): one consistent story across the page; every
+  bullet a complete STAR story (action + hard part + result, a concrete effect
+  when no number exists); the posting's exact term only where true and
+  natural; never bend a bullet to fit a keyword.
+- **Panel**: a fifth seat, the editor (story in one sentence, coherent
+  yes/partly/no, STAR gaps per bullet, repetition); the recruiter judges
+  clarity and impact, not keywords; the lead owns the page, weighs the
+  editor for writing and the hiring manager for the flexible slot, and is
+  told keyword coverage is already guaranteed. The editor's "coherent" vote
+  is stored and becomes an outcomes breakdown, so logged applications can
+  eventually show whether coherent pages get more responses.
+- **Pinned projects**: private `resume_rules.yaml` (`pinned_projects`, loose
+  name match); `select` keeps them and only the remaining slot competes;
+  reviewer swaps can't displace them. Swap suggestions that name a project
+  by its short name ("SurgeonSight") now match (they were silently ignored).
+
+Not done: a post-tailor re-review of the final page (one more model call per
+resume); reconsider if the editor's pre-tailor notes prove insufficient.

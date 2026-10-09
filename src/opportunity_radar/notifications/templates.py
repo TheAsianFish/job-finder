@@ -368,6 +368,8 @@ def build_resume_check_message(job: Any, fit, rev, tailored_summary: str) -> dic
         votes.append(f"recruiter advance: {panel['recruiter']['advance']}")
     if "interview" in panel.get("hiring_manager", {}):
         votes.append(f"manager interview: {panel['hiring_manager']['interview']}")
+    if "coherent" in panel.get("editor", {}):
+        votes.append(f"page coherent: {panel['editor']['coherent']}")
     if votes:
         lines.append("👥 Panel: " + " · ".join(votes))
     lines += [f"• {reason}" for reason in fit.reasons[:4]]
