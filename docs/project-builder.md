@@ -72,7 +72,7 @@ private: `.agent/learn.md` and `.agent/review.md` are saved to
 | Scout, plan, review, finish, study | Fable 5.1 (`--model fable`, falls back to Opus) | Most capable: research, architecture, a demanding review that re-runs tests/evals, and the resume entry, results write-up and interview prep |
 | Build, address comments | Opus 5.5 (`--model opus`) | Long agentic coding sessions |
 | Subagents (any stage) | Chosen per task | `fable` for hard reasoning and adversarial verification, `opus` for big implementation, `sonnet` for routine well-specified work, `haiku` for search and CI/log triage; as many or as few as the work needs (`standards.md`) |
-| Replay/Kiln's own model calls | Cheapest that answers | Evals and the product use a capped `ANTHROPIC_API_KEY`; the model per call is recorded in RESULTS.md |
+| Replay/Kiln's own model calls | Cheapest that answers | No API key in sessions (AD-39), so live evals are harness-only for now; the model per call is recorded in RESULTS.md |
 
 All prompts live in `agents/prompts/projects/` and start with
 `standards.md` (the quality bar: real users, depth over breadth, measured
@@ -83,12 +83,14 @@ claims only, production engineering, AI stack used well, no AI attribution).
 - The build job never checks out the private career repo; sessions get only
   a skills summary. The resume stays private.
 - `AGENT_GH_TOKEN` is used in clone/push/PR steps only. The Claude sessions
-  run with credential-free remotes and only `CLAUDE_CODE_OAUTH_TOKEN` plus the
-  capped `ANTHROPIC_API_KEY` (from the `PROJECTS_ANTHROPIC_API_KEY` secret, for
-  real evals; never the Max token) in the environment, so an agent cannot
-  push, create repos, or touch other repos. Verify that key any time with
-  Actions → Project builder → Run workflow → `keycheck` (one 1-token call;
-  logs print the HTTP status only).
+  run with credential-free remotes and only `CLAUDE_CODE_OAUTH_TOKEN` (Max
+  plan) in the environment, so an agent cannot push, create repos, or touch
+  other repos. **Never give the sessions `ANTHROPIC_API_KEY`**: Claude Code
+  uses an API key in preference to the Max token, so every session gets billed
+  to the key (AD-39: ~$197 of credits went in two days). `project_agent.sh`
+  unsets it. Evals that need a live model ship as harness-only until a
+  separate, explicitly approved way to fund them exists. `keycheck` still
+  tests the `PROJECTS_ANTHROPIC_API_KEY` secret (one 1-token call).
 - `AGENT_GH_TOKEN` (fine-grained PAT, all repos) needs read/write on
   Contents, Pull requests, Administration (create repos) and Workflows, plus
   **read** on Actions and Commit statuses: the builder reads a PR's CI result

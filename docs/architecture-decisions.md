@@ -638,3 +638,21 @@ passing ATS as an underlying guarantee; Repolix and the OS kernel always show.
 
 Not done: a post-tailor re-review of the final page (one more model call per
 resume); reconsider if the editor's pre-tailor notes prove insufficient.
+
+## AD-39: Builder sessions run on the Max token only; builder paused
+
+Context: AD-32 gave the build sessions a capped API key
+(`PROJECTS_ANTHROPIC_API_KEY`, exported as `ANTHROPIC_API_KEY`) so evals could
+call a real model. Claude Code itself prefers `ANTHROPIC_API_KEY` over
+`CLAUDE_CODE_OAUTH_TOKEN`, so every Opus/Fable build and review session
+billed the key instead of the Max plan. About $197 of prepaid credits went in
+two days (Replay M1-M4), and the next sessions failed on their first turn.
+
+Decision: sessions never see `ANTHROPIC_API_KEY` (removed from the workflow
+env and unset in `project_agent.sh`). Live-model evals ship as harness-only
+until Patrick approves a separate, metered way to fund them (for example a
+differently named variable that only the eval command reads, with a hard
+per-run token budget). The builder is paused (`ENABLE_PROJECT_BUILDER=false`,
+Replay and Kiln `paused`); resume by setting the variable back to `true` and
+`projects approve <slug>`.
+

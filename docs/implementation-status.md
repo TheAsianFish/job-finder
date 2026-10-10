@@ -201,7 +201,7 @@ dbt Labs, Canva, Grammarly, Tempus, Rippling.
 - Builder wake-up (AD-35): `scripts/wake_builder.sh` at the end of every scan
   dispatches `projects.yml` when there is work; guarded against overlap and
   failure loops. Per-task subagent models; review re-runs tests and evals;
-  Fable finishes. `keycheck` action verifies the capped API key.
+  Fable finishes. `keycheck` action verifies the capped API key (no longer given to sessions; builder paused 2026-10-10, AD-39).
 - Progress pings every 20 minutes during builds (AD-36).
 - Coverage (AD-35): 282 companies (+71 verified health-tech, AI and startup
   boards, e.g. Replit, Cognition, LangChain, Ambience, OpenEvidence, PostHog);

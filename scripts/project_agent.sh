@@ -15,7 +15,7 @@ model="$1"; prompt="$2"; minutes="$3"; turns="$4"; label="$5"
 log="${RUNNER_TEMP:-/tmp}/claude-${label}.json"
 
 run() {
-  timeout "${minutes}m" env -u HEARTBEAT_WEBHOOK claude -p "$(cat "$prompt")" \
+  timeout "${minutes}m" env -u HEARTBEAT_WEBHOOK -u ANTHROPIC_API_KEY claude -p "$(cat "$prompt")" \
     --model "$1" \
     --permission-mode bypassPermissions \
     --max-turns "$turns" \
