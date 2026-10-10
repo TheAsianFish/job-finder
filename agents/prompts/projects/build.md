@@ -3,6 +3,10 @@
 Read PLAN.md and CONTRIBUTING.md first. Implement exactly the milestone named in the
 context below, to its definition of done, at the standard above.
 
+If this branch already has commits ahead of `main`, an earlier session was
+cut off: read them (`git log main..HEAD`, `git diff main...HEAD`), keep what
+is sound, and finish the milestone from there instead of starting over.
+
 - Plan the milestone, then parallelise with subagents where work is
   independent. Integrate and review everything yourself.
 - Commit as you go (see the commit rules above). Run the full quality gate

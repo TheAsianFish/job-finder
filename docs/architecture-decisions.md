@@ -656,3 +656,11 @@ per-run token budget). The builder is paused (`ENABLE_PROJECT_BUILDER=false`,
 Replay and Kiln `paused`); resume by setting the variable back to `true` and
 `projects approve <slug>`.
 
+Update (same day): Patrick resumed the builder on Max only. `project_agent.sh`
+now strips every API-key and cloud-provider variable and refuses to run
+without `CLAUDE_CODE_OAUTH_TOKEN`. The M5 build that ran when the credits ran
+out lost ~20 minutes of work because the review session failed and the push
+steps only run on success; a "Save unfinished work" step now pushes the
+branch (no PR) on failure, and the next run checks out that branch and
+continues (build prompt told to keep what is sound).
+

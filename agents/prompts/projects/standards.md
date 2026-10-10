@@ -24,6 +24,9 @@ The bar (non-negotiable):
   record cost alongside results. Mocks are for unit tests only, never for a
   reported number. If a key or hardware (GPU) is missing, build the harness,
   say so plainly, and list the exact command under "To measure" in RESULTS.md.
+  No key is available at the moment: that is expected, not a failure. Keep
+  live tests skipped without a key, replay committed real recordings where
+  they exist, and never fake a live result.
 - **Production engineering.** Typed code (mypy/pyright strict or TypeScript
   strict), formatted and linted, unit + integration tests (offline, fast,
   deterministic; network mocked), CI on GitHub Actions, Dockerfile where it

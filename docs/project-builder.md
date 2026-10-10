@@ -35,6 +35,9 @@ flowchart LR
   GitHub, hence the wake-up above), a scout run on Mondays 09:00 PT, a study
   pack on Sundays. Hard caps: Opus build ≤ 230 min, Fable review ≤ 70 min.
   Replay's M1 (scaffold, CI, first vertical slice, review) took 49 minutes.
+- **Saved work.** If a session fails (usage limit, timeout, a review that
+  dies after a good build), its commits are pushed to the `dev/` branch
+  without a PR, and the next run continues from them (AD-39).
 - **Progress pings (AD-36).** While a session runs, `#projects` gets a line
   every 20 minutes (elapsed time, commits, latest commit, files changed);
   two quiet intervals are flagged as possibly stuck.
@@ -88,7 +91,8 @@ claims only, production engineering, AI stack used well, no AI attribution).
   other repos. **Never give the sessions `ANTHROPIC_API_KEY`**: Claude Code
   uses an API key in preference to the Max token, so every session gets billed
   to the key (AD-39: ~$197 of credits went in two days). `project_agent.sh`
-  unsets it. Evals that need a live model ship as harness-only until a
+  strips every API-key and cloud-provider variable and refuses to start
+  without the Max token. Evals that need a live model ship as harness-only until a
   separate, explicitly approved way to fund them exists. `keycheck` still
   tests the `PROJECTS_ANTHROPIC_API_KEY` secret (one 1-token call).
 - `AGENT_GH_TOKEN` (fine-grained PAT, all repos) needs read/write on

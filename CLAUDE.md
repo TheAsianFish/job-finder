@@ -106,10 +106,11 @@ roles are excluded. Skill demand: `uv run opportunity-radar insights skills`
   CLAUDE.md), no AI mentions; teaching notes go to the private repo's
   `study/<slug>/` and `#study` (AD-34). Sessions run on the Max token only:
   never pass them `ANTHROPIC_API_KEY`, because Claude Code then bills the whole
-  session to that key (AD-39). **Paused since 2026-10-10**
-  (`ENABLE_PROJECT_BUILDER=false`, Replay and Kiln `paused` in
-  `projects.yaml`) after the API credits ran out: Replay has M1-M4 merged
-  (PRs #2-#5), M5-M7 left; Kiln not started. Resume only when Patrick asks.
+  session to that key (AD-39; `project_agent.sh` enforces Max-only). There
+  are no API credits, so live evals stay harness-only ("To measure" in
+  RESULTS.md). Failed sessions save their commits on the `dev/` branch and
+  the next run continues. Status 2026-10-10: Replay M1-M4 merged (PRs #2-#5),
+  M5-M7 left; Kiln queued after it.
 - Private career repo `TheAsianFish/career-private` is cloned at
   `resume/private/` (git-ignored; `CAREER_DEPLOY_KEY` deploy key for CI).
   Resume engine: `src/opportunity_radar/resume/` (AD-28, AD-29: assessment-gated

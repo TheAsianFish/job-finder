@@ -163,13 +163,21 @@ jobs:
             git add README.md && git commit -q -m "Initial commit"
             echo "NEW_REPO=1" >> "$GITHUB_ENV"
           fi
+          # A branch already on GitHub without a PR holds work saved from a run
+          # that was cut off (see "Save unfinished work"): continue from it.
+          start() {
+            if git rev-parse -q --verify "origin/$1" >/dev/null; then
+              git checkout -q -B "$1" "origin/$1"; echo "Continuing saved work on $1"
+            else
+              git checkout -q -b "$1"
+            fi
+          }
           case "$STAGE" in
             address) git fetch -q origin "$(jq -r .pr_branch <<< "$CONTEXT")"
                      git checkout -q -B "$(jq -r .pr_branch <<< "$CONTEXT")" FETCH_HEAD ;;
-            plan)    git checkout -q -b dev/plan ;;
-            finish)  git checkout -q -b dev/release ;;
-            build)   n=$(( $(jq -r .milestones_done <<< "$CONTEXT") + 1 ))
-                     git checkout -q -b "dev/m${n}" ;;
+            plan)    start dev/plan ;;
+            finish)  start dev/release ;;
+            build)   start "dev/m$(( $(jq -r .milestones_done <<< "$CONTEXT") + 1 ))" ;;
           esac
           if [ -f CONTRIBUTING.md ] && ! git ls-files --error-unmatch CLAUDE.md >/dev/null 2>&1; then
             cp CONTRIBUTING.md CLAUDE.md
@@ -271,6 +279,23 @@ jobs:
             echo "url=$url" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Save unfinished work
+        # A session that fails (usage limit, timeout, the review after a good
+        # build) must not throw away commits: push the branch without a PR so
+        # the next run continues from it. The 2026-10-10 M5 build lost ~20
+        # minutes of work this way.
+        if: failure() && env.BRANCH != '' && env.STAGE != 'address'
+        working-directory: work
+        env:
+          GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
+        run: |
+          git add -A
+          git diff --cached --quiet || git commit -q -m "Continue ${STAGE} work"
+          if [ "$(git rev-list --count origin/main..HEAD 2>/dev/null || echo 0)" != "0" ]; then
+            git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/$(jq -r .repo <<< "$CONTEXT").git" "HEAD:refs/heads/${BRANCH}"
+            echo "Saved $(git rev-list --count origin/main..HEAD) commit(s) on ${BRANCH}; the next run continues from them."
+          fi
+
       - name: Collect the resume entry (finish stage)
         id: collect
         if: env.STAGE == 'finish'
@@ -319,6 +344,9 @@ jobs:
               fi
             fi
             [ "$STAGE" = build ] && echo "Milestone: $(jq -r .milestone <<< "$CONTEXT")"
+            if [ "$OUTCOME" != success ]; then
+              echo "Any commits were saved on the branch; the next run continues from them."
+            fi
           } > "$RUNNER_TEMP/note.md"
           uv run opportunity-radar notify markdown "$RUNNER_TEMP/note.md" --title "🔨 Project builder" --channel projects
 
