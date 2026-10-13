@@ -35,6 +35,10 @@ flowchart LR
   GitHub, hence the wake-up above), a scout run on Mondays 09:00 PT, a study
   pack on Sundays. Hard caps: Opus build ≤ 230 min, Fable review ≤ 70 min.
   Replay's M1 (scaffold, CI, first vertical slice, review) took 49 minutes.
+- **Red CI.** A failed check on the open PR sends the builder back to fix it
+  (Opus, with the failed jobs' log, then the review), at most twice per PR;
+  after that the PR waits for Patrick. Before 2026-10-13 a red check left the
+  PR waiting silently (Replay M5 sat 3 days on a CI cleanup timeout).
 - **Saved work.** If a session fails (usage limit, timeout, a review that
   dies after a good build), its commits are pushed to the `dev/` branch
   without a PR, and the next run continues from them (AD-39).

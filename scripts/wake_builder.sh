@@ -39,7 +39,9 @@ echo "builder started (${stage})"
 title=$(jq -r .project.title "$ctx")
 case "$stage" in
   build)   what="starting milestone $(( $(jq -r .milestones_done "$ctx") + 1 )) of $(jq -r .milestones_total "$ctx"): $(jq -r .milestone "$ctx")" ;;
-  address) what="addressing your PR comments" ;;
+  address) reason=$(jq -r .reason "$ctx")
+           if [[ "$reason" == "CI failing"* ]]; then what="CI is failing on the open PR; fixing it (${reason#CI failing; })"
+           else what="addressing your PR comments"; fi ;;
   merge)   what="autopilot: merging the reviewed PR" ;;
   finish)  what="all milestones merged; preparing the release and resume entry" ;;
   *)       what="starting the ${stage} stage" ;;

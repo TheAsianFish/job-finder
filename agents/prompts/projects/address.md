@@ -7,3 +7,8 @@ focused commits (quality gate green), and update PLAN.md/README/RESULTS.md if
 affected. Then write `.agent/reply.md`: a short reply that addresses each
 comment in order (what changed, or why not), in the first person as the
 PR's author. If the changes teach something new, add it to `.agent/learn.md`.
+
+If the comment says CI is failing, there is no human comment to answer: read
+`.agent/ci-failure.log`, reproduce the failure locally where you can, fix the
+root cause (not the symptom, never by skipping or deleting a check), and
+reply briefly with what was wrong and what changed.

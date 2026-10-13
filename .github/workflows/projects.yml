@@ -214,6 +214,15 @@ jobs:
         run: |
           gh pr view "$(jq -r .pr_number <<< "$CONTEXT")" --repo "$(jq -r .repo <<< "$CONTEXT")" \
             --json body -q .body | grep -vE '<!-- (fable-)?review:' > work/.agent/pr.md || true
+          # A CI fix needs the failure; the sessions have no GitHub token, so
+          # hand them the failed jobs' log tail (stays in the session, not printed).
+          if [[ "$(jq -r .reason <<< "$CONTEXT")" == "CI failing"* ]]; then
+            run=$(gh run list --repo "$(jq -r .repo <<< "$CONTEXT")" --branch "$(jq -r .pr_branch <<< "$CONTEXT")" \
+              --status failure --limit 1 --json databaseId --jq '.[0].databaseId')
+            gh run view "$run" --repo "$(jq -r .repo <<< "$CONTEXT")" --log-failed 2>/dev/null \
+              | tail -c 40000 > work/.agent/ci-failure.log || true
+            echo "CI failure log: $(wc -c < work/.agent/ci-failure.log) bytes"
+          fi
 
       - name: Agent sessions
         working-directory: work
@@ -265,7 +274,8 @@ jobs:
           fi
           if [ "$STAGE" = "address" ]; then
             number=$(jq -r .pr_number <<< "$CONTEXT")
-            { cat .agent/reply.md 2>/dev/null || echo "Addressed the review comments."; echo; echo "<!-- ack -->"; } > .agent/reply-final.md
+            { cat .agent/reply.md 2>/dev/null || echo "Addressed the review comments."; echo; echo "<!-- ack -->"
+              [[ "$(jq -r .reason <<< "$CONTEXT")" == "CI failing"* ]] && echo "<!-- ci-fix -->"; } > .agent/reply-final.md
             gh pr comment "$number" --repo "$repo" --body-file .agent/reply-final.md
             gh pr edit "$number" --repo "$repo" --body-file .agent/pr.md
             echo "url=$(jq -r .pr_url <<< "$CONTEXT")" >> "$GITHUB_OUTPUT"
@@ -344,6 +354,10 @@ jobs:
               fi
             fi
             [ "$STAGE" = build ] && echo "Milestone: $(jq -r .milestone <<< "$CONTEXT")"
+            reason=$(jq -r .reason <<< "$CONTEXT")
+            if [[ "$reason" == "CI failing"* ]]; then
+              echo "This run fixed failing CI (${reason#CI failing; }). If CI is still red after the last attempt, the PR needs you."
+            fi
             if [ "$OUTCOME" != success ]; then
               echo "Any commits were saved on the branch; the next run continues from them."
             fi

@@ -6,7 +6,8 @@ reads the project's GitHub repo through `gh` and returns one stage:
     create   repo missing: create it (private), then plan
     plan     no PLAN.md on main: Fable writes the plan as a PR
     address  an open agent PR has feedback newer than the agent's last
-             commit/reply: Opus addresses it on that branch
+             commit/reply, or its CI failed (at most CI_FIX_ATTEMPTS times
+             per PR): Opus addresses it on that branch
     merge    autopilot only: the open PR passed review + CI and has sat
              12h without feedback: merge it
     wait     an open agent PR awaits Patrick: do nothing (no compute spent)
@@ -26,7 +27,7 @@ import json
 import re
 import subprocess
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 
 from opportunity_radar.projects.portfolio import Project
@@ -39,7 +40,10 @@ AGENT_MARK = "<!-- ack -->"  # on the builder's replies to review comments
 _REPLY_MARKS = (AGENT_MARK, "<!-- project-builder -->")
 REVIEW_PASS = "<!-- review: pass -->"
 _PASS_MARKS = (REVIEW_PASS, "<!-- fable-review: pass -->")
+CI_FIX_MARK = "<!-- ci-fix -->"  # on the reply after an automatic CI fix
+CI_FIX_ATTEMPTS = 2
 AUTOPILOT_QUIET = timedelta(hours=12)
+_FAILED = {"FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "ERROR", "STARTUP_FAILURE"}
 _CHECKBOX_RE = re.compile(r"^\s*[-*]\s*\[( |x|X)\]\s*(.+?)\s*$")
 
 Gh = Callable[[list[str]], str]  # gh args -> stdout; raises GhError on failure
@@ -81,6 +85,8 @@ class PullRequest:
     feedback: list[str] = field(default_factory=list)  # Patrick's unaddressed comments
     checks_green: bool = False
     last_activity: datetime | None = None
+    checks_failed: list[str] = field(default_factory=list)  # finished and red
+    ci_fix_attempts: int = 0
 
 
 @dataclass
@@ -136,7 +142,10 @@ def _actions_runs(repo: str, commits: list[dict], gh: Gh) -> list[dict]:
         return []
     data = _json(gh, ["api", f"repos/{repo}/actions/runs?head_sha={sha}"]) or {}
     # An unfinished run has no conclusion yet, so it never counts as green.
-    return [{"conclusion": r.get("conclusion") or ""} for r in data.get("workflow_runs") or []]
+    return [
+        {"name": r.get("name") or "", "conclusion": r.get("conclusion") or ""}
+        for r in data.get("workflow_runs") or []
+    ]
 
 
 def read_pr(repo: str, raw: dict, gh: Gh) -> PullRequest:
@@ -157,6 +166,11 @@ def read_pr(repo: str, raw: dict, gh: Gh) -> PullRequest:
         (c.get("conclusion") or c.get("state") or "").upper() in ("SUCCESS", "NEUTRAL", "SKIPPED")
         for c in checks
     )
+    failed = [
+        str(c.get("name") or c.get("context") or "check")
+        for c in checks
+        if (c.get("conclusion") or c.get("state") or "").upper() in _FAILED
+    ]
     notes: list[tuple[datetime, str, bool]] = []  # (when, body, by_agent)
     for path, when_key in (
         (f"repos/{repo}/issues/{number}/comments", "created_at"),
@@ -185,6 +199,8 @@ def read_pr(repo: str, raw: dict, gh: Gh) -> PullRequest:
         feedback=feedback,
         checks_green=green,
         last_activity=activity,
+        checks_failed=failed,
+        ci_fix_attempts=sum(CI_FIX_MARK in body for _, body, _ in notes),
     )
 
 
@@ -219,6 +235,22 @@ def decide(project: Project, state: RepoState, now: datetime | None = None) -> S
         pr = state.pr
         if pr.feedback:
             return Stage("address", pr=pr, reason=f"{len(pr.feedback)} new comment(s)")
+        if pr.checks_failed:
+            # A red check never merges, so fixing it is the only way forward;
+            # bounded so a fix that can't land doesn't loop.
+            if pr.ci_fix_attempts < CI_FIX_ATTEMPTS:
+                note = [
+                    f"CI is failing on this PR: {', '.join(pr.checks_failed)}. The failed jobs' "
+                    "log tail is in .agent/ci-failure.log. Find the root cause, fix it, and "
+                    "make the whole quality gate pass."
+                ]
+                n = pr.ci_fix_attempts + 1
+                return Stage(
+                    "address",
+                    pr=replace(pr, feedback=note),
+                    reason=f"CI failing; fix attempt {n} of {CI_FIX_ATTEMPTS}",
+                )
+            return Stage("wait", pr=pr, reason="CI still failing after automatic fixes; needs you")
         quiet_since = pr.last_activity or pr.created
         if (
             project.autopilot

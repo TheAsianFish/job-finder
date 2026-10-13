@@ -10,6 +10,8 @@ from typer.testing import CliRunner
 
 from opportunity_radar.projects.builder import (
     AGENT_MARK,
+    CI_FIX_ATTEMPTS,
+    CI_FIX_MARK,
     REVIEW_PASS,
     GhError,
     PullRequest,
@@ -153,6 +155,19 @@ def test_autopilot_merges_only_reviewed_green_quiet_prs():
     assert decide(project, RepoState(True, PLAN, ready), NOW).kind == "wait"
 
 
+def test_failed_ci_gets_bounded_automatic_fixes():
+    project = Project(slug="e", title="E", status="building", autopilot=True)
+    red = _pr(checks_green=False, body=REVIEW_PASS, checks_failed=["Smoke test"])
+    stage = decide(project, RepoState(True, PLAN, red), NOW)
+    assert stage.kind == "address" and stage.reason.startswith("CI failing; fix attempt 1 of 2")
+    assert "Smoke test" in stage.pr.feedback[0]
+    red.ci_fix_attempts = CI_FIX_ATTEMPTS
+    stage = decide(project, RepoState(True, PLAN, red), NOW)
+    assert stage.kind == "wait" and "needs you" in stage.reason
+    pending = _pr(checks_green=False, body=REVIEW_PASS)  # still running: just wait
+    assert decide(project, RepoState(True, PLAN, pending), NOW).kind == "wait"
+
+
 def test_legacy_review_marker_still_counts():
     project = Project(slug="e", title="E", status="building", autopilot=True)
     legacy = _pr(checks_green=True, body="Summary\n<!-- fable-review: pass -->")
@@ -247,6 +262,19 @@ def test_ci_is_read_from_actions_runs_when_check_runs_are_off_limits():
     )
     assert not read_state("x/y", running).pr.checks_green
     assert not read_state("x/y", FakeGh(prs=prs, commits=commits, runs=[])).pr.checks_green
+    red = FakeGh(
+        prs=prs,
+        commits=commits,
+        runs=[{"name": "CI", "conclusion": "failure"}],
+        comments=[
+            {
+                "body": f"Fixed CI.\n{AGENT_MARK}\n{CI_FIX_MARK}",
+                "created_at": "2026-10-09T09:00:00Z",
+            }
+        ],
+    )
+    pr = read_state("x/y", red).pr
+    assert pr.checks_failed == ["CI"] and pr.ci_fix_attempts == 1 and pr.feedback == []
 
 
 # ---------------------------------------------------------------- resume entry
