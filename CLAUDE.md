@@ -109,9 +109,10 @@ roles are excluded. Skill demand: `uv run opportunity-radar insights skills`
   session to that key (AD-39; `project_agent.sh` enforces Max-only). There
   are no API credits, so live evals stay harness-only ("To measure" in
   RESULTS.md). Failed sessions save their commits on the `dev/` branch and
-  the next run continues. Status 2026-10-10: Replay M1-M4 merged (PRs #2-#5),
-  M5-M7 left; Kiln paused 2026-10-13 (next slot kept open for a project
-  Patrick may choose instead).
+  the next run continues. Status 2026-10-13: Replay M1-M4 merged (PRs #2-#5),
+  M5 (PR #6) green and waiting for its autopilot merge, M6-M7 left; Kiln
+  paused 2026-10-13 (next slot kept open for a project Patrick may choose
+  instead, likely his own PyTorch fine-tuning + vision + agent project).
 - Private career repo `TheAsianFish/career-private` is cloned at
   `resume/private/` (git-ignored; `CAREER_DEPLOY_KEY` deploy key for CI).
   Resume engine: `src/opportunity_radar/resume/` (AD-28, AD-29: assessment-gated
