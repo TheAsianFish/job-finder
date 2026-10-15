@@ -102,6 +102,17 @@ jobs:
           echo "stage=$(jq -r .stage "$RUNNER_TEMP/context.json")" >> "$GITHUB_OUTPUT"
           { echo "context<<CTX_EOF"; cat "$RUNNER_TEMP/context.json"; echo; echo "CTX_EOF"; } >> "$GITHUB_OUTPUT"
 
+      - name: Report a CI re-run to Discord
+        if: steps.step.outputs.stage == 'rerun'
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_PROJECTS: ${{ secrets.DISCORD_WEBHOOK_PROJECTS }}
+          CONTEXT: ${{ steps.step.outputs.context }}
+        run: |
+          printf '**%s**: %s once before trying a fix: %s\n' "$(jq -r .project.title <<< "$CONTEXT")" \
+            "$(jq -r .reason <<< "$CONTEXT")" "$(jq -r .pr_url <<< "$CONTEXT")" > "$RUNNER_TEMP/rerun.md"
+          uv run opportunity-radar notify markdown "$RUNNER_TEMP/rerun.md" --title "🔁 Project builder" --channel projects
+
       - name: Report a failed step to Discord
         # A broken decision step (expired token, missing permission) must not
         # leave the builder silent. The wake-up in the scan chain re-triggers
@@ -172,9 +183,10 @@ jobs:
               git checkout -q -b "$1"
             fi
           }
+          # The clone already has every branch: origin has no credentials now,
+          # so a fetch from this private repo would fail (2026-10-14, PR #7).
           case "$STAGE" in
-            address) git fetch -q origin "$(jq -r .pr_branch <<< "$CONTEXT")"
-                     git checkout -q -B "$(jq -r .pr_branch <<< "$CONTEXT")" FETCH_HEAD ;;
+            address) git checkout -q -B "$(jq -r .pr_branch <<< "$CONTEXT")" "origin/$(jq -r .pr_branch <<< "$CONTEXT")" ;;
             plan)    start dev/plan ;;
             finish)  start dev/release ;;
             build)   start "dev/m$(( $(jq -r .milestones_done <<< "$CONTEXT") + 1 ))" ;;
@@ -356,7 +368,7 @@ jobs:
             [ "$STAGE" = build ] && echo "Milestone: $(jq -r .milestone <<< "$CONTEXT")"
             reason=$(jq -r .reason <<< "$CONTEXT")
             if [[ "$reason" == "CI failing"* ]]; then
-              echo "This run fixed failing CI (${reason#CI failing; }). If CI is still red after the last attempt, the PR needs you."
+              echo "This run worked on failing CI (${reason#CI failing; }). If CI is still red after the last attempt, the PR needs you."
             fi
             if [ "$OUTCOME" != success ]; then
               echo "Any commits were saved on the branch; the next run continues from them."

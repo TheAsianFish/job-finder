@@ -664,3 +664,30 @@ steps only run on success; a "Save unfinished work" step now pushes the
 branch (no PR) on failure, and the next run checks out that branch and
 continues (build prompt told to keep what is sound).
 
+
+## AD-40: Red CI is re-run once, then fixed; fix attempts counted when they start
+
+Context: Replay M6 (PR #7, 2026-10-14) went red because Docker Hub answered a
+500 while the compose job pulled `python:3.12-slim`; the code was fine. The
+builder sent the PR to `address` for an automatic fix, but that stage could
+never start on a private repo: the clone step stripped the credentials from
+`origin` and then ran `git fetch origin <branch>`, which failed with "could not
+read Username". The bug dated from AD-32 and surfaced only now because
+`address` had never run before (M5's CI was fixed by hand). The fix attempts
+were counted from the `<!-- ci-fix -->` replies on the PR, and a session that
+crashes never posts one, so the builder retried every 3 hours for ~1.5 days
+(about 16 failed runs, no Max usage because they failed before the session).
+
+Decision:
+- `address` checks out `origin/<branch>` from the clone, which already holds
+  every branch; nothing is fetched after the credentials are removed.
+- A failed check whose Actions run is on its first attempt gets a new stage,
+  `rerun`: `projects step` runs `gh run rerun <id> --failed` (no agent
+  session) and `#projects` says so. Outages and flaky jobs clear without
+  spending a fix session on a code change nobody needs. A run that fails again
+  (attempt 2) goes to `address` as before. If the token can't re-run (needs
+  Actions: write), the step goes straight to a fix instead of stalling.
+- `projects.yaml` records each CI-fix session when it starts
+  (`ci_fix_started`: one PR number per session), and the builder counts
+  the higher of that and the PR replies. After `CI_FIX_ATTEMPTS` (2) sessions,
+  including ones that crash, the PR waits for Patrick.

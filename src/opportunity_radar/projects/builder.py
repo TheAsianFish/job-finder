@@ -5,9 +5,13 @@ reads the project's GitHub repo through `gh` and returns one stage:
 
     create   repo missing: create it (private), then plan
     plan     no PLAN.md on main: Fable writes the plan as a PR
+    rerun    an open agent PR's CI failed on a first attempt: re-run the
+             failed jobs once (no agent session; outages and flakes such as
+             a registry 500 clear without a code change)
     address  an open agent PR has feedback newer than the agent's last
-             commit/reply, or its CI failed (at most CI_FIX_ATTEMPTS times
-             per PR): Opus addresses it on that branch
+             commit/reply, or its CI failed again after the re-run (at most
+             CI_FIX_ATTEMPTS sessions per PR, counting ones that crashed):
+             Opus addresses it on that branch
     merge    autopilot only: the open PR passed review + CI and has sat
              12h without feedback: merge it
     wait     an open agent PR awaits Patrick: do nothing (no compute spent)
@@ -87,6 +91,7 @@ class PullRequest:
     last_activity: datetime | None = None
     checks_failed: list[str] = field(default_factory=list)  # finished and red
     ci_fix_attempts: int = 0
+    rerunnable: list[int] = field(default_factory=list)  # red Actions runs on attempt 1
 
 
 @dataclass
@@ -136,21 +141,37 @@ def _json(gh: Gh, args: list[str]):
 
 
 def _actions_runs(repo: str, commits: list[dict], gh: Gh) -> list[dict]:
-    """Workflow runs for the PR's head commit, shaped like statusCheckRollup."""
+    """Workflow runs for the PR's head commit, shaped like statusCheckRollup
+    plus the run's id and attempt number."""
     sha = commits[-1].get("oid") if commits else None
     if not sha:
         return []
     data = _json(gh, ["api", f"repos/{repo}/actions/runs?head_sha={sha}"]) or {}
     # An unfinished run has no conclusion yet, so it never counts as green.
     return [
-        {"name": r.get("name") or "", "conclusion": r.get("conclusion") or ""}
+        {
+            "name": r.get("name") or "",
+            "conclusion": r.get("conclusion") or "",
+            "id": r.get("id"),
+            "attempt": int(r.get("run_attempt") or 1),
+        }
         for r in data.get("workflow_runs") or []
+    ]
+
+
+def _rerunnable(runs: list[dict]) -> list[int]:
+    """Failed runs that have not been re-run yet."""
+    return [
+        int(r["id"])
+        for r in runs
+        if r.get("id") and r["attempt"] == 1 and r["conclusion"].upper() in _FAILED
     ]
 
 
 def read_pr(repo: str, raw: dict, gh: Gh) -> PullRequest:
     number = int(raw["number"])
     pr_view = ["pr", "view", str(number), "--repo", repo, "--json"]
+    runs: list[dict] | None = None
     try:
         view = _json(gh, [*pr_view, "commits,statusCheckRollup,body"])
         checks = view.get("statusCheckRollup") or []
@@ -159,7 +180,7 @@ def read_pr(repo: str, raw: dict, gh: Gh) -> PullRequest:
         # offer "Checks" on every token); the Actions runs for the head commit
         # say the same thing with only "Actions: read".
         view = _json(gh, [*pr_view, "commits,body"])
-        checks = _actions_runs(repo, view.get("commits") or [], gh)
+        checks = runs = _actions_runs(repo, view.get("commits") or [], gh)
     commits = view.get("commits") or []
     last_commit = _when(commits[-1].get("committedDate")) if commits else None
     green = bool(checks) and all(
@@ -171,6 +192,11 @@ def read_pr(repo: str, raw: dict, gh: Gh) -> PullRequest:
         for c in checks
         if (c.get("conclusion") or c.get("state") or "").upper() in _FAILED
     ]
+    if failed and runs is None:
+        try:  # which runs to re-run; without them the builder goes straight to a fix
+            runs = _actions_runs(repo, commits, gh)
+        except GhError:
+            runs = []
     notes: list[tuple[datetime, str, bool]] = []  # (when, body, by_agent)
     for path, when_key in (
         (f"repos/{repo}/issues/{number}/comments", "created_at"),
@@ -201,6 +227,7 @@ def read_pr(repo: str, raw: dict, gh: Gh) -> PullRequest:
         last_activity=activity,
         checks_failed=failed,
         ci_fix_attempts=sum(CI_FIX_MARK in body for _, body, _ in notes),
+        rerunnable=_rerunnable(runs or []) if failed else [],
     )
 
 
@@ -236,15 +263,23 @@ def decide(project: Project, state: RepoState, now: datetime | None = None) -> S
         if pr.feedback:
             return Stage("address", pr=pr, reason=f"{len(pr.feedback)} new comment(s)")
         if pr.checks_failed:
-            # A red check never merges, so fixing it is the only way forward;
-            # bounded so a fix that can't land doesn't loop.
-            if pr.ci_fix_attempts < CI_FIX_ATTEMPTS:
+            # A red check never merges. Re-run it once first: an outage (the
+            # 2026-10-14 Docker Hub 500 on Replay M6) needs no code change.
+            if pr.rerunnable:
+                return Stage(
+                    "rerun", pr=pr, reason=f"CI failed ({', '.join(pr.checks_failed)}); re-running"
+                )
+            # Then fix it, bounded so a fix that can't land doesn't loop.
+            # Sessions are counted when they start (projects.yaml), so one
+            # that crashes before replying still uses up an attempt.
+            attempts = max(pr.ci_fix_attempts, project.ci_fix_started.count(pr.number))
+            if attempts < CI_FIX_ATTEMPTS:
                 note = [
                     f"CI is failing on this PR: {', '.join(pr.checks_failed)}. The failed jobs' "
                     "log tail is in .agent/ci-failure.log. Find the root cause, fix it, and "
                     "make the whole quality gate pass."
                 ]
-                n = pr.ci_fix_attempts + 1
+                n = attempts + 1
                 return Stage(
                     "address",
                     pr=replace(pr, feedback=note),

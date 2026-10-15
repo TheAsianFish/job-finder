@@ -110,7 +110,9 @@ def projects_step(
     dry_run: bool = typer.Option(False, "--dry-run", help="Decide only; create/merge nothing"),
 ) -> None:
     """Decide the builder's next stage (creates the repo / merges on autopilot)."""
-    from opportunity_radar.projects.builder import decide, gh_cli, read_state
+    from dataclasses import replace
+
+    from opportunity_radar.projects.builder import GhError, decide, gh_cli, read_state
     from opportunity_radar.projects.portfolio import find, load_projects, next_project
 
     projects = load_projects()
@@ -120,6 +122,16 @@ def projects_step(
         gh = gh_cli(_token())
         state = read_state(project.repo_name, gh)
         stage = decide(project, state)
+        if not dry_run and stage.kind == "rerun" and stage.pr:
+            try:
+                for run_id in stage.pr.rerunnable:
+                    gh(["run", "rerun", str(run_id), "--failed", "--repo", project.repo_name])
+            except GhError as exc:
+                # Re-running needs "Actions: write" on the token; without it,
+                # go straight to a fix rather than stall.
+                console.print(f"re-run failed ({exc}); fixing instead")
+                state = replace(state, pr=replace(stage.pr, rerunnable=[]))
+                stage = decide(project, state)
         context = {
             "stage": stage.kind,
             "reason": stage.reason,
@@ -135,6 +147,9 @@ def projects_step(
             "project": asdict(project),
         }
         changed = False
+        if not dry_run and stage.reason.startswith("CI failing") and stage.pr:
+            project.ci_fix_started.append(stage.pr.number)
+            changed = True
         if not dry_run and stage.kind == "create":
             gh(
                 ["repo", "create", project.repo_name, "--private",

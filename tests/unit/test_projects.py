@@ -65,11 +65,15 @@ def test_projects_round_trip_and_pipeline_order(tmp_path):
     projects = [
         Project(slug="a", title="Alpha", status="proposed"),
         Project(slug="b", title="Beta", status="approved"),
-        Project(slug="c", title="Gamma", status="building", repo="TheAsianFish/c"),
+        Project(
+            slug="c", title="Gamma", status="building", repo="TheAsianFish/c", ci_fix_started=[7]
+        ),
     ]
     save_projects(projects, path)
     assert "status: approved" in path.read_text() and path.read_text().startswith("# Portfolio")
+    assert path.read_text().count("ci_fix_started") == 1  # omitted when empty
     loaded = load_projects(path)
+    assert [p.ci_fix_started for p in loaded] == [[], [], [7]]
     assert [p.slug for p in loaded] == ["a", "b", "c"]
     assert next_project(loaded).slug == "c"  # in-flight work first
     set_status(loaded, "c", "paused")
@@ -168,6 +172,27 @@ def test_failed_ci_gets_bounded_automatic_fixes():
     assert decide(project, RepoState(True, PLAN, pending), NOW).kind == "wait"
 
 
+def test_failed_ci_is_rerun_once_before_a_fix_session():
+    project = Project(slug="e", title="E", status="building", autopilot=True)
+    red = _pr(checks_failed=["CI"], rerunnable=[38531971040])
+    stage = decide(project, RepoState(True, PLAN, red), NOW)
+    assert stage.kind == "rerun" and stage.reason == "CI failed (CI); re-running"
+    red.rerunnable = []  # the re-run failed too: now a fix session
+    assert decide(project, RepoState(True, PLAN, red), NOW).kind == "address"
+
+
+def test_ci_fix_sessions_that_crashed_still_count():
+    # PR #7: every session died before replying, so the PR comments showed
+    # zero attempts and the builder retried forever.
+    red = _pr(checks_failed=["CI"])
+    project = Project(slug="e", title="E", status="building", ci_fix_started=[3, 4])
+    stage = decide(project, RepoState(True, PLAN, red), NOW)
+    assert stage.kind == "address" and stage.reason == "CI failing; fix attempt 2 of 2"
+    project.ci_fix_started.append(4)
+    stage = decide(project, RepoState(True, PLAN, red), NOW)
+    assert stage.kind == "wait" and "needs you" in stage.reason
+
+
 def test_legacy_review_marker_still_counts():
     project = Project(slug="e", title="E", status="building", autopilot=True)
     legacy = _pr(checks_green=True, body="Summary\n<!-- fable-review: pass -->")
@@ -177,13 +202,18 @@ def test_legacy_review_marker_still_counts():
 class FakeGh:
     """Answers the gh calls read_state makes, keyed by their first args."""
 
-    def __init__(self, *, exists=True, plan=PLAN, prs=None, comments=None, commits=None, runs=None):
+    def __init__(
+        self, *, exists=True, plan=PLAN, prs=None, comments=None, commits=None, runs=None,
+        rollup=None,
+    ):  # fmt: skip
         self.exists, self.plan = exists, plan
         self.runs = runs  # set: the token can't read check runs, only Actions runs
+        self.rollup = rollup or [{"conclusion": "SUCCESS"}]
         self.prs = prs or []
         self.comments = comments or []
         self.commits = commits or []
         self.calls: list[list[str]] = []
+        self.runs_for_ids: list[dict] = []
 
     def __call__(self, args: list[str]) -> str:
         self.calls.append(args)
@@ -205,12 +235,12 @@ class FakeGh:
             return json.dumps(
                 {
                     "commits": self.commits,
-                    "statusCheckRollup": [{"conclusion": "SUCCESS"}],
+                    "statusCheckRollup": self.rollup,
                     "body": REVIEW_PASS,
                 }
             )
         if args[0] == "api" and "actions/runs" in args[1]:
-            return json.dumps({"workflow_runs": self.runs})
+            return json.dumps({"workflow_runs": self.runs or self.runs_for_ids})
         if args[0] == "api" and "issues" in args[1]:
             return json.dumps(self.comments)
         if args[0] == "api":
@@ -275,6 +305,25 @@ def test_ci_is_read_from_actions_runs_when_check_runs_are_off_limits():
     )
     pr = read_state("x/y", red).pr
     assert pr.checks_failed == ["CI"] and pr.ci_fix_attempts == 1 and pr.feedback == []
+    assert pr.rerunnable == []  # GitHub's run ids are missing from these runs
+
+
+def test_only_first_attempt_failures_are_rerunnable():
+    prs = [{"number": 7, "url": "u7", "headRefName": "dev/m6", "createdAt": "2026-10-14T07:00:00Z"}]
+    commits = [{"committedDate": "2026-10-14T07:00:00Z", "oid": "abc123"}]
+    runs = [
+        {"name": "CI", "conclusion": "failure", "id": 11, "run_attempt": 1},
+        {"name": "Docs", "conclusion": "failure", "id": 12, "run_attempt": 2},
+        {"name": "Lint", "conclusion": "success", "id": 13, "run_attempt": 1},
+    ]
+    # Check runs readable: the run ids still come from the Actions runs.
+    gh = FakeGh(prs=prs, commits=commits, rollup=[{"name": "compose", "conclusion": "FAILURE"}])
+    gh.runs_for_ids = runs
+    assert read_state("x/y", gh).pr.rerunnable == [11]
+    assert read_state("x/y", FakeGh(prs=prs, commits=commits, runs=runs)).pr.rerunnable == [11]
+    green = FakeGh(prs=prs, commits=commits)
+    assert read_state("x/y", green).pr.rerunnable == []
+    assert not any("actions/runs" in a[1] for a in green.calls if a[0] == "api")
 
 
 # ---------------------------------------------------------------- resume entry
@@ -333,3 +382,54 @@ def test_cli_step_creates_repo_marks_building_and_writes_context(tmp_path, monke
 
     dry = CliRunner().invoke(app, ["projects", "step", "--dry-run", "--out", str(out)])
     assert dry.exit_code == 0
+
+
+def test_cli_step_reruns_red_ci_and_records_fix_attempts(tmp_path, monkeypatch):
+    from opportunity_radar import cli_projects
+    from opportunity_radar.cli import app
+    from opportunity_radar.resume.paths import private_dir
+
+    save_projects([Project(slug="replay", title="Replay", status="building", autopilot=True)])
+    prs = [{"number": 7, "url": "u7", "headRefName": "dev/m6", "createdAt": "2026-10-14T07:00:00Z"}]
+    commits = [{"committedDate": "2026-10-14T07:00:00Z", "oid": "abc123"}]
+    runs = [{"name": "CI", "conclusion": "failure", "id": 38531971040, "run_attempt": 1}]
+    gh = FakeGh(prs=prs, commits=commits, runs=runs)
+    reruns: list[list[str]] = []
+    allowed = True
+
+    def fake(args):
+        if args[:2] == ["run", "rerun"]:
+            if not allowed:
+                raise GhError("HTTP 403: Resource not accessible by personal access token")
+            reruns.append(args)
+            return ""
+        return gh(args)
+
+    monkeypatch.setattr("opportunity_radar.projects.builder.gh_cli", lambda token=None: fake)
+    monkeypatch.setattr(cli_projects, "_candidate_summary", lambda: {})
+    out = tmp_path / "context.json"
+    step = ["projects", "step", "--out", str(out), "--no-push"]
+
+    result = CliRunner().invoke(app, step)
+    assert result.exit_code == 0, result.output
+    assert json.loads(out.read_text())["stage"] == "rerun"
+    assert reruns == [["run", "rerun", "38531971040", "--failed", "--repo", "TheAsianFish/replay"]]
+    assert load_projects(private_dir() / "projects.yaml")[0].ci_fix_started == []
+
+    # A token without "Actions: write" can't re-run: fix it instead, and the
+    # session is counted before it starts.
+    allowed = False
+    result = CliRunner().invoke(app, step)
+    assert result.exit_code == 0, result.output
+    context = json.loads(out.read_text())
+    assert context["stage"] == "address" and context["reason"].startswith(
+        "CI failing; fix attempt 1"
+    )
+    assert load_projects(private_dir() / "projects.yaml")[0].ci_fix_started == [7]
+
+    # A dry run (the scan chain's wake-up check) changes nothing.
+    allowed = True
+    reruns.clear()
+    assert CliRunner().invoke(app, [*step, "--dry-run"]).exit_code == 0
+    assert reruns == [] and json.loads(out.read_text())["stage"] == "rerun"
+    assert load_projects(private_dir() / "projects.yaml")[0].ci_fix_started == [7]

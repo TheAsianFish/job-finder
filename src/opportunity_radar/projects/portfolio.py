@@ -53,6 +53,9 @@ class Project:
     autopilot: bool = False
     proposed: str = ""
     notes: str = ""
+    # One PR number per automatic CI-fix session started, so attempts that
+    # crash before replying on the PR still count (builder.CI_FIX_ATTEMPTS).
+    ci_fix_started: list[int] = field(default_factory=list)
 
     @property
     def repo_name(self) -> str:
@@ -87,6 +90,7 @@ def load_projects(path: Path | None = None) -> list[Project]:
         for key in ("pitch", "why", "release", "repo", "proposed", "notes", "title"):
             data[key] = str(data.get(key) or "")
         data["autopilot"] = bool(data.get("autopilot"))
+        data["ci_fix_started"] = [int(n) for n in data.get("ci_fix_started") or []]
         out.append(Project(**data))
     return out
 
@@ -95,6 +99,9 @@ def save_projects(projects: list[Project], path: Path | None = None) -> None:
     target = path or projects_path()
     target.parent.mkdir(parents=True, exist_ok=True)
     rows = [asdict(p) for p in projects]
+    for row in rows:
+        if not row["ci_fix_started"]:
+            del row["ci_fix_started"]  # only the project being fixed carries it
     target.write_text(
         HEADER + yaml.safe_dump({"projects": rows}, sort_keys=False, allow_unicode=True, width=100),
         encoding="utf-8",

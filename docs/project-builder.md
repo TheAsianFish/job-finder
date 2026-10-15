@@ -105,6 +105,9 @@ claims only, production engineering, AI stack used well, no AI attribution).
   before it decides anything (from the PR's checks, or from the Actions runs of
   its head commit when the token can't read check runs). If any step can't decide, `#projects` gets a
   "needs attention" message (repeats at most every 3 hours until fixed).
+  **Actions: write** lets it re-run a red PR's failed jobs once before
+  spending a fix session (AD-40); without it the builder goes straight to
+  the fix.
 - A `commit-msg` hook strips AI attribution; commits are authored as
   TheAsianFish.
 - This repo is public, so workflow logs print stages and run statistics only.

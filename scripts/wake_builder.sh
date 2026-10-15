@@ -30,12 +30,13 @@ if ! uv run opportunity-radar projects step --dry-run --no-push --out "$ctx" >/d
 fi
 stage=$(jq -r .stage "$ctx")
 case "$stage" in
-  create|plan|build|address|merge|finish) ;;
+  create|plan|build|address|merge|finish|rerun) ;;
   *) echo "builder: nothing to do (${stage})"; exit 0 ;;
 esac
 
 gh workflow run projects.yml -f action=auto -f project="$(jq -r .slug "$ctx")"
 echo "builder started (${stage})"
+[ "$stage" = rerun ] && exit 0  # the builder run posts the re-run itself
 title=$(jq -r .project.title "$ctx")
 case "$stage" in
   build)   what="starting milestone $(( $(jq -r .milestones_done "$ctx") + 1 )) of $(jq -r .milestones_total "$ctx"): $(jq -r .milestone "$ctx")" ;;
