@@ -134,7 +134,9 @@ roles are excluded. Skill demand: `uv run opportunity-radar insights skills`
   no project is pinned (`resume_rules.yaml`): every project competes per posting
   (AD-41); `apply <url>`
   links the tailored resume used, and `insights.outcomes.lessons()` feeds
-  logged outcomes into the next review; no applications are logged yet). `AGENT_GH_TOKEN` secret
+  logged outcomes into the next review; no applications are logged yet;
+  AD-46: a role gets the panel + tailored resume when its fit score,
+  0.6 x coverage + 0.4 x project alignment, is under 0.45). `AGENT_GH_TOKEN` secret
   (fine-grained PAT, all repos) opens those PRs and the project builders' repos.
   Never copy resume or application content into the public repo, PRs, or CI logs.
   Workflow env values are printed in this public repo's logs: private data

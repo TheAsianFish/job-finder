@@ -121,3 +121,30 @@ def test_ledger_merge_is_idempotent_and_forward_only(tmp_path):
     assert ledger.merge(path, older) == (0, 1)  # gains the URL, keeps "interview"
     app = ledger.load(path)[0]
     assert app.status == "interview" and app.url == "https://g.co/1"
+
+
+def test_fit_score_line_flags_a_role_the_resume_barely_shows():
+    from opportunity_radar.resume import assess as fit_module
+
+    # Shows Python and Docker only: low coverage and projects that don't
+    # evidence the role's top skills, but no single "fixable" signal.
+    posting = Posting.from_text(
+        "Software Engineer Intern",
+        "Python, Docker, Go, Kafka, Terraform, Linux and Spark on our data platform.",
+    )
+    fit = assess(BANK, posting, MASTER)
+    assert fit.fit_score < fit_module.FIT_FLOOR
+    assert fit.severity in ("tune", "gap") and fit.needs_attention
+    assert any("under the 0.45 line" in r for r in fit.reasons)
+
+    # The line is a weighted mix of coverage and project alignment.
+    assert fit_module.fit_score(1.0, 0.0) == fit_module.FIT_COVERAGE_WEIGHT
+    assert fit_module.fit_score(0.5, 0.5) == 0.5
+
+
+def test_role_above_the_fit_line_stays_quiet():
+    posting = Posting.from_text(
+        "Backend Engineer Intern", "Python PostgreSQL REST APIs Docker Kubernetes FastAPI"
+    )
+    fit = assess(BANK, posting, MASTER)
+    assert fit.fit_score >= 0.45 and fit.severity == "fits"

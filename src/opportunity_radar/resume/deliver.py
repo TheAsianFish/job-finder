@@ -368,6 +368,7 @@ async def deliver_pending(
             outcome=outcome,
             severity=fit.severity if fit else None,
             coverage=round(fit.master_coverage, 2) if fit else None,
+            fit=round(fit.fit_score, 2) if fit else None,
         )
     if report.flagged:
         report.git = commit_and_push(

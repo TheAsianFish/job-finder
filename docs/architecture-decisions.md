@@ -868,3 +868,25 @@ Decision:
   within the usage governor (AD-42).
 - The hiring-manager persona no longer says projects are pinned when none
   are (AD-41).
+
+## AD-46: A fit-score line decides which roles get a tailored resume (2026-10-16)
+
+Context: Patrick wants more roles critiqued and tailored, without a flood.
+The per-role check (AD-28, AD-37) had become almost silent: from 2026-10-09
+to 2026-10-16 the check step ran in 17 of ~965 scans and flagged one role
+(about 1 in 50 checked). Replaying `assess` over 1,038 internship postings at
+core/strong companies against the real bank showed why. Three of its five
+"fixable" signals are structurally zero since the skills line names every
+skill he has (AD-38): hidden skills, unused-material lift and a better
+reserve project never fired. So a role was flagged only when coverage and
+project alignment were both weak at once, or on a headline gap.
+
+Decision: a fit score, 0.6 x skill coverage + 0.4 x project alignment (the
+two signals that still vary), with a line at 0.45 (`assess.FIT_FLOOR`): below
+it the standing resume shows under about half of what the role asks for, and
+the role gets the panel review and a tailored resume (`tune`). All earlier
+triggers stay. In the replay this flags about 22% of internship postings
+(11% before); 0.50 would flag 27% overall and half of the postings that name
+enough skills, which is too many. Only postings naming at least 4 skills can
+cross the line (unchanged MIN_SKILLS), and checks stay capped at 3 per scan.
+The scan log line now carries `fit=` so the live rate can be measured.

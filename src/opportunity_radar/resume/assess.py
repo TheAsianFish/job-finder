@@ -13,9 +13,18 @@ there is a material disconnect:
   any bank project could do, and in absolute terms;
 - weak bullets: master bullets with no posting-relevant skill and no metric.
 
-severity: "fits" (stay quiet), "tune" (a concrete fixable issue, or two
-independent weak signals: send a review + tailored resume), "gap" (the role
-centres on a skill the resume genuinely lacks: review + project proposal).
+severity: "fits" (stay quiet), "tune" (a concrete fixable issue, two
+independent weak signals, or a fit score under FIT_FLOOR: send a review +
+tailored resume), "gap" (the role centres on a skill the resume genuinely
+lacks: review + project proposal).
+
+Fit score (AD-46): FIT_COVERAGE_WEIGHT x coverage + the rest x project
+alignment, the two signals that still vary since the skills line names every
+skill Patrick has (AD-38: "hidden" skills and unused-material lift are now
+always zero). FIT_FLOOR is set from a replay over 1,038 internship postings
+(2026-10-16): it flags about 22% of them, double the old rules' 11%; on the
+alerted roles actually checked (better fits) the old rules flagged about 1 in
+50.
 """
 
 from __future__ import annotations
@@ -33,6 +42,8 @@ WEAK_ALIGNMENT = 0.4
 RESERVE_ADVANTAGE = 3.0  # entry-score margin for "a reserve project fits better"
 MIN_SKILLS = 4  # a posting naming fewer skills says too little to flag coverage
 TOP_SKILLS = 5
+FIT_COVERAGE_WEIGHT = 0.6
+FIT_FLOOR = 0.45  # below this the standing resume shows under ~half of the role
 MIN_DESCRIPTION = 400
 
 
@@ -50,8 +61,16 @@ class FitAssessment:
     weak_bullets: list[str] = field(default_factory=list)
 
     @property
+    def fit_score(self) -> float:
+        return fit_score(self.master_coverage, self.project_alignment)
+
+    @property
     def needs_attention(self) -> bool:
         return self.severity != "fits"
+
+
+def fit_score(coverage: float, alignment: float) -> float:
+    return FIT_COVERAGE_WEIGHT * coverage + (1 - FIT_COVERAGE_WEIGHT) * alignment
 
 
 def _visible(text: str) -> set[str]:
@@ -117,15 +136,22 @@ def assess(bank: Bank, posting: Posting, master_text: str) -> FitAssessment:
         )
     if best_any >= best_live + RESERVE_ADVANTAGE:
         reasons.append("a reserve project fits this role clearly better than the ones shown")
+    fit = fit_score(master_cov, alignment)
+    below_line = enough and fit < FIT_FLOOR
+    if below_line:
+        reasons.append(
+            f"fit score {fit:.2f} is under the {FIT_FLOOR:.2f} line "
+            f"(skills shown {master_cov:.0%}, project alignment {alignment:.0%})"
+        )
     headline_true_gaps = [s for s in headline if s not in in_bank]
     if headline_true_gaps:
         reasons.append(
             "role centres on " + ", ".join(headline_true_gaps) + ", which your resume lacks"
         )
 
-    # "Major deviation" only: a concrete fixable issue (hidden material, a
-    # better reserve, measurable lift) or two independent weak signals. One
-    # soft signal on its own (e.g. projects don't show C++) stays quiet.
+    # A concrete fixable issue (hidden material, a better reserve, measurable
+    # lift), a fit score under the line, or two independent weak signals.
+    # One soft signal on its own (e.g. projects don't show C++) stays quiet.
     fixable = (
         len(hidden) >= 2
         or tailored_cov - master_cov >= MATERIAL_LIFT
@@ -133,7 +159,7 @@ def assess(bank: Bank, posting: Posting, master_text: str) -> FitAssessment:
     )
     if headline_true_gaps or (enough and master_cov < GAP_COVERAGE and not hidden):
         severity = "gap"
-    elif fixable or len(reasons) >= 2:
+    elif fixable or below_line or len(reasons) >= 2:
         severity = "tune"
     else:
         severity = "fits"
