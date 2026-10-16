@@ -8,7 +8,8 @@ question:
   gets it passed over? (Not keyword counting: the ATS seat does that.)
 - hiring manager: given what this team builds, which projects and bullets
   prove the candidate can do the work, and what should fill the one flexible
-  project slot? (Pinned projects, AD-38, are never swapped.)
+  project slots? (Pinned projects, AD-38, are never swapped; since
+  AD-41 none are pinned, so every project competes.)
 - interviewer: which bullets would fall apart under "tell me more"?
 - editor: does each bullet complete its STAR story, and does the page tell
   one consistent story? (AD-38)
@@ -61,8 +62,7 @@ Reply with only JSON:
 {company}. Infer what the team builds and needs from the job description only.
 Decide which projects and bullets prove this candidate could contribute on your
 team, which are noise for this role, and which unused entries (listed below)
-would serve better. These projects are always shown and can't be swapped out:
-{pinned}. Swap suggestions may only replace the other project(s).
+would serve better. {pinned_rule}
 
 Unused true entries: {reserves}
 
@@ -111,7 +111,13 @@ def persona_prompt(
         title=title,
         company=company,
         reserves=json.dumps(reserves, ensure_ascii=False),
-        pinned=", ".join(bank.pinned_projects) or "(none)",
+        pinned_rule=(
+            f"These projects are always shown and can't be swapped out: "
+            f"{', '.join(bank.pinned_projects)}. Swap suggestions may only replace the others."
+            if bank.pinned_projects
+            else "No project is pinned: any shown project may be swapped for a better-fitting "
+            "unused one (AD-41)."
+        ),
     )
     common = _COMMON.format(
         title=title,

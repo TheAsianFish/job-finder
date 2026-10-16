@@ -58,6 +58,48 @@ def _candidate_summary() -> dict:
     }
 
 
+def _bullet_history(project, gh) -> dict:
+    """What the bullets writer builds on (AD-45): the project's current entry
+    and talk tracks (from its open bullets PR, else resume.tex) and Patrick's
+    comments on that PR. Travels only in the sealed context (AD-43)."""
+    from opportunity_radar.projects.builder import GhError, find_project_entry
+    from opportunity_radar.resume.paths import private_dir
+    from opportunity_radar.resume.private_pr import git, repo_slug
+
+    private = private_dir()
+    branch = f"projects/{project.slug}-bullets"
+    has_git = (private / ".git").exists()
+    fetched = has_git and git(private, "fetch", "-q", "origin", branch).returncode == 0
+
+    def read(path: str) -> str:
+        if fetched:
+            shown = git(private, "show", f"FETCH_HEAD:{path}")
+            if shown.returncode == 0:
+                return shown.stdout
+        local = private / path
+        return local.read_text(encoding="utf-8") if local.exists() else ""
+
+    feedback: list[str] = []
+    slug = repo_slug(private) if has_git else None
+    if slug:
+        try:
+            data = json.loads(
+                gh(["pr", "view", branch, "--repo", slug, "--json", "comments,reviews"])
+            )
+            for item in (data.get("comments") or []) + (data.get("reviews") or []):
+                body = str(item.get("body") or "").strip()
+                if body:
+                    feedback.append(body[:2000])
+        except (GhError, ValueError):
+            pass  # no bullets PR yet
+    return {
+        "source": "the open bullets PR" if fetched else "resume.tex",
+        "entry": find_project_entry(read("resume.tex"), f"github.com/{project.repo_name}"),
+        "talk_tracks": read(f"prep/{project.slug}-bullets.md")[:20000],
+        "feedback": feedback[-10:],
+    }
+
+
 @projects_app.command("list")
 def projects_list() -> None:
     """Show the portfolio pipeline."""
@@ -220,6 +262,11 @@ def projects_step(
             project.status = "finishing"
             changed = True
         context["project"] = asdict(project)
+        if not dry_run and context["stage"] in ("build", "address", "finish"):
+            try:
+                context["bullets_history"] = _bullet_history(project, gh)
+            except Exception as exc:  # advisory: never block a build
+                console.print(f"bullet history unavailable ({type(exc).__name__})")
         context["candidate"] = _candidate_summary()
         from opportunity_radar.hub import bundle
 
@@ -291,7 +338,7 @@ def projects_scout_merge(
 
 def _propose_entry(
     slug: str, entry: Path, results: Path, notes: Path | None, interview: Path | None, *,
-    final: bool, push: bool,
+    final: bool, push: bool, critique: Path | None = None,
 ) -> None:  # fmt: skip
     """Put a project's resume entry in front of Patrick as a private PR
     (merge = true). While the project is being built (AD-41) one PR per
@@ -319,6 +366,10 @@ def _propose_entry(
     repo_url = f"https://github.com/{project.repo_name}"
     talk = notes.read_text(encoding="utf-8").strip() if notes and notes.exists() else ""
     mock = interview.read_text(encoding="utf-8").strip() if interview else ""
+    review = critique.read_text(encoding="utf-8").strip() if critique and critique.exists() else ""
+    verdict = next(
+        (line.strip() for line in review.splitlines() if line.lower().startswith("verdict")), ""
+    )
     lead = (
         f"**{project.title}** is built: {repo_url}"
         if final
@@ -356,6 +407,14 @@ def _propose_entry(
             block.strip(),
             "```",
             "",
+            (
+                f"**Independent review** (a separate reviewer read the code and cut or "
+                f"rewrote weak bullets): {verdict or 'see the file'}. Full critique: "
+                f"`prep/{project.slug}-bullets-review.md`."
+                if review
+                else "No independent review ran for this version."
+            ),
+            "",
             gate,
         ]
     )
@@ -368,6 +427,8 @@ def _propose_entry(
         files = {f"projects/{project.slug}-RESULTS.md": measured}
         if talk:
             files[f"prep/{project.slug}-bullets.md"] = talk + "\n"
+        if review:
+            files[f"prep/{project.slug}-bullets-review.md"] = review + "\n"
         if final:
             files[f"prep/{project.slug}-interview.md"] = (
                 mock + "\n" if mock else "# Mock interview\n\n(not generated)\n"
@@ -408,6 +469,7 @@ def _propose_entry(
 _ENTRY = typer.Option(..., "--entry", exists=True, help="RESUME.tex from the project")
 _RESULTS = typer.Option(..., "--results", exists=True, help="RESULTS.md (measured)")
 _NOTES = typer.Option(None, "--notes", help="BULLETS.md: each bullet's talk track")
+_CRITIQUE = typer.Option(None, "--critique", help="The independent bullets review (AD-45)")
 
 
 @projects_app.command("finish")
@@ -419,10 +481,11 @@ def projects_finish(
     interview: Path = typer.Option(
         None, "--interview", help="INTERVIEW.md: the mock interview to pass first"
     ),
+    critique: Path = _CRITIQUE,
     push: bool = typer.Option(True, "--push/--no-push"),
 ) -> None:
     """Propose the finished project's resume entry as a reserve entry (private PR)."""
-    _propose_entry(slug, entry, results, notes, interview, final=True, push=push)
+    _propose_entry(slug, entry, results, notes, interview, final=True, push=push, critique=critique)
 
 
 @projects_app.command("bullets")
@@ -431,10 +494,11 @@ def projects_bullets(
     entry: Path = _ENTRY,
     results: Path = _RESULTS,
     notes: Path = _NOTES,
+    critique: Path = _CRITIQUE,
     push: bool = typer.Option(True, "--push/--no-push"),
 ) -> None:
     """Propose or update a project's resume entry mid-build (one PR per project)."""
-    _propose_entry(slug, entry, results, notes, None, final=False, push=push)
+    _propose_entry(slug, entry, results, notes, None, final=False, push=push, critique=critique)
 
 
 # ---------------------------------------------------------------------------

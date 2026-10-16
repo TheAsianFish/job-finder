@@ -10,6 +10,15 @@ Read first: README, PLAN.md (what is done), RESULTS.md (the only source of
 numbers), `git log --oneline`, and the code behind each claim you make.
 If `.agent/RESUME.tex` already exists from an earlier stage of this run, improve it.
 
+**Build on the previous version.** The prompt ends with the entry and talk
+tracks from the last milestone (if any) and Patrick's comments on them. Start
+from that version: keep what is still true and strong, sharpen what the new
+work makes stronger (a new measured number, a harder problem solved), replace
+what it supersedes, and address every comment. Open BULLETS.md with
+`## Changes since the last version`: what changed and why, and how each
+comment was handled. An independent reviewer reads your work next and cuts
+anything weak, so write for that reader.
+
 ## `.agent/RESUME.tex`
 
 ONE project entry in Jake's resume template, exactly this shape:

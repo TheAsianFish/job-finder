@@ -836,3 +836,35 @@ Decision:
   (it wins over PLAN.md; plan and evolve fold it in). This is how Patrick's
   working session acts as the "mastermind" across project repos without
   waiting for an open PR to comment on.
+
+## AD-45: Project bullets get an independent reviewer and build on the last version (2026-10-16)
+
+Context: the hiring panel (AD-37) only reviews resumes tailored for flagged
+job postings. Project bullets (AD-41) skipped it: the session that wrote them
+was the only one that judged them, beyond two code checks (entry shape,
+numbers present in RESULTS.md). Each milestone also rewrote them from
+scratch: the build job cannot read the private repo, so the writer never saw
+its previous version or Patrick's comments on the bullets PR.
+
+Decision:
+- **Independent reviewer.** After the writer, a separate Fable session
+  (`bullets-review.md`) checks every bullet as the panel would, plus one
+  thing a screener can't do: it reads the code. In order: truth against the
+  code (every claim and named technology really used), truth against
+  RESULTS.md (re-running cheap measurements), the recruiter's 6-second read,
+  the interviewer's two hardest follow-ups, STAR and repetition, ATS terms
+  used naturally. It rewrites or cuts in place, deletes the entry if fewer
+  than two bullets survive, and writes a critique whose first line is
+  `Verdict: strong|usable|weak`. The PR leads with that verdict, and the
+  critique is saved as `prep/<slug>-bullets-review.md`.
+- **Iteration.** The control job, which has the private repo, adds
+  `bullets_history` to the sealed context (AD-43): the project's current
+  entry and talk tracks (from its open bullets PR, else `resume.tex`) and
+  Patrick's comments on that PR. Only the two bullets prompts include it.
+  The writer starts from that version and opens BULLETS.md with the changes
+  and how each comment was handled; the reviewer restores wording that
+  regressed.
+- Cost: one extra Fable session (at most 30 minutes) per passing milestone,
+  within the usage governor (AD-42).
+- The hiring-manager persona no longer says projects are pinned when none
+  are (AD-41).

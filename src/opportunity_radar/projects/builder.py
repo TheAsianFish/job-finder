@@ -37,6 +37,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import textwrap
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
@@ -402,6 +403,29 @@ def upsert_project(tex: str, block: str) -> str:
         out = "\n".join([*lines[:start], *replacement, *lines[end + 1 :]])
         return out + ("\n" if tex.endswith("\n") else "")
     return insert_reserve_project(tex, block)
+
+
+def find_project_entry(tex: str, repo: str) -> str:
+    """The project's current entry (live or reserve, uncommented) found by its
+    repo link, or "" if the resume has none. Superseded (%%) lines are skipped."""
+    lines = tex.splitlines()
+    for start, line in enumerate(lines):
+        if line.lstrip().startswith("%%"):
+            continue
+        body = line.lstrip().removeprefix("% ").removeprefix("%")
+        if not body.lstrip().startswith("\\resumeProjectHeading"):
+            continue
+        if repo not in "\n".join(lines[start : start + 3]):
+            continue
+        end = next((i for i in range(start, len(lines)) if "\\resumeItemListEnd" in lines[i]), None)
+        if end is None:
+            return ""
+        rows = [
+            r.lstrip().removeprefix("% ").removeprefix("%") if r.lstrip().startswith("%") else r
+            for r in lines[start : end + 1]
+        ]
+        return textwrap.dedent("\n".join(rows)).strip() + "\n"
+    return ""
 
 
 def validate_entry(block: str) -> list[str]:

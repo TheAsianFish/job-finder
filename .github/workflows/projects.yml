@@ -238,8 +238,10 @@ jobs:
         run: |
           p=radar/agents/prompts/projects
           ctx=$(jq '{project, milestone, milestones_done, milestones_total, feedback, pr_url, candidate}' "$CTX")
-          for s in plan build review address evolve evolve-review finish bullets; do
+          for s in plan build review address evolve evolve-review finish bullets bullets-review; do
             { cat "$p/standards.md"; echo; cat "$p/$s.md"; echo; echo "## Context"; echo '```json'; echo "$ctx"; echo '```'
+              # Only the bullets sessions see the previous entry and Patrick's comments (AD-45).
+              case "$s" in bullets*) echo; python3 radar/scripts/bullets_context.py "$CTX" ;; esac
               echo; echo "## Shared context"; jq -r '.hub // ""' "$CTX"; } > "$RUNNER_TEMP/prompt-$s.md"
           done
 
@@ -289,6 +291,13 @@ jobs:
           bullets() {
             bash $agent fable "$RUNNER_TEMP/prompt-bullets.md" 40 120 bullets \
               || echo "bullets: session failed; the next milestone writes them"
+            # An independent reviewer that reads the code cuts or fixes what
+            # would not survive a recruiter, an interviewer or an editor (AD-45).
+            if [ -s .agent/RESUME.tex ]; then
+              bash $agent fable "$RUNNER_TEMP/prompt-bullets-review.md" 30 100 bullets-review \
+                || echo "bullets-review: session failed; the PR says no review ran"
+              echo "bullets review: $(head -1 .agent/BULLETS-REVIEW.md 2>/dev/null || echo missing)"
+            fi
           }
           case "$STAGE" in
             plan)    bash $agent fable "$RUNNER_TEMP/prompt-plan.md" 60 150 plan ;;
@@ -390,6 +399,7 @@ jobs:
             head -c 60000 "$results" > "$out/RESULTS.md" 2>/dev/null || true
             head -c 30000 .agent/INTERVIEW.md > "$out/INTERVIEW.md" 2>/dev/null || true
             head -c 40000 .agent/BULLETS.md > "$out/BULLETS.md" 2>/dev/null || true
+            head -c 30000 .agent/BULLETS-REVIEW.md > "$out/CRITIQUE.md" 2>/dev/null || true
             echo "resume_entry=yes" >> "$GITHUB_OUTPUT"
           fi
           head -c 20000 .agent/summary.md > "$out/summary.md" 2>/dev/null || true
@@ -471,9 +481,10 @@ jobs:
           bash scripts/seal.sh open "$RUNNER_TEMP/ctx" <<< "$SEALED_CONTEXT"
           d="$RUNNER_TEMP/payload"
           bash scripts/seal.sh open "$d" <<< "$PAYLOAD"
-          touch "$d/RESULTS.md" "$d/INTERVIEW.md" "$d/BULLETS.md"
+          touch "$d/RESULTS.md" "$d/INTERVIEW.md" "$d/BULLETS.md" "$d/CRITIQUE.md"
           ctx="$RUNNER_TEMP/ctx/context.json"
           files=(--entry "$d/RESUME.tex" --results "$d/RESULTS.md" --notes "$d/BULLETS.md")
+          [ -s "$d/CRITIQUE.md" ] && files+=(--critique "$d/CRITIQUE.md")
           slug=$(jq -r .slug "$ctx")
           if [ "$(jq -r .stage "$ctx")" = finish ]; then
             uv run opportunity-radar projects finish "$slug" "${files[@]}" --interview "$d/INTERVIEW.md" --push

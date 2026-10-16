@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -583,6 +584,19 @@ def test_cli_bullets_updates_one_pr_per_project_and_finish_adds_the_interview(
     assert (worktree / "prep" / "evalkit-bullets.md").read_text().startswith("## Bullet 1")
     assert pings[-1][2] == "resume"
     assert load_projects()[0].status == "building"  # still being built
+    assert "No independent review ran" in opened[-1]["body"]
+
+    # With the independent review (AD-45), its verdict leads the PR and the
+    # full critique lands next to the talk tracks.
+    critique = tmp_path / "BULLETS-REVIEW.md"
+    critique.write_text("Verdict: usable\n\n| bullet | cut | vague |", encoding="utf-8")
+    result = CliRunner().invoke(
+        app, ["projects", "bullets", "evalkit", *args, "--critique", str(critique)]
+    )
+    assert result.exit_code == 0, result.output
+    assert "Verdict: usable" in opened[-1]["body"]
+    review = worktree / "prep" / "evalkit-bullets-review.md"
+    assert review.read_text().startswith("Verdict: usable")
 
     interview = tmp_path / "INTERVIEW.md"
     interview.write_text("1. Walk me through it.", encoding="utf-8")
@@ -663,3 +677,51 @@ def test_steer_and_problem_first_fields_round_trip(tmp_path):
     assert runner.invoke(app, ["projects", "steer", "eddy", "--clear", "--no-push"]).exit_code == 0
     assert load_projects(path)[0].steer == []
     assert runner.invoke(app, ["projects", "steer", "nope", "x", "--no-push"]).exit_code == 1
+
+
+def test_find_project_entry_reads_live_or_reserve_and_skips_superseded():
+    from opportunity_radar.projects.builder import find_project_entry
+
+    tex = load_fixture("resume_sample.tex")
+    assert find_project_entry(tex, "github.com/TheAsianFish/evalkit") == ""
+    reserve = upsert_project(tex, ENTRY)
+    found = find_project_entry(reserve, "github.com/TheAsianFish/evalkit")
+    assert found.startswith("\\resumeProjectHeading")
+    assert not any(line.lstrip().startswith("%") for line in found.splitlines())
+    assert "\n    \\resumeItem{" in found  # indentation kept
+    assert found.strip().endswith("\\resumeItemListEnd")
+    assert "61\\% to" in found
+    superseded = "\n".join("%% " + line for line in ENTRY.splitlines())
+    assert find_project_entry(superseded, "github.com/TheAsianFish/evalkit") == ""
+
+
+def test_bullet_history_reaches_only_the_bullets_prompts(tmp_path, monkeypatch):
+    import subprocess
+    import sys
+
+    from opportunity_radar import cli_projects
+    from opportunity_radar.resume.paths import private_dir
+
+    private = private_dir()
+    (private / "prep").mkdir(parents=True, exist_ok=True)
+    (private / "resume.tex").write_text(
+        upsert_project(load_fixture("resume_sample.tex"), ENTRY), encoding="utf-8"
+    )
+    (private / "prep" / "evalkit-bullets.md").write_text("## Bullet 1\ntrack", encoding="utf-8")
+    project = Project(slug="evalkit", title="Evalkit", status="building")
+    history = cli_projects._bullet_history(project, FakeGh())
+    assert history["source"] == "resume.tex" and "61\\%" in history["entry"]
+    assert history["talk_tracks"].startswith("## Bullet 1") and history["feedback"] == []
+
+    script = Path(__file__).resolve().parents[2] / "scripts" / "bullets_context.py"
+    ctx = tmp_path / "context.json"
+    ctx.write_text(json.dumps({"bullets_history": {**history, "feedback": ["Cut bullet 2"]}}))
+    text = subprocess.run(
+        [sys.executable, str(script), str(ctx)], capture_output=True, text=True, check=True
+    ).stdout
+    assert "```latex" in text and "- Cut bullet 2" in text and "track" in text
+    ctx.write_text(json.dumps({"stage": "build"}))
+    first = subprocess.run(
+        [sys.executable, str(script), str(ctx)], capture_output=True, text=True, check=True
+    ).stdout
+    assert "first version" in first
