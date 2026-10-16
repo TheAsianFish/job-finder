@@ -106,7 +106,8 @@ roles are excluded. Skill demand: `uv run opportunity-radar insights skills`
   scales how many projects may run, 4 down to 0 (AD-42; `projects usage`). Projects are problem-first (`problem` +
   `questions` in projects.yaml), finished plans get up to 2 evolve rounds
   that add reviewed, measured milestones, and `projects steer <slug> "..."`
-  redirects any project (AD-44). The scan chain wakes the
+  redirects any project (AD-44). Evolve rounds run only with spare usage, and agents use
+  nothing paid, only free and open-source tools (AD-48). The scan chain wakes the
   builder within ~10 min when it has work (`scripts/wake_builder.sh`, AD-35); builds post
   progress to `#projects` every 20 min (AD-36). Project repos must read as
   Patrick's own work: commits as TheAsianFish, frequent focused commits,

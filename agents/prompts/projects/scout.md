@@ -41,7 +41,8 @@ attacks each candidate: is it stack salad, is any part overreach an intern
 could not defend, is the core done by milestone 3? Keep what survives.
 
 Each must be buildable by an agent team in 5-8 milestone PRs, on a laptop
-and in CI (no paid cloud, no GPU, no credentials), with a measured result
+and in CI with free, open-source tools only (nothing paid: no paid APIs,
+cloud or SaaS; no GPU; no credentials), with a measured result
 by the second milestone. Differentiate from what exists; no clones of
 tutorials. Agentic AI is welcome where the problem calls for it (he likes
 it); never bolt an agent onto a problem that does not need one.

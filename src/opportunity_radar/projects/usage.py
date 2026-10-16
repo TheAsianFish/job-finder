@@ -41,6 +41,7 @@ WEEKLY_CEILING = 0.85  # the builder never pushes the 7-day meter past this
 FIVE_HOUR_STOP = 0.80  # no new sessions above this 5-hour utilization
 FIVE_HOUR_SLOW = 0.50  # one project at a time above this
 PACE_FLOOR = 0.15  # early in the week the pace line starts here, not at 0
+SPARE_RATIO = 0.8  # discretionary work (evolve) only this far behind the weekly pace
 WEEK = timedelta(days=7)
 
 
@@ -113,6 +114,9 @@ class Capacity:
     projects: int  # how many projects may take agent sessions now
     reason: str
     meter: Meter | None = None
+    # Room for discretionary work (evolve rounds, AD-44): clearly behind the
+    # weekly pace and the 5-hour window under half used. Never without a meter.
+    spare: bool = False
 
     def summary(self) -> str:
         reading = self.meter.summary() if self.meter else "meter unavailable"
@@ -154,7 +158,8 @@ def capacity(meter: Meter | None, now: datetime | None = None) -> Capacity:
         projects, why = 0, "ahead of the weekly pace; letting the week catch up"
     if projects > 1 and meter.five_hour >= FIVE_HOUR_SLOW:
         projects, why = 1, "5-hour window over half used"
-    return Capacity(projects, f"{why} (pace {target:.0%})", meter)
+    spare = ratio < SPARE_RATIO and meter.five_hour < FIVE_HOUR_SLOW
+    return Capacity(projects, f"{why} (pace {target:.0%})", meter, spare)
 
 
 # ---------------------------------------------------------------- ledger

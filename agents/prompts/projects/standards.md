@@ -90,6 +90,19 @@ Process rules:
   cheapest model that answers the question and say which one in RESULTS.md.
 - Keep PLAN.md as the single source of truth: tick a milestone's checkbox only
   when its definition of done is met and tests pass.
+- **Nothing paid, ever, without Patrick's explicit permission.** Use only
+  free and open-source software, models and data: anything you can download
+  and run in the repo or on a laptop is fine (Ollama and small open models,
+  open datasets, Docker images, kind). No paid APIs, cloud services, hosted
+  databases, SaaS tiers or trials. If a design would need something paid,
+  stop at the harness and write it under "To measure" with the cost.
+- **Spend CI minutes like money.** Project repos are private, and their
+  GitHub Actions minutes come from a free monthly allowance shared by every
+  project. The per-PR workflow runs only the fast offline gate (lint, types,
+  unit tests; a few minutes, `timeout-minutes` set on every job). Heavy work
+  (local-model runs, benchmarks, load or chaos tests, long evals) goes in a
+  manually triggered workflow (`workflow_dispatch`) or a `make` target run
+  locally, never on every push. Cache dependencies.
 - Never sign up for services, buy anything, publish packages, or deploy.
   The only credential you may use is `ANTHROPIC_API_KEY` (a capped key for
   evals/integration tests); never print it, write it to files, or commit it.

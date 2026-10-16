@@ -919,3 +919,29 @@ Decision:
   lead verb). All or nothing; the PR shows the reviewed version it replaced.
   `projects revoice <slug>` runs it on a PR that is already open.
 - Tests never call the real Claude CLI (an autouse fixture).
+
+## AD-48: Discretionary agent work waits for spare usage; nothing paid (2026-10-16)
+
+Context: evolve rounds (AD-44), the bullets reviewer (AD-45) and the voice
+pass (AD-47) all add Claude sessions, and Patrick wants them never to eat
+into his Max allowance or cost money: free and open-source tools are fine,
+anything paid needs his permission.
+
+Decision:
+- **Evolve is discretionary.** The governor's `Capacity.spare` is true only
+  with a meter reading, the 7-day meter under 80% of the weekly pace line
+  (`SPARE_RATIO`) and the 5-hour window under half used. Without it, an
+  evolve round waits (and is not used up) so every project's required work
+  goes first. The bullets reviewer (≤30 min Fable) and the voice pass (one
+  single-turn Opus call) stay with their milestone, inside the normal
+  governor.
+- **Nothing paid.** Every project session's standards, the scout and the
+  evolve bar allow only free, open-source software, models and data (Ollama
+  and small open models, open datasets, Docker, kind). Anything paid stops
+  at the harness under "To measure" with its cost.
+- **CI minutes.** Project repos are private, so their Actions minutes come
+  from GitHub Free's monthly allowance (2,000 minutes; at the default $0
+  spending limit, overage pauses CI instead of billing). Replay used about
+  146 billed minutes in October to date. Per-PR workflows run only the fast
+  offline gate with job timeouts; heavy runs go in `workflow_dispatch`
+  workflows or local `make` targets.

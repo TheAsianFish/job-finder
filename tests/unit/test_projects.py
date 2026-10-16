@@ -620,10 +620,27 @@ def test_cli_step_records_an_evolve_round_once(tmp_path, monkeypatch):
     monkeypatch.setattr("opportunity_radar.projects.builder.gh_cli", lambda token=None: gh)
     monkeypatch.setattr(cli_projects, "_candidate_summary", lambda: {})
     out = tmp_path / "context.json"
-    step = ["projects", "step", "--out", str(out), "--no-push"]
+    meter = tmp_path / "meter.jsonl"
+
+    def usage(five: float, seven: float) -> None:
+        meter.write_text(
+            '{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","unifiedWindows":'
+            f'{{"five_hour":{{"utilization":{five}}},"seven_day":{{"utilization":{seven}}}}}}}}}'
+        )
+
+    step = ["projects", "step", "--out", str(out), "--no-push", "--meter", str(meter)]
 
     assert CliRunner().invoke(app, [*step, "--dry-run"]).exit_code == 0
     assert load_projects(private_dir() / "projects.yaml")[0].evolved_at == []
+
+    # Evolving is discretionary: with the 5-hour window over half used it
+    # waits, and the round is not used up.
+    usage(0.6, 0.05)
+    result = CliRunner().invoke(app, step)
+    context = json.loads(out.read_text())
+    assert context["stage"] == "wait" and "spare Claude usage" in context["reason"], result.output
+    assert load_projects(private_dir() / "projects.yaml")[0].evolved_at == []
+    usage(0.05, 0.02)  # plenty of room
 
     result = CliRunner().invoke(app, step)
     assert result.exit_code == 0, result.output

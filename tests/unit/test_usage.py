@@ -194,3 +194,13 @@ def test_cli_records_runs_and_step_obeys_the_meter(tmp_path, monkeypatch):
     # The scan chain's wake-up check (no meter) only asks whether there is work.
     assert CliRunner().invoke(app, step).exit_code == 0
     assert json.loads(out.read_text())["slug"] == "anvil"
+
+
+def test_spare_usage_gates_discretionary_work():
+    from opportunity_radar.projects.usage import capacity
+
+    roomy = parse_meter(_event(0.1, 0.05))
+    assert capacity(roomy, NOW).spare
+    assert not capacity(parse_meter(_event(0.6, 0.05)), NOW).spare  # 5-hour half used
+    assert not capacity(parse_meter(_event(0.1, 0.40)), NOW).spare  # near the weekly pace
+    assert not capacity(None, NOW).spare  # never blind

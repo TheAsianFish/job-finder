@@ -183,7 +183,14 @@ def projects_step(
     """Decide the builder's next stage (creates the repo / merges on autopilot)."""
     from dataclasses import replace
 
-    from opportunity_radar.projects.builder import GhError, decide, gh_cli, pick, read_state
+    from opportunity_radar.projects.builder import (
+        GhError,
+        Stage,
+        decide,
+        gh_cli,
+        pick,
+        read_state,
+    )
     from opportunity_radar.projects.portfolio import active_projects, find, load_projects
 
     projects = load_projects()
@@ -201,6 +208,15 @@ def projects_step(
         ranked = [p.slug for p in active_projects(projects)]
         slots = 1 if any(c.slug in ranked[:slots] for c in candidates) else 0
     options = [(p, s, decide(p, s)) for p in candidates for s in [read_state(p.repo_name, gh)]]
+    if slots is not None and not room.spare:
+        # Evolve rounds are discretionary (AD-44): they wait for spare usage,
+        # so required work on every project goes first.
+        options = [
+            (p, s, Stage("wait", reason=f"evolve waits for spare Claude usage ({room.summary()})"))
+            if st.kind == "evolve"
+            else (p, s, st)
+            for p, s, st in options
+        ]
     chosen = pick(options, slots)
     context: dict = {"stage": "idle", "reason": "no approved or in-flight project"}
     if chosen is not None:

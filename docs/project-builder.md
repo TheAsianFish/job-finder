@@ -139,6 +139,11 @@ scales how many projects may start sessions, like an autoscaler:
 - **The 5-hour window:** one project above 50%, none above 80%, so your own
   sessions always have room.
 - Merges and CI re-runs always go through.
+- **Evolve rounds only with spare usage** (AD-48): well behind the weekly
+  pace and the 5-hour window under half used; otherwise they wait.
+- **Nothing paid** (AD-48): agents use only free, open-source tools,
+  models and data, and keep heavy runs out of per-PR CI (private-repo
+  Actions minutes are a monthly allowance).
 
 Every run is recorded in the private `usage/builder.jsonl`.
 `uv run opportunity-radar projects usage` shows the meter, the current

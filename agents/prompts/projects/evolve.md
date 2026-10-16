@@ -41,8 +41,9 @@ The bar for a milestone (all must hold):
 - It **ends in a measured result or a demonstrable capability**, with the
   exact command that produces it, and a hypothesis stated up front ("standby
   replicas should cut restore time; by how much?").
-- It is **practical**: runs on this machine class and in CI, needs no paid
-  service or credentials beyond what the project already uses.
+- It is **practical and free**: runs on this machine class (heavy runs in a
+  manual workflow or locally, not on every PR), and uses only free,
+  open-source tools, models and data. Nothing paid.
 - It is **one PR** (roughly 2-5 hours of focused work) and leaves the project
   green and runnable.
 
