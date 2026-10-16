@@ -336,9 +336,25 @@ def projects_scout_merge(
     _notify("🧪 New portfolio project proposals", "\n".join(lines))
 
 
+def _revoice(block: str) -> tuple[str, str]:
+    """The voice pass (AD-47): the tailor's rewriter with Patrick's voice guide
+    and his own bullets as examples, behind its guard. Never raises."""
+    from opportunity_radar.resume import polish
+    from opportunity_radar.resume.latex import to_plain
+    from opportunity_radar.resume.paths import private_dir
+    from opportunity_radar.resume.tailor import load_bank
+
+    try:
+        bank = load_bank()
+        corpus = to_plain((private_dir() / "resume.tex").read_text(encoding="utf-8"))
+    except Exception as exc:
+        return block, f"skipped: resume not readable ({type(exc).__name__})"
+    return polish.revoice_project(block, bank, polish.claude_runner(model="opus"), corpus=corpus)
+
+
 def _propose_entry(
     slug: str, entry: Path, results: Path, notes: Path | None, interview: Path | None, *,
-    final: bool, push: bool, critique: Path | None = None,
+    final: bool, push: bool, critique: Path | None = None, voice: bool = True,
 ) -> None:  # fmt: skip
     """Put a project's resume entry in front of Patrick as a private PR
     (merge = true). While the project is being built (AD-41) one PR per
@@ -362,6 +378,11 @@ def _propose_entry(
     if problems:
         console.print(f"[red]Resume entry rejected: {'; '.join(problems)}[/red]")
         raise typer.Exit(1)
+    reviewed = block
+    voice_note = "off"
+    if voice:
+        block, voice_note = _revoice(block)
+        console.print(f"voice pass: {voice_note}")
     unbacked = unbacked_numbers(block, measured)
     repo_url = f"https://github.com/{project.repo_name}"
     talk = notes.read_text(encoding="utf-8").strip() if notes and notes.exists() else ""
@@ -406,6 +427,14 @@ def _propose_entry(
             "```latex",
             block.strip(),
             "```",
+            "",
+            f"**Voice pass:** {voice_note}."
+            + (
+                "\n\n<details><summary>The reviewed version before the voice pass</summary>"
+                f"\n\n```latex\n{reviewed.strip()}\n```\n</details>"
+                if block != reviewed
+                else ""
+            ),
             "",
             (
                 f"**Independent review** (a separate reviewer read the code and cut or "
@@ -470,6 +499,7 @@ _ENTRY = typer.Option(..., "--entry", exists=True, help="RESUME.tex from the pro
 _RESULTS = typer.Option(..., "--results", exists=True, help="RESULTS.md (measured)")
 _NOTES = typer.Option(None, "--notes", help="BULLETS.md: each bullet's talk track")
 _CRITIQUE = typer.Option(None, "--critique", help="The independent bullets review (AD-45)")
+_VOICE = typer.Option(True, "--voice/--no-voice", help="Rewrite in Patrick's voice (AD-47)")
 
 
 @projects_app.command("finish")
@@ -482,10 +512,14 @@ def projects_finish(
         None, "--interview", help="INTERVIEW.md: the mock interview to pass first"
     ),
     critique: Path = _CRITIQUE,
+    voice: bool = _VOICE,
     push: bool = typer.Option(True, "--push/--no-push"),
 ) -> None:
     """Propose the finished project's resume entry as a reserve entry (private PR)."""
-    _propose_entry(slug, entry, results, notes, interview, final=True, push=push, critique=critique)
+    _propose_entry(
+        slug, entry, results, notes, interview, final=True, push=push, critique=critique,
+        voice=voice,
+    )  # fmt: skip
 
 
 @projects_app.command("bullets")
@@ -495,10 +529,81 @@ def projects_bullets(
     results: Path = _RESULTS,
     notes: Path = _NOTES,
     critique: Path = _CRITIQUE,
+    voice: bool = _VOICE,
     push: bool = typer.Option(True, "--push/--no-push"),
 ) -> None:
     """Propose or update a project's resume entry mid-build (one PR per project)."""
-    _propose_entry(slug, entry, results, notes, None, final=False, push=push, critique=critique)
+    _propose_entry(
+        slug, entry, results, notes, None, final=False, push=push, critique=critique,
+        voice=voice,
+    )  # fmt: skip
+
+
+@projects_app.command("revoice")
+def projects_revoice(
+    slug: str,
+    branch: str = typer.Option(
+        None, "--branch", help="The PR branch (default: the project's open resume PR)"
+    ),
+    push: bool = typer.Option(True, "--push/--no-push"),
+) -> None:
+    """Run the voice pass on a project entry already in an open private PR (AD-47)."""
+    import tempfile
+
+    from opportunity_radar.projects.builder import find_project_entry, gh_cli, upsert_project
+    from opportunity_radar.projects.portfolio import find, load_projects
+    from opportunity_radar.resume.paths import private_dir
+    from opportunity_radar.resume.private_pr import GIT_AUTHOR, git, repo_slug
+
+    project = find(load_projects(), slug)
+    private = private_dir()
+    repo = repo_slug(private) if (private / ".git").exists() else None
+    if project is None or repo is None:
+        console.print("[red]Unknown project, or the private repo is not cloned[/red]")
+        raise typer.Exit(1)
+    if not branch:
+        prs = json.loads(
+            gh_cli(_token())(["pr", "list", "--repo", repo, "--json", "headRefName,number"])
+        )
+        mine = [p["headRefName"] for p in prs if p["headRefName"].startswith(f"projects/{slug}-")]
+        if not mine:
+            console.print(f"[red]No open resume PR for {slug}[/red]")
+            raise typer.Exit(1)
+        branch = sorted(mine)[-1]
+    if git(private, "fetch", "-q", "origin", branch).returncode != 0:
+        console.print(f"[red]Could not fetch {branch}[/red]")
+        raise typer.Exit(1)
+    with tempfile.TemporaryDirectory(prefix="revoice-") as tmp:
+        work = Path(tmp) / "wt"
+        git(private, "worktree", "add", "-q", "--detach", str(work), "FETCH_HEAD")
+        try:
+            source = work / "resume.tex"
+            tex = source.read_text(encoding="utf-8")
+            old = find_project_entry(tex, f"github.com/{project.repo_name}")
+            if not old:
+                console.print("[red]No entry for this project on that branch[/red]")
+                raise typer.Exit(1)
+            new, note = _revoice(old)
+            console.print(f"voice pass: {note}")
+            if new == old:
+                return
+            source.write_text(upsert_project(tex, new), encoding="utf-8")
+            before = work / "prep" / f"{project.slug}-before-voice.tex"
+            before.parent.mkdir(parents=True, exist_ok=True)
+            before.write_text(old, encoding="utf-8")
+            name, email = GIT_AUTHOR
+            git(work, "add", "-A")
+            git(work, "-c", f"user.name={name}", "-c", f"user.email={email}",
+                "commit", "-q", "-m", f"Rewrite {project.title} bullets in my voice")  # fmt: skip
+            if push:
+                pushed = git(work, "push", "-q", "origin", f"HEAD:refs/heads/{branch}")
+                if pushed.returncode != 0:
+                    console.print(f"[red]push failed: {pushed.stderr.strip()[:150]}[/red]")
+                    raise typer.Exit(1)
+            console.print(new)
+            console.print(f"Updated {branch} (previous version in prep/{before.name})")
+        finally:
+            git(private, "worktree", "remove", "--force", str(work))
 
 
 # ---------------------------------------------------------------------------

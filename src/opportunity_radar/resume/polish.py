@@ -43,6 +43,7 @@ from dataclasses import dataclass, field
 from opportunity_radar.insights.skills import default_vocabulary
 from opportunity_radar.resume.bank import Bank, Bullet, Entry
 from opportunity_radar.resume.latex import escape
+from opportunity_radar.resume.style import voice_block
 
 _NUMBER_RE = re.compile(r"\d+(?:[.,]\d+)*")
 _PROPER_RE = re.compile(r"\b(?:[A-Z][a-zA-Z0-9+#.\-]*[A-Z0-9][a-zA-Z0-9+#.\-]*|[A-Z][a-z]{2,})\b")
@@ -222,6 +223,7 @@ def build_prompt(
     description: str,
     skills_line: str,
     guidance: list[str] | None = None,
+    voice: str = "",
 ) -> str:
     payload = []
     for entry, shown in entries:
@@ -267,8 +269,8 @@ What great looks like:
 - Use precise engineering vocabulary freely and confidently (e.g. memoized selectors,
   idempotent handlers, pagination pushed into the database, state-transition validation,
   incremental indexing, rank fusion, page-replacement policy). Specific beats generic.
-- Lead with strong ownership verbs (Architected, Engineered, Owned, Diagnosed, Optimized,
-  Shipped). No "helped", "worked on", "responsible for", no first person.
+- Write in the candidate's own voice, described at the end of this prompt: its verbs,
+  bullet shapes and number style. No first person.
 - Emphasise what THIS role and company value, judging from the job description below.
   Order each entry's bullets so the most relevant story comes first.
 - Restructure, don't paraphrase. A rewrite that only swaps synonyms is a failure. Re-lead
@@ -318,6 +320,9 @@ Job description excerpt:
 {notes}
 Entries:
 {json.dumps(payload, ensure_ascii=False, indent=1)}
+
+The candidate's voice (follow it; its examples show style only, never facts to reuse):
+{voice}
 """
 
 
@@ -380,6 +385,7 @@ def rewrite_entries(
         description=description,
         skills_line=skills_line,
         guidance=guidance,
+        voice=voice_block(bank),
     )
     try:
         raw = runner(prompt)
@@ -462,3 +468,105 @@ def rewrite_entries(
             unique.append(proposal)
     outcome.proposals = unique[:MAX_PROPOSALS]
     return outcome
+
+
+# ---------------------------------------------------------------- project voice pass
+
+WEAK_LEADS = frozenset(
+    [
+        "made",
+        "kept",
+        "cut",
+        "did",
+        "got",
+        "helped",
+        "worked",
+        "used",
+        "utilized",
+        "leveraged",
+        "created",
+        "handled",
+    ]
+)
+VOICE_MAX_CHARS = 240
+VOICE_MIN_CHARS = 80
+
+
+def voice_problems(bullets: list[str]) -> list[str]:
+    """Style rules a rewrite must meet (AD-47): no weak or repeated lead verb,
+    "Built" at most once."""
+    problems: list[str] = []
+    leads = [b.split()[0].lower().strip(",.") if b.split() else "" for b in bullets]
+    for lead in leads:
+        if lead in WEAK_LEADS:
+            problems.append(f"weak lead verb: {lead}")
+    repeated = sorted({lead for lead in leads if lead and leads.count(lead) > 1})
+    if repeated:
+        problems.append("repeated lead verb: " + ", ".join(repeated))
+    return problems
+
+
+def revoice_project(
+    block: str, bank: Bank, runner: Runner | None, *, corpus: str
+) -> tuple[str, str]:
+    """Rewrite a project entry's bullets in Patrick's voice (AD-47), behind
+    the tailor's guard: no number, skill or name that the entry (or the
+    resume, for names) does not already contain, plus the voice rules. All or
+    nothing. Returns (block, note); on any failure the block is unchanged and
+    the note says why."""
+    from opportunity_radar.resume.latex import find_macros, to_plain
+
+    if runner is None:
+        return block, "skipped: Claude Code CLI not available"
+    calls = find_macros(block, "resumeItem", 1)
+    start, end = block.find("\\resumeItemListStart"), block.find("\\resumeItemListEnd")
+    if len(calls) < 2 or start < 0 or end < 0:
+        return block, "skipped: not a project entry with bullets"
+    originals = [to_plain(c.args[0]) for c in calls]
+    entry_text = to_plain(block)
+    numbers = set(_NUMBER_RE.findall(" ".join(originals)))
+    metrics = [
+        found.group(0).strip()
+        for phrase in re.findall(r"\\textbf\{([^{}]*)\}", block)
+        for found in [_METRIC_RE.search(to_plain(phrase))]
+        if found
+    ]
+    prompt = f"""Rewrite the bullets of one resume project entry in the candidate's voice below.
+
+Rules:
+- Use only the facts in these bullets. Every number you write must already appear in them;
+  do not add a technology, product, dataset or claim that is not there.
+- Keep the substance an engineer would ask about; you may reorder, merge two thin bullets,
+  or drop the weakest one, but write at least {max(2, len(originals) - 1)} and at most
+  {len(originals)} bullets.
+- Each bullet one sentence, {VOICE_MIN_CHARS}-{VOICE_MAX_CHARS} characters, plain text (no
+  LaTeX, no markdown). Different lead verb for every bullet.
+
+Current bullets:
+{json.dumps(originals, ensure_ascii=False, indent=1)}
+
+The candidate's voice:
+{voice_block(bank)}
+
+Reply with only JSON: {{"bullets": ["...", "..."]}}"""
+    try:
+        data = parse_json_object(runner(prompt))
+    except Exception as exc:  # network, auth, timeout: keep the reviewed version
+        return block, f"skipped: rewrite failed ({str(exc)[:120]})"
+    bullets = [str(b).strip() for b in data.get("bullets") or [] if str(b).strip()]
+    if not max(2, len(originals) - 1) <= len(bullets) <= len(originals):
+        return block, f"kept the reviewed version: {len(bullets)} bullets returned"
+    corpus_lower = (corpus + " " + entry_text).lower()
+    for text in bullets:
+        reason = guard_bullet(
+            text, numbers, bank, corpus_lower, entry_text, VOICE_MAX_CHARS, VOICE_MIN_CHARS
+        )
+        if reason:
+            return block, f"kept the reviewed version: guard rejected a bullet ({reason})"
+    problems = voice_problems(bullets)
+    if problems:
+        return block, f"kept the reviewed version: {'; '.join(problems)}"
+    items = "\n".join(f"    \\resumeItem{{{to_tex(b, metrics)}}}" for b in bullets)
+    head = block[:start].rstrip()
+    new = f"{head}\n  \\resumeItemListStart\n{items}\n  \\resumeItemListEnd\n"
+    return new, "applied (your voice guide and your own bullets as examples; guard passed)"

@@ -241,7 +241,8 @@ jobs:
           for s in plan build review address evolve evolve-review finish bullets bullets-review; do
             { cat "$p/standards.md"; echo; cat "$p/$s.md"; echo; echo "## Context"; echo '```json'; echo "$ctx"; echo '```'
               # Only the bullets sessions see the previous entry and Patrick's comments (AD-45).
-              case "$s" in bullets*) echo; python3 radar/scripts/bullets_context.py "$CTX" ;; esac
+              case "$s" in bullets*) echo; cat radar/agents/prompts/resume-style.md
+                echo; python3 radar/scripts/bullets_context.py "$CTX" ;; esac
               echo; echo "## Shared context"; jq -r '.hub // ""' "$CTX"; } > "$RUNNER_TEMP/prompt-$s.md"
           done
 
@@ -468,8 +469,13 @@ jobs:
         with:
           python-version: "3.12"
       - run: uv sync --frozen
+      - name: Install Claude Code
+        # The voice pass (AD-47) rewrites the bullets with the tailor's rewriter.
+        run: npm install -g @anthropic-ai/claude-code >/dev/null
       - name: Propose the resume entry
         env:
+          # Max plan only (AD-39): no API key in this job.
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           AGENT_GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           DISCORD_WEBHOOK_PROJECTS: ${{ secrets.DISCORD_WEBHOOK_PROJECTS }}

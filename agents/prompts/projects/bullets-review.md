@@ -32,6 +32,9 @@ For each bullet, check in this order, and record the outcome:
 6. **ATS.** The posting keywords this bullet should carry for the role
    families it claims (`Fits:`) appear naturally, as the real names of
    things used, never stuffed.
+7. **Voice.** Does it follow "Patrick's resume voice" (in this prompt)?
+   Weak or repeated lead verbs, more than two technologies, a jargon chain,
+   a bare ratio like "7/32", or no result: rewrite it.
 
 Also judge the entry as a whole: does the heading's descriptor say what the
 project is in plain words, is the `\emph{}` tech list the 4-7 technologies a

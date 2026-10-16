@@ -890,3 +890,32 @@ triggers stay. In the replay this flags about 22% of internship postings
 enough skills, which is too many. Only postings naming at least 4 skills can
 cross the line (unchanged MIN_SKILLS), and checks stay capped at 3 per scan.
 The scan log line now carries `fit=` so the live rate can be measured.
+
+## AD-47: One resume voice for every bullet writer, and a voice pass on project bullets (2026-10-16)
+
+Context: Patrick found Replay's bullets "pretty bad": jargon, stacks of
+technology names, "Built" six times, bare ratios like "7/32", and nothing of
+his narrative style. No agent had ever been told how he writes: project
+sessions never see his resume (privacy), and the tailor's prompt only said
+"lead with strong ownership verbs". He also rejected weak lead verbs (Made,
+Kept, Cut) and wants bullets technical, with nuance.
+
+Decision:
+- **The voice guide** `agents/prompts/resume-style.md` (public; patterns
+  only, no resume content), distilled from his own experience bullets and
+  his feedback: three bullet shapes (result first, ownership first,
+  diagnosis), every bullet with the engineering action, the hard part or
+  trade-off in one clause, and a concrete result; strong varied lead verbs
+  with a named list of weak ones; at most two technologies; every number with
+  its meaning; no jargon chains.
+- **Everywhere bullets are written:** the project bullets writer and the
+  independent reviewer get the guide; the tailor (`polish.build_prompt`)
+  gets the guide plus his own live experience bullets as examples
+  (`resume/style.py`, private side only).
+- **A voice pass on project bullets** (`polish.revoice_project`) in the
+  record job, after the code-reading review: the tailor's rewriter with the
+  guide and his own bullets as examples, behind the tailor's guard (no new
+  number, skill or name) plus code-checked voice rules (no weak or repeated
+  lead verb). All or nothing; the PR shows the reviewed version it replaced.
+  `projects revoice <slug>` runs it on a PR that is already open.
+- Tests never call the real Claude CLI (an autouse fixture).

@@ -179,7 +179,10 @@ only, no buzzword slop, every named skill used in the code. Each milestone
 starts from the previous version and your comments on the bullets PR, and an
 independent reviewer that reads the code then cuts or rewrites anything a
 recruiter, interviewer or editor would reject (AD-45; verdict at the top of
-the PR, critique in `prep/<slug>-bullets-review.md`). `projects bullets`
+the PR, critique in `prep/<slug>-bullets-review.md`). Then a voice pass rewrites them in your
+style (`agents/prompts/resume-style.md` plus your own bullets as examples,
+behind the tailor's guard; AD-47). `projects revoice <slug>` re-runs it on
+an open PR. `projects bullets`
 puts the entry in one private PR per project (`projects/<slug>-bullets`,
 updated by later milestones; the talk tracks go to `prep/<slug>-bullets.md`)
 and pings `#resume`. Merging that PR adds the project to the pool now. The

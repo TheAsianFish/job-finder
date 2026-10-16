@@ -43,6 +43,13 @@ ONE project entry in Jake's resume template, exactly this shape:
 - **Every number appears in RESULTS.md from a real run.** Unmeasured: state
   the outcome without a number. Harness-only evals ("To measure") are
   described as what the harness does, never as results.
+- **Patrick's voice.** Follow "Patrick's resume voice" (included in this
+  prompt): its bullet shapes, strong varied lead verbs (never Made, Kept,
+  Cut, Used...; "Built" at most once), at most two technologies per bullet,
+  every number with its meaning, and the hard part or trade-off in one
+  clause. Technical and specific, never a stack list. After you, an
+  independent reviewer and then a voice pass with his own bullets as
+  examples refine the wording; the substance must be right here.
 - **Real words, not slop.** No "leveraged", "utilized", "spearheaded",
   "cutting-edge", "state-of-the-art", "seamless", "robust", "scalable
   solution", "innovative", "end-to-end solution", "drove", "synergy". Name the

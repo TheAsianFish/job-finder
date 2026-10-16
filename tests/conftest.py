@@ -23,6 +23,12 @@ def _isolated_private_dir(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _no_real_claude(monkeypatch):
+    """Never call the developer's real Claude Code CLI (and Max usage) in tests."""
+    monkeypatch.setattr("opportunity_radar.resume.polish.claude_runner", lambda *a, **k: None)
+
+
+@pytest.fixture(autouse=True)
 def _clear_robots_cache():
     robots.clear_cache()
     yield
