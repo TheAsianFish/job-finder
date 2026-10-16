@@ -16,8 +16,17 @@ gap closed (skills he cannot truthfully claim yet), depth and wow factor for
 an AI-company engineer, and real-world usefulness (could real users adopt it?).
 Prefer full-stack AI products or genuinely deep AI systems (agents with
 evals, retrieval quality, inference/serving performance, LLM tooling), each
-buildable by an agent team in 5-8 milestone PRs. Differentiate from what
-exists; no clones of tutorials.
+buildable by an agent team in 4-6 milestone PRs, with a resume-worthy,
+measurable result by the second milestone. Differentiate from what exists;
+no clones of tutorials.
+
+The projects form a **pool** (AD-41): the tailor swaps projects and their
+bullets per posting, so the pool must cover the role families he applies to
+(backend, applied AI/ML, infra/systems, full stack, data), and the keywords
+those postings screen for. Map the pool first: which families and top-demand
+skills do the existing projects (building, approved, done) already
+cover, and which are thin? Then propose to fill the thinnest, and say
+which family each proposal serves.
 
 Write `resume/private/reports/project-scout-<YYYY-MM-DD>.md` (your reasoning,
 under 800 words) and `/tmp/scout.json`:

@@ -569,6 +569,19 @@ jobs:
         with:
           python-version: "3.12"
       - run: uv sync --frozen
+      # Proposals follow this week's postings (AD-41), not the last committed
+      # report: read-only copy of the scanner's database, never saved back.
+      - name: Restore job database
+        uses: actions/cache/restore@v6
+        with:
+          path: data/opportunity_radar.db
+          key: radar-db-scout-${{ github.run_id }}
+          restore-keys: |
+            radar-db-
+      - name: Refresh skill demand
+        run: |
+          uv run opportunity-radar db migrate
+          uv run opportunity-radar insights skills || echo "skill demand not refreshed; using the committed report"
       - name: Install Claude Code
         run: npm install -g @anthropic-ai/claude-code >/dev/null
       - name: Scout (Fable)
