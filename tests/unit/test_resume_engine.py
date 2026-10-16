@@ -340,3 +340,33 @@ def test_rewrite_rejects_entries_that_grow_the_page(bank):
         bank, entries, title="x", company="y", description="", runner=lambda p: reply
     )
     assert "over budget" in outcome.rejected.get(entry.id, "")
+
+
+def test_a_project_shows_at_most_three_bullets_even_with_six_written():
+    from opportunity_radar.resume.selector import MAX_PROJECT_BULLETS
+
+    texts = [
+        "Engineered a Python recorder capturing agent model calls into replay cassettes",
+        "Designed a flakiness gate running sequential pass-rate tests over live agent runs",
+        "Implemented trace alignment with Needleman-Wunsch for readable agent diffs",
+        "Architected PostgreSQL storage with Alembic migrations behind FastAPI endpoints",
+        "Shipped a React dashboard rendering suites, trends and calibration reports",
+        "Packaged a GitHub Action failing pull requests on detected agent regressions",
+    ]
+    items = "\n".join(f"      \\resumeItem{{{t}}}" for t in texts)
+    entry = (
+        "\\section{Projects}\n  \\resumeSubHeadingListStart\n"
+        "    \\resumeProjectHeading{\\textbf{Replay} $|$ \\emph{Python, FastAPI}}{}\n"
+        f"    \\resumeItemListStart\n{items}\n    \\resumeItemListEnd\n"
+        "  \\resumeSubHeadingListEnd"
+    )
+    tex = load_fixture("resume_sample.tex").replace("\\section{Projects}", entry, 1)
+    bank = build_bank(tex)
+    replay = next(e for e in bank.projects if e.name.startswith("Replay"))
+    assert replay.active and len(replay.live_bullets) == 6
+    posting = Posting.from_text(
+        "AI Agent Engineer Intern",
+        "Python, FastAPI, PostgreSQL, React, GitHub Actions; replay and evaluate LLM agents.",
+    )
+    shown = {e.name: b for e, b in select(bank, posting).projects}
+    assert replay.name in shown and len(shown[replay.name]) == MAX_PROJECT_BULLETS

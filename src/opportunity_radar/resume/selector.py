@@ -24,6 +24,7 @@ from opportunity_radar.resume.bank import Bank, Bullet, Entry
 RESERVE_MARGIN = (
     1.0  # a reserve must beat a live entry by this to replace it (AD-41: a tie-breaker)
 )
+MAX_PROJECT_BULLETS = 3  # one page: project entries carry 4-6 alternatives (AD-41)
 _WORD_RE = re.compile(r"[a-z][a-z0-9+#.\-]{3,}")
 _STOP = frozenset(
     [
@@ -267,10 +268,13 @@ def select(bank: Bank, posting: Posting, prefer: list[str] | None = None) -> Sel
     budget = sum(len(e.live_bullets) for e in experiences + live_proj)
 
     def limit_for(entry: Entry) -> int:
+        # A project shows at most MAX_PROJECT_BULLETS on the page; the rest of
+        # its bullets are alternatives the tailor picks from per posting.
+        cap = MAX_PROJECT_BULLETS if entry.kind == "project" else len(entry.bullets)
         if entry.active:
-            return len(entry.live_bullets)
+            return min(len(entry.live_bullets), cap)
         displaced = [e for e in live_proj if e not in proj_chosen]
-        return max((len(e.live_bullets) for e in displaced), default=2)
+        return min(max((len(e.live_bullets) for e in displaced), default=2), cap)
 
     exp_sel = [(e, _pick_bullets(e, posting, limit_for(e))) for e in experiences]
     proj_order = sorted(proj_chosen, key=lambda e: entry_score(e, posting), reverse=True)
