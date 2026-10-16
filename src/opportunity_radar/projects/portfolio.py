@@ -45,8 +45,14 @@ class Project:
     slug: str
     title: str
     status: str = "proposed"
+    # One plain sentence, written before any technology is chosen: whose
+    # problem, and why it is hard. The stack must follow from it (AD-44).
+    problem: str = ""
     pitch: str = ""
     why: str = ""  # demand evidence: which roles / skills it targets
+    # The curiosity ladder: questions the project answers by experiment, from
+    # simple to hard, each ending in a measured result.
+    questions: list[str] = field(default_factory=list)
     skills: list[str] = field(default_factory=list)
     stack: list[str] = field(default_factory=list)
     release: str = ""  # how real users get it (PyPI, hosted demo, extension, ...)
@@ -57,6 +63,12 @@ class Project:
     # One PR number per automatic CI-fix session started, so attempts that
     # crash before replying on the PR still count (builder.CI_FIX_ATTEMPTS).
     ci_fix_started: list[int] = field(default_factory=list)
+    # Directions from Patrick (or his working session) that every session
+    # follows; the plan and evolve stages fold them into PLAN.md (AD-44).
+    steer: list[str] = field(default_factory=list)
+    # The plan's milestone count when each evolve round started, so a round
+    # that decides "nothing worth adding" is not repeated (builder.EVOLVE_ROUNDS).
+    evolved_at: list[int] = field(default_factory=list)
 
     @property
     def repo_name(self) -> str:
@@ -86,12 +98,13 @@ def load_projects(path: Path | None = None) -> list[Project]:
         data["slug"] = slugify(str(data.get("slug") or data["title"]))
         status = str(data.get("status") or "proposed").lower()
         data["status"] = status if status in STATUSES else "proposed"
-        for key in ("skills", "stack"):
+        for key in ("skills", "stack", "questions", "steer"):
             data[key] = [str(x) for x in data.get(key) or []]
-        for key in ("pitch", "why", "release", "repo", "proposed", "notes", "title"):
+        for key in ("problem", "pitch", "why", "release", "repo", "proposed", "notes", "title"):
             data[key] = str(data.get(key) or "")
         data["autopilot"] = bool(data.get("autopilot"))
         data["ci_fix_started"] = [int(n) for n in data.get("ci_fix_started") or []]
+        data["evolved_at"] = [int(n) for n in data.get("evolved_at") or []]
         out.append(Project(**data))
     return out
 
@@ -101,8 +114,10 @@ def save_projects(projects: list[Project], path: Path | None = None) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     rows = [asdict(p) for p in projects]
     for row in rows:
-        if not row["ci_fix_started"]:
-            del row["ci_fix_started"]  # only the project being fixed carries it
+        # Optional fields stay out of the file until a project has them.
+        for key in ("problem", "questions", "ci_fix_started", "steer", "evolved_at"):
+            if not row[key]:
+                del row[key]
     target.write_text(
         HEADER + yaml.safe_dump({"projects": rows}, sort_keys=False, allow_unicode=True, width=100),
         encoding="utf-8",

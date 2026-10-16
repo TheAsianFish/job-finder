@@ -17,8 +17,13 @@ reads the project's GitHub repo through `gh` and returns one stage:
     wait     an open agent PR awaits Patrick: do nothing (no compute spent)
     build    next unchecked milestone in PLAN.md: Opus builds it, Fable
              reviews it, one PR
-    finish   every milestone merged: write the resume entry from measured
-             results, proposed to the private repo as a PR
+    evolve   every milestone merged: Fable runs the project, reads its
+             measured results and decides whether anything justifies more
+             work; if so it appends at most 3 milestones to PLAN.md as a
+             reviewed PR, if not it changes nothing (AD-44; EVOLVE_ROUNDS
+             per project, never twice at the same plan size)
+    finish   every milestone merged and evolving done: write the resume
+             entry from measured results, proposed to the private repo as a PR
     idle     nothing to do
 
 Only one agent PR is open per project at a time, so each project's pace
@@ -50,6 +55,9 @@ CI_FIX_MARK = "<!-- ci-fix -->"  # on the reply after an automatic CI fix
 CI_FIX_ATTEMPTS = 2
 # One Claude Max usage window: Patrick can still stop a merge by commenting.
 AUTOPILOT_QUIET = timedelta(hours=5)
+# How many times a project may extend its own plan after finishing it
+# (AD-44). Bounded so a project ends; Patrick's `steer` can always add more.
+EVOLVE_ROUNDS = 2
 _FREE_STAGES = ("merge", "rerun")  # no agent session, so they go first
 _IDLE_STAGES = ("wait", "idle")
 _FAILED = {"FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "ERROR", "STARTUP_FAILURE"}
@@ -307,6 +315,13 @@ def decide(project: Project, state: RepoState, now: datetime | None = None) -> S
         return Stage("build", milestone=todo[0].title, reason=f"{len(todo)} milestone(s) left")
     if not state.milestones:
         return Stage("plan", reason="PLAN.md has no milestone checklist")
+    # The plan is done. Before finishing, an evolve round asks whether the
+    # measured results justify more work (AD-44): bounded rounds, and a round
+    # that adds nothing is not repeated at the same plan size.
+    size = len(state.milestones)
+    if len(project.evolved_at) < EVOLVE_ROUNDS and size not in project.evolved_at:
+        n = len(project.evolved_at) + 1
+        return Stage("evolve", reason=f"all milestones merged; evolve round {n} of {EVOLVE_ROUNDS}")
     return Stage("finish", reason="all milestones merged")  # retried until it succeeds
 
 

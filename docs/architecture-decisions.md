@@ -800,3 +800,39 @@ Decision:
   outputs carry non-private values only: the stage, a `resume_entry=yes`
   flag, the PR URL and the per-session usage numbers.
 - The logs of earlier builder runs that printed the data are deleted.
+
+## AD-44: Problem-first projects that can extend their own plan (2026-10-16)
+
+Context: the pool had started to read as tech-stack lists. Proposals were
+generated from the skills gap report ("Java is 16%, add Kafka Streams"), so
+the problem came last and the "why?" interview question had no good answer.
+Patrick (2026-10-16) wants projects that show innovation and engineering
+curiosity while staying practical for an intern, and wants the agents to keep
+improving a project past its plan when the results justify it, with him (or
+his working session) able to steer any project at any time.
+
+Decision:
+- **Problem first.** Every project has `problem` (one plain sentence: whose
+  problem, why it is hard) and `questions` (the curiosity ladder: 3-6
+  questions answered by experiment, simple to hard, each ending in a number).
+  The scout writes the problem first and the stack last, uses one `fable`
+  subagent to source problems from real engineering material and another
+  as a hiring panel to attack each candidate. Skill gaps filter proposals;
+  they no longer generate them. Plans open with the problem and a
+  `## Questions` section; the standards require every technology to be
+  justified by the problem.
+- **Evolve stage.** When every milestone is merged, a Fable session runs the
+  project, reads its measured results, and has subagents propose candidates
+  from the measurements and from curiosity while a third argues against each.
+  A candidate must deepen the core problem, end in a measured result with a
+  stated hypothesis, be practical on a laptop and in CI, and be one PR. Up to
+  3 survive into PLAN.md (`## Evolution round N` with the evidence and the
+  rejected ideas). An independent Fable review re-runs the evidence and gates
+  autopilot. If nothing clears the bar, nothing is committed and the project
+  finishes. Bounded: `EVOLVE_ROUNDS` = 2 per project, recorded in
+  `evolved_at` when a round starts, and never twice at the same plan size.
+- **Steer.** `projects steer SLUG "direction"` appends to the project's
+  `steer` list, which every session reads in its context and must follow
+  (it wins over PLAN.md; plan and evolve fold it in). This is how Patrick's
+  working session acts as the "mastermind" across project repos without
+  waiting for an open PR to comment on.

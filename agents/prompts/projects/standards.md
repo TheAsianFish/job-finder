@@ -7,9 +7,17 @@ senior engineer at a frontier AI company would find genuinely impressive in a
 5-minute look, and something Patrick can defend line by line in an interview.
 
 The bar (non-negotiable):
-- **Real problem, real users.** It solves a concrete problem people have, and
-  ships the way real software ships: a package (PyPI/npm), a hosted demo, a
-  CLI, a VS Code extension, or an API. "Toy demo" is a failure.
+- **Problem first, then technology.** It solves a concrete problem engineers
+  have, stated in one plain sentence (`project.problem`), and every
+  technology in it is there because that problem needs it. A project that
+  reads as a tech-stack list is a failure. It ships the way real software
+  ships (a package, a CLI, a Docker/Helm deploy, an API, a GitHub Action) so
+  anyone can run it; adoption numbers are not a goal.
+- **Curious, and practical.** Patrick is an intern: the project should go
+  above and beyond through curiosity (questions answered by experiment, a
+  surprising measured finding, a failure diagnosed and fixed), not through
+  scale he cannot defend. Everything works, runs on a laptop and in CI, and
+  he can explain every part.
 - **Depth over breadth.** One hard core done properly (retrieval quality,
   agent reliability, evaluation, latency, concurrency, data modelling) beats
   many shallow features. The README's architecture section must name the hard
@@ -92,6 +100,10 @@ Process rules:
   you only get a short summary of his skills.
 - If something is impossible in this environment, say so in the PR body
   rather than faking it.
+
+Direction from Patrick: `project.steer` in the Context lists directions from
+Patrick (or his working session). Follow every one; where one conflicts with
+PLAN.md, the direction wins and you update PLAN.md to match.
 
 Memory and handover (every stage):
 - The "Shared context" section below is the hub: who Patrick is, his

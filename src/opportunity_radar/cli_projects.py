@@ -102,6 +102,32 @@ def projects_reject(slug: str, push: bool = typer.Option(True, "--push/--no-push
     _set(slug, "rejected", push)
 
 
+@projects_app.command("steer")
+def projects_steer(
+    slug: str,
+    direction: str = typer.Argument("", help="One direction every session on it must follow"),
+    clear: bool = typer.Option(False, "--clear", help="Drop all directions first"),
+    push: bool = typer.Option(True, "--push/--no-push"),
+) -> None:
+    """Steer a project: plan, build and evolve sessions follow it (AD-44)."""
+    from opportunity_radar.projects.portfolio import find, load_projects
+
+    projects = load_projects()
+    project = find(projects, slug)
+    if project is None:
+        console.print(f"[red]No project {slug!r} in projects.yaml[/red]")
+        raise typer.Exit(1)
+    if clear:
+        project.steer = []
+    if direction.strip():
+        project.steer.append(direction.strip())
+    if not clear and not direction.strip():
+        for line in project.steer or ["(no directions)"]:
+            console.print(f"- {line}")
+        return
+    console.print(_save_and_push(projects, f"projects: steer {project.slug}", push))
+
+
 @projects_app.command("step")
 def projects_step(
     slug: str = typer.Option(None, "--slug", help="Work on this project instead of the next one"),
@@ -161,6 +187,7 @@ def projects_step(
             "pr_branch": stage.pr.branch if stage.pr else "",
             "pr_url": stage.pr.url if stage.pr else "",
             "feedback": stage.pr.feedback if stage.pr else [],
+            "evolve_round": len(project.evolved_at) + (1 if stage.kind == "evolve" else 0),
             "project": asdict(project),
             "usage": room.summary(),
             "seven_day_before": reading.seven_day if reading else None,
@@ -168,6 +195,11 @@ def projects_step(
         changed = False
         if not dry_run and stage.reason.startswith("CI failing") and stage.pr:
             project.ci_fix_started.append(stage.pr.number)
+            changed = True
+        if not dry_run and stage.kind == "evolve":
+            # Counted when the round starts, like CI fixes: a round that
+            # decides nothing is worth adding is not run again (AD-44).
+            project.evolved_at.append(len(state.milestones))
             changed = True
         if not dry_run and stage.kind == "create":
             gh(
@@ -222,8 +254,10 @@ def projects_scout_merge(
             Project(
                 slug=slugify(str(item.get("slug") or item["title"])),
                 title=str(item["title"]),
+                problem=str(item.get("problem") or ""),
                 pitch=str(item.get("pitch") or ""),
                 why=str(item.get("why") or ""),
+                questions=[str(q) for q in item.get("questions") or []],
                 skills=[str(s) for s in item.get("skills") or []],
                 stack=[str(s) for s in item.get("stack") or []],
                 release=str(item.get("release") or ""),
@@ -244,8 +278,10 @@ def projects_scout_merge(
     for p in added:
         lines += [
             f"### `{p.slug}`: {p.title}",
+            f"**Problem:** {p.problem}" if p.problem else "",
             p.pitch,
             f"- **Why:** {p.why}",
+            *(f"- **Question:** {q}" for q in p.questions[:3]),
             f"- **Skills:** {', '.join(p.skills)}",
             f"- **Ships as:** {p.release}",
             "",

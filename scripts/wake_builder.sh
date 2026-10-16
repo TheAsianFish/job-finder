@@ -30,7 +30,7 @@ if ! uv run opportunity-radar projects step --dry-run --no-push --out "$ctx" >/d
 fi
 stage=$(jq -r .stage "$ctx")
 case "$stage" in
-  create|plan|build|address|merge|finish|rerun) ;;
+  create|plan|build|address|evolve|merge|finish|rerun) ;;
   *) echo "builder: nothing to do (${stage})"; exit 0 ;;
 esac
 
@@ -44,6 +44,7 @@ case "$stage" in
            if [[ "$reason" == "CI failing"* ]]; then what="CI is failing on the open PR; fixing it (${reason#CI failing; })"
            else what="addressing your PR comments"; fi ;;
   merge)   what="autopilot: merging the reviewed PR" ;;
+  evolve)  what="plan done; checking whether the results justify more milestones" ;;
   finish)  what="all milestones merged; preparing the release and resume entry" ;;
   *)       what="starting the ${stage} stage" ;;
 esac

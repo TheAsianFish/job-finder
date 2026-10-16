@@ -139,8 +139,8 @@ def _pr(**kwargs) -> PullRequest:
             RepoState(exists=True, plan=PLAN, pr=_pr(feedback=["use pgvector"])),
             "address",
         ),
-        ("building", RepoState(exists=True, plan=PLAN.replace("[ ]", "[x]")), "finish"),
-        ("finishing", RepoState(exists=True, plan=PLAN.replace("[ ]", "[x]")), "finish"),
+        ("building", RepoState(exists=True, plan=PLAN.replace("[ ]", "[x]")), "evolve"),
+        ("finishing", RepoState(exists=True, plan=PLAN.replace("[ ]", "[x]")), "evolve"),
     ],
 )
 def test_decide_stages(status, state, expected):
@@ -148,6 +148,28 @@ def test_decide_stages(status, state, expected):
     assert stage.kind == expected
     if expected == "build":
         assert stage.milestone.startswith("M2")
+
+
+def test_evolve_rounds_are_bounded_and_never_repeat_at_one_plan_size():
+    done = RepoState(exists=True, plan=PLAN.replace("[ ]", "[x]"))  # 3 milestones
+    project = Project(slug="e", title="E", status="building")
+    stage = decide(project, done, NOW)
+    assert stage.kind == "evolve" and "round 1 of 2" in stage.reason
+    # Round 1 added nothing: the plan is still 3 milestones, so finish.
+    project.evolved_at = [3]
+    assert decide(project, done, NOW).kind == "finish"
+    # Round 1 added two milestones and they are merged: round 2 may run.
+    grown = PLAN.replace("[ ]", "[x]").replace(
+        "## Risks", "- [x] M4: Recovery experiment\n- [x] M5: Skew experiment\n\n## Risks"
+    )
+    stage = decide(project, RepoState(exists=True, plan=grown), NOW)
+    assert stage.kind == "evolve" and "round 2 of 2" in stage.reason
+    # Rounds are bounded: after two, the project finishes.
+    project.evolved_at = [3, 5]
+    assert decide(project, RepoState(exists=True, plan=grown), NOW).kind == "finish"
+    # New milestones from a round are built like any other.
+    pending = grown.replace("- [x] M5", "- [ ] M5")
+    assert decide(project, RepoState(exists=True, plan=pending), NOW).kind == "build"
 
 
 def test_autopilot_merges_only_reviewed_green_quiet_prs():
@@ -572,3 +594,72 @@ def test_cli_bullets_updates_one_pr_per_project_and_finish_adds_the_interview(
     assert "mock interview" in opened[-1]["body"]
     assert (worktree / "prep" / "evalkit-interview.md").exists()
     assert load_projects()[0].status == "done"
+
+
+def test_cli_step_records_an_evolve_round_once(tmp_path, monkeypatch):
+    from opportunity_radar import cli_projects
+    from opportunity_radar.cli import app
+    from opportunity_radar.resume.paths import private_dir
+
+    save_projects([Project(slug="eddy", title="Eddy", status="building", autopilot=True)])
+    gh = FakeGh(plan=PLAN.replace("[ ]", "[x]"))
+    monkeypatch.setattr("opportunity_radar.projects.builder.gh_cli", lambda token=None: gh)
+    monkeypatch.setattr(cli_projects, "_candidate_summary", lambda: {})
+    out = tmp_path / "context.json"
+    step = ["projects", "step", "--out", str(out), "--no-push"]
+
+    assert CliRunner().invoke(app, [*step, "--dry-run"]).exit_code == 0
+    assert load_projects(private_dir() / "projects.yaml")[0].evolved_at == []
+
+    result = CliRunner().invoke(app, step)
+    assert result.exit_code == 0, result.output
+    context = json.loads(out.read_text())
+    assert context["stage"] == "evolve" and context["evolve_round"] == 1
+    assert load_projects(private_dir() / "projects.yaml")[0].evolved_at == [3]
+
+    # The round committed nothing (no new milestones): next run finishes.
+    result = CliRunner().invoke(app, step)
+    assert json.loads(out.read_text())["stage"] == "finish", result.output
+
+
+def test_steer_and_problem_first_fields_round_trip(tmp_path):
+    from opportunity_radar.cli import app
+    from opportunity_radar.resume.paths import private_dir
+
+    path = private_dir() / "projects.yaml"
+    save_projects(
+        [
+            Project(
+                slug="eddy",
+                title="Eddy",
+                problem="Score card transactions within a second without losing any.",
+                questions=["What does exactly-once cost?"],
+            ),
+            Project(slug="plain", title="Plain"),
+        ]
+    )
+    # Empty optional fields stay out of the file.
+    text = path.read_text()
+    assert text.count("problem:") == 1 and "steer:" not in text and "evolved_at" not in text
+
+    runner = CliRunner()
+    assert (
+        runner.invoke(
+            app, ["projects", "steer", "eddy", "Add a Flink rematch", "--no-push"]
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app, ["projects", "steer", "eddy", "Keep it laptop-sized", "--no-push"]
+        ).exit_code
+        == 0
+    )
+    eddy = load_projects(path)[0]
+    assert eddy.steer == ["Add a Flink rematch", "Keep it laptop-sized"]
+    assert eddy.questions == ["What does exactly-once cost?"] and eddy.problem.startswith("Score")
+    listed = runner.invoke(app, ["projects", "steer", "eddy"])
+    assert "Flink rematch" in listed.output
+    assert runner.invoke(app, ["projects", "steer", "eddy", "--clear", "--no-push"]).exit_code == 0
+    assert load_projects(path)[0].steer == []
+    assert runner.invoke(app, ["projects", "steer", "nope", "x", "--no-push"]).exit_code == 1

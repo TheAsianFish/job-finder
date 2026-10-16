@@ -146,7 +146,7 @@ jobs:
 
   build:
     needs: control
-    if: contains(fromJSON('["plan","build","address","finish"]'), needs.control.outputs.stage)
+    if: contains(fromJSON('["plan","build","address","evolve","finish"]'), needs.control.outputs.stage)
     runs-on: ubuntu-latest
     timeout-minutes: 355
     outputs:
@@ -211,6 +211,7 @@ jobs:
           case "$STAGE" in
             address) git checkout -q -B "$(jq -r .pr_branch "$CTX")" "origin/$(jq -r .pr_branch "$CTX")" ;;
             plan)    start dev/plan ;;
+            evolve)  start dev/evolve ;;
             finish)  start dev/release ;;
             build)   start "dev/m$(( $(jq -r .milestones_done "$CTX") + 1 ))" ;;
           esac
@@ -237,7 +238,7 @@ jobs:
         run: |
           p=radar/agents/prompts/projects
           ctx=$(jq '{project, milestone, milestones_done, milestones_total, feedback, pr_url, candidate}' "$CTX")
-          for s in plan build review address finish bullets; do
+          for s in plan build review address evolve evolve-review finish bullets; do
             { cat "$p/standards.md"; echo; cat "$p/$s.md"; echo; echo "## Context"; echo '```json'; echo "$ctx"; echo '```'
               echo; echo "## Shared context"; jq -r '.hub // ""' "$CTX"; } > "$RUNNER_TEMP/prompt-$s.md"
           done
@@ -274,10 +275,11 @@ jobs:
           # A review that ends without a verdict (Replay M6, 2026-10-14) left
           # the PR unmergeable by autopilot with no word why: run it again once.
           review() {
-            bash $agent fable "$RUNNER_TEMP/prompt-review.md" "$1" "$2" review
+            local prompt="${3:-$RUNNER_TEMP/prompt-review.md}"
+            bash $agent fable "$prompt" "$1" "$2" review
             if [ ! -s .agent/verdict ]; then
               echo "review: no verdict written; running the review again"
-              bash $agent fable "$RUNNER_TEMP/prompt-review.md" "$1" "$2" review
+              bash $agent fable "$prompt" "$1" "$2" review
             fi
             echo "review verdict: $(head -1 .agent/verdict 2>/dev/null || echo missing)"
           }
@@ -294,6 +296,14 @@ jobs:
                      review 70 200 ;;
             address) bash $agent opus  "$RUNNER_TEMP/prompt-address.md" 150 300 address
                      review 60 150 ;;
+            # AD-44: extend the plan only if the evidence justifies it; a
+            # round that adds nothing commits nothing and opens no PR.
+            evolve)  bash $agent fable "$RUNNER_TEMP/prompt-evolve.md" 120 250 evolve
+                     if [ "$(git rev-list --count origin/main..HEAD)" != 0 ]; then
+                       review 60 150 "$RUNNER_TEMP/prompt-evolve-review.md"
+                     else
+                       echo "evolve: nothing cleared the bar; the project finishes next"
+                     fi ;;
             finish)  bash $agent fable "$RUNNER_TEMP/prompt-finish.md" 120 250 finish
                      bullets ;;
           esac
@@ -339,6 +349,7 @@ jobs:
             case "$STAGE" in
               plan)   title="Plan: $(jq -r .project.title "$CTX")" ;;
               build)  title=$(jq -r .milestone "$CTX" | cut -c1-110) ;;
+              evolve) title="Plan the next milestones (round $(jq -r .evolve_round "$CTX"))" ;;
               finish) title="Release readiness" ;;
             esac
             url=$(gh pr create --repo "$repo" --base main --head "$BRANCH" --title "$title" --body-file .agent/pr.md)
@@ -415,6 +426,9 @@ jobs:
               fi
             fi
             [ "$STAGE" = build ] && echo "Milestone: $(jq -r .milestone "$CTX")"
+            if [ "$STAGE" = evolve ] && [ -z "$URL" ] && [ "$OUTCOME" = success ]; then
+              echo "The plan is done and nothing new cleared the bar, so the project finishes next (reasons in #study)."
+            fi
             reason=$(jq -r .reason "$CTX")
             if [[ "$reason" == "CI failing"* ]]; then
               echo "This run worked on failing CI (${reason#CI failing; }). If CI is still red after the last attempt, the PR needs you."

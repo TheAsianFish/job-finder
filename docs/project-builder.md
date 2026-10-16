@@ -19,7 +19,9 @@ flowchart LR
   W -->|comments| A[Address · Opus, then Fable review]
   A --> W
   W -->|merge| B
-  B -->|all milestones merged| F[Finish · release readiness + resume entry]
+  B -->|all milestones merged| E[Evolve · Fable · run it, add ≤3 measured milestones or none]
+  E -->|reviewed plan PR| W
+  E -->|nothing clears the bar, or 2 rounds done| F[Finish · release readiness + resume entry]
   F -->|PR in career-private, numbers from RESULTS.md only| V{Patrick merges = true}
 ```
 
@@ -141,6 +143,25 @@ scales how many projects may start sessions, like an autoscaler:
 Every run is recorded in the private `usage/builder.jsonl`.
 `uv run opportunity-radar projects usage` shows the meter, the current
 capacity, spend per project, and how many more runs fit this week.
+
+## Problem first, evolving plans, steering (AD-44)
+
+- **Problem first.** Each project in `projects.yaml` has a `problem` (one
+  plain sentence) and `questions` (experiments from simple to hard, each
+  ending in a number). The scout writes them before choosing a stack, and
+  plans open with them. A technology is only there if the problem needs it.
+- **Evolve.** When a plan's milestones are all merged, an evolve session runs
+  the project and asks whether the results justify going further: a weak
+  number, an unanswered question, a harder version of the core problem.
+  Subagents propose candidates and another argues against each. Up to 3
+  milestones that clear the bar (deepen the core, measured, practical, one
+  PR) are added to PLAN.md in a reviewed PR that autopilot can merge, so you
+  have 5 hours to comment. If nothing clears the bar, the project finishes.
+  At most 2 rounds per project.
+- **Steer.** `uv run opportunity-radar projects steer <slug> "direction"`
+  adds a direction every later session on that project must follow
+  (`--clear` drops them; no text lists them). Use it to redirect a project
+  between PRs.
 
 ## Resume bullets during the build (AD-41)
 
