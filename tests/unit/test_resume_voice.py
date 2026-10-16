@@ -100,4 +100,6 @@ def test_voice_pass_bolds_only_a_numbered_phrase_from_the_bullet_itself():
         ENTRY, BANK, lambda prompt: json.dumps({"bullets": items}), corpus=CORPUS
     )
     assert note.startswith("applied"), note
-    assert new.count("\\textbf{") == 1 and "\\textbf{12 of 12 seeded model regressions}" in new
+    items_tex = new.split("\\resumeItemListStart")[1]
+    assert items_tex.count("\\textbf{") == 1
+    assert "\\textbf{12 of 12 seeded model regressions}" in items_tex
