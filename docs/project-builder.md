@@ -121,6 +121,23 @@ claims only, production engineering, AI stack used well, no AI attribution).
   TheAsianFish.
 - This repo is public, so workflow logs print stages and run statistics only.
 
+## Usage governor (AD-42)
+
+The builder never eats the Claude Max allowance. Before each decision it
+reads the plan's real meters: one one-word Haiku call in stream-json
+(`scripts/usage_probe.sh`) returns the 5-hour and 7-day utilization. It then
+scales how many projects may start sessions, like an autoscaler:
+- **4 projects** while the 7-day meter is well behind a straight-line pace to
+  85% at the weekly reset, stepping down to **1** as it catches up, and **0**
+  past the pace, at the 85% ceiling, or while a limit is hit.
+- **The 5-hour window:** one project above 50%, none above 80%, so your own
+  sessions always have room.
+- Merges and CI re-runs always go through.
+
+Every run is recorded in the private `usage/builder.jsonl`.
+`uv run opportunity-radar projects usage` shows the meter, the current
+capacity, spend per project, and how many more runs fit this week.
+
 ## Resume bullets during the build (AD-41)
 
 After every milestone whose review passes, a Fable session writes the

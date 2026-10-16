@@ -90,6 +90,16 @@ jobs:
           PROJECT: ${{ inputs.project }}
         run: uv run opportunity-radar projects "$ACTION" "$PROJECT" --push
 
+      - name: Read the Claude usage meter
+        # AD-42: how many projects may run is decided from the plan's real
+        # 5-hour and 7-day utilization, read with one tiny Haiku call.
+        if: inputs.action != 'pause' && inputs.action != 'reject'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          npm install -g @anthropic-ai/claude-code >/dev/null
+          bash scripts/usage_probe.sh "$RUNNER_TEMP/meter.jsonl"
+
       - name: Decide the next step
         id: step
         if: inputs.action != 'pause' && inputs.action != 'reject'
@@ -97,7 +107,7 @@ jobs:
           AGENT_GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
           PROJECT: ${{ inputs.project }}
         run: |
-          args=(--out "$RUNNER_TEMP/context.json")
+          args=(--out "$RUNNER_TEMP/context.json" --meter "$RUNNER_TEMP/meter.jsonl")
           [ -n "$PROJECT" ] && args+=(--slug "$PROJECT")
           uv run opportunity-radar projects step "${args[@]}"
           echo "stage=$(jq -r .stage "$RUNNER_TEMP/context.json")" >> "$GITHUB_OUTPUT"
@@ -138,6 +148,7 @@ jobs:
       interview: ${{ steps.collect.outputs.interview }}
       bullets: ${{ steps.collect.outputs.bullets }}
       summary: ${{ steps.memory.outputs.summary }}
+      usage: ${{ steps.memory.outputs.usage }}
       journal: ${{ steps.memory.outputs.journal }}
       learn: ${{ steps.memory.outputs.learn }}
       pr_url: ${{ steps.pr.outputs.url }}
@@ -366,6 +377,8 @@ jobs:
             head -c 40000 .agent/learn.md 2>/dev/null
             [ -s .agent/review.md ] && { echo; echo "## Review notes"; head -c 15000 .agent/review.md; }
             echo; echo "LRN_EOF"
+            # Cost and meter per session (AD-42); numbers only, no content.
+            echo "usage=$(jq -cs . "$RUNNER_TEMP"/usage/*.json 2>/dev/null || echo '[]')"
           } >> "$GITHUB_OUTPUT"
 
       - name: Tell Patrick
@@ -399,6 +412,8 @@ jobs:
             if [ "$OUTCOME" != success ]; then
               echo "Any commits were saved on the branch; the next run continues from them."
             fi
+            usage=$(jq -r '.usage // empty' <<< "$CONTEXT")
+            [ -n "$usage" ] && echo "Claude usage before this run: ${usage}."
           } > "$RUNNER_TEMP/note.md"
           uv run opportunity-radar notify markdown "$RUNNER_TEMP/note.md" --title "🔨 Project builder" --channel projects
 
@@ -470,8 +485,14 @@ jobs:
           DISCORD_WEBHOOK_STUDY: ${{ secrets.DISCORD_WEBHOOK_STUDY }}
           PR_URL: ${{ needs.build.outputs.pr_url }}
           RESULT: ${{ needs.build.result }}
+          USAGE: ${{ needs.build.outputs.usage }}
         run: |
           slug=$(jq -r .slug <<< "$CONTEXT"); stage=$(jq -r .stage <<< "$CONTEXT")
+          # Usage ledger first, so the hub commit below carries it (AD-42).
+          printf '%s\n' "${USAGE:-[]}" > "$RUNNER_TEMP/usage.json"
+          before=$(jq -r '.seven_day_before // empty' <<< "$CONTEXT")
+          uv run opportunity-radar projects usage-record "$slug" "$stage" \
+            --sessions "$RUNNER_TEMP/usage.json" ${before:+--before "$before"} || true
           if [ -n "$(tr -d '[:space:]' <<< "$SUMMARY")" ]; then
             printf '%s\n' "$SUMMARY" > "$RUNNER_TEMP/summary.md"
             uv run opportunity-radar hub project-summary "$slug" "$RUNNER_TEMP/summary.md"

@@ -12,7 +12,7 @@
 set -uo pipefail
 
 model="$1"; prompt="$2"; minutes="$3"; turns="$4"; label="$5"
-log="${RUNNER_TEMP:-/tmp}/claude-${label}.json"
+log="${RUNNER_TEMP:-/tmp}/claude-${label}.jsonl"
 
 # Max plan only (AD-39): Claude Code prefers any API key or cloud provider it
 # finds over the OAuth token, so strip them all and refuse to run without the
@@ -29,7 +29,7 @@ run() {
     --model "$1" \
     --permission-mode bypassPermissions \
     --max-turns "$turns" \
-    --output-format json > "$log" 2> "${log}.err"
+    --output-format stream-json --verbose > "$log" 2> "${log}.err"
 }
 
 # Progress pings to #projects every 20 minutes (AD-36).
@@ -45,18 +45,7 @@ if [ $status -ne 0 ] && [ "$model" = "fable" ]; then
   status=$?
 fi
 
-python3 - "$log" "$label" "$status" <<'EOF'
-import json, sys
-path, label, status = sys.argv[1], sys.argv[2], sys.argv[3]
-try:
-    data = json.load(open(path))
-except Exception:
-    print(f"{label}: exit {status}, no JSON result (timeout or crash)")
-    sys.exit(0)
-models = ",".join(sorted((data.get("modelUsage") or {}).keys()))
-print(
-    f"{label}: exit {status}, error={data.get('is_error')}, turns={data.get('num_turns')}, "
-    f"minutes={round((data.get('duration_ms') or 0) / 60000, 1)}, models={models}"
-)
-EOF
+# Cost and the plan's usage meter after the session (AD-42), for the governor.
+python3 "$(dirname "$0")/../src/opportunity_radar/projects/usage.py" session \
+  "$log" "$label" "$status" "${RUNNER_TEMP:-/tmp}/usage/${label}-$(date +%s).json" || true
 exit $status

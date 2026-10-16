@@ -101,7 +101,9 @@ roles are excluded. Skill demand: `uv run opportunity-radar insights skills`
   pass + green CI + 5 quiet hours). Every approved project is built side by
   side (AD-41: the builder picks whichever has work), and each passing
   milestone proposes resume bullets plus talk tracks as one private PR per
-  project. Red CI is re-run once, then fixed (AD-40). The scan chain wakes the
+  project. Red CI is re-run once, then fixed (AD-40). A usage governor reads
+  the real Max meters (5-hour / 7-day, via a stream-json Haiku probe) and
+  scales how many projects may run, 4 down to 0 (AD-42; `projects usage`). The scan chain wakes the
   builder within ~10 min when it has work (`scripts/wake_builder.sh`, AD-35); builds post
   progress to `#projects` every 20 min (AD-36). Project repos must read as
   Patrick's own work: commits as TheAsianFish, frequent focused commits,

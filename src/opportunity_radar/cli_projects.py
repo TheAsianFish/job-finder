@@ -108,6 +108,9 @@ def projects_step(
     out: Path = typer.Option(None, "--out", help="Write the stage context JSON here"),
     push: bool = typer.Option(True, "--push/--no-push"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Decide only; create/merge nothing"),
+    meter: Path = typer.Option(
+        None, "--meter", help="Usage probe output (stream-json); governs how many projects run"
+    ),
 ) -> None:
     """Decide the builder's next stage (creates the repo / merges on autopilot)."""
     from dataclasses import replace
@@ -118,10 +121,24 @@ def projects_step(
     projects = load_projects()
     candidates = [p for p in [find(projects, slug)] if p] if slug else active_projects(projects)
     gh = gh_cli(_token())
-    chosen = pick([(p, s, decide(p, s)) for p in candidates for s in [read_state(p.repo_name, gh)]])
+    from opportunity_radar.projects.usage import capacity, parse_meter
+
+    # Usage governor (AD-42). The scan chain's dry-run wake-up check has no
+    # meter: it only asks whether there is work, and the real run decides.
+    reading = parse_meter(meter.read_text(encoding="utf-8")) if meter and meter.exists() else None
+    room = capacity(reading)
+    slots = None if dry_run and meter is None else room.projects
+    if slots is not None and slug:
+        # A run for one project still counts its place among all of them.
+        ranked = [p.slug for p in active_projects(projects)]
+        slots = 1 if any(c.slug in ranked[:slots] for c in candidates) else 0
+    options = [(p, s, decide(p, s)) for p in candidates for s in [read_state(p.repo_name, gh)]]
+    chosen = pick(options, slots)
     context: dict = {"stage": "idle", "reason": "no approved or in-flight project"}
     if chosen is not None:
         project, state, stage = chosen
+        if stage.reason.startswith("usage governor"):
+            stage = replace(stage, reason=f"{stage.reason} ({room.summary()})")
         if not dry_run and stage.kind == "rerun" and stage.pr:
             try:
                 for run_id in stage.pr.rerunnable:
@@ -145,6 +162,8 @@ def projects_step(
             "pr_url": stage.pr.url if stage.pr else "",
             "feedback": stage.pr.feedback if stage.pr else [],
             "project": asdict(project),
+            "usage": room.summary(),
+            "seven_day_before": reading.seven_day if reading else None,
         }
         changed = False
         if not dry_run and stage.reason.startswith("CI failing") and stage.pr:
@@ -181,6 +200,8 @@ def projects_step(
     if out:
         out.write_text(text, encoding="utf-8")
     console.print(f"stage={context['stage']} ({context['reason']})")
+    if context.get("usage"):
+        console.print(f"usage: {context['usage']}")
 
 
 @projects_app.command("scout-merge")
@@ -499,3 +520,86 @@ def register(app: typer.Typer) -> None:
     app.add_typer(projects_app, name="projects")
     app.add_typer(hub_app, name="hub")
     app.add_typer(discord_app, name="discord")
+
+
+@projects_app.command("usage-record")
+def projects_usage_record(
+    slug: str,
+    stage: str,
+    sessions: Path = typer.Option(..., "--sessions", help="JSON list from project_agent.sh"),
+    before: float = typer.Option(None, "--before", help="7-day meter before the run (0-1)"),
+) -> None:
+    """Add one builder run to the usage ledger (AD-42); the caller commits."""
+    from datetime import UTC, datetime
+
+    from opportunity_radar.projects.usage import Row, append, ledger_path
+    from opportunity_radar.resume.paths import private_dir
+
+    try:
+        records = json.loads(sessions.read_text(encoding="utf-8") or "[]")
+    except (OSError, ValueError):
+        records = []
+    records = [r for r in records if isinstance(r, dict)] if isinstance(records, list) else []
+    if not records:
+        console.print("no sessions to record")
+        return
+    after = [r["seven_day"] for r in records if r.get("seven_day") is not None]
+    five = [r["five_hour"] for r in records if r.get("five_hour") is not None]
+    row = Row(
+        at=datetime.now(UTC).isoformat(timespec="seconds"),
+        slug=slug,
+        stage=stage,
+        cost=round(sum(float(r.get("cost") or 0) for r in records), 4),
+        seven_day_before=before,
+        seven_day_after=max(after) if after else None,
+        five_hour_after=five[-1] if five else None,
+        limit_hit=any(r.get("limit_hit") for r in records),
+    )
+    append(ledger_path(private_dir()), [row])
+    console.print(
+        f"usage: {slug} {stage}: ${row.cost:.2f} list price"
+        + (
+            f", 7-day {before:.0%} -> {row.seven_day_after:.0%}"
+            if before is not None and after
+            else ""
+        )
+        + (" (usage limit hit)" if row.limit_hit else "")
+    )
+
+
+@projects_app.command("usage")
+def projects_usage(
+    meter: Path = typer.Option(None, "--meter", help="Usage probe output (stream-json)"),
+    days: int = typer.Option(7, "--days"),
+) -> None:
+    """How much the builder uses: the meter, how many projects may run, and
+    spend per project (AD-42)."""
+    from datetime import UTC, datetime, timedelta
+
+    from opportunity_radar.projects.usage import (
+        capacity,
+        ledger_path,
+        load_ledger,
+        parse_meter,
+        projection,
+    )
+    from opportunity_radar.resume.paths import private_dir
+
+    reading = parse_meter(meter.read_text(encoding="utf-8")) if meter and meter.exists() else None
+    rows = load_ledger(ledger_path(private_dir()))
+    console.print(capacity(reading).summary())
+    console.print(projection(rows, reading))
+    since = datetime.now(UTC) - timedelta(days=days)
+    recent = [r for r in rows if datetime.fromisoformat(r.at) >= since]
+    table = Table(title=f"Builder runs, last {days} days")
+    for column in ("project", "runs", "list-price $", "7-day meter used"):
+        table.add_column(column)
+    for slug in sorted({r.slug for r in recent}):
+        mine = [r for r in recent if r.slug == slug]
+        used = sum(
+            max(0.0, r.seven_day_after - r.seven_day_before)
+            for r in mine
+            if r.seven_day_after is not None and r.seven_day_before is not None
+        )
+        table.add_row(slug, str(len(mine)), f"{sum(r.cost for r in mine):.2f}", f"{used:.0%}")
+    console.print(table)

@@ -509,7 +509,13 @@ def test_cli_step_skips_a_waiting_project_for_one_with_work(tmp_path, monkeypatc
     monkeypatch.setattr("opportunity_radar.projects.builder.gh_cli", lambda token=None: fake)
     monkeypatch.setattr(cli_projects, "_candidate_summary", lambda: {})
     out = tmp_path / "context.json"
-    result = CliRunner().invoke(app, ["projects", "step", "--out", str(out), "--no-push"])
+    meter = tmp_path / "meter.jsonl"  # plenty of room: the governor allows 4
+    meter.write_text(
+        '{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","unifiedWindows":'
+        '{"five_hour":{"utilization":0.05},"seven_day":{"utilization":0.02}}}}'
+    )
+    step = ["projects", "step", "--out", str(out), "--no-push", "--meter", str(meter)]
+    result = CliRunner().invoke(app, step)
     assert result.exit_code == 0, result.output
     context = json.loads(out.read_text())
     assert context["slug"] == "kiln" and context["stage"] == "build"

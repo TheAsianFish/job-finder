@@ -733,3 +733,48 @@ Decision:
 Trade-off: more parallel projects means more PRs and study notes for Patrick
 to keep up with. The talk tracks and the mock interview at finish are the
 guard, because he must be able to defend every bullet he uses.
+
+## AD-42: A usage governor scales the builder from the real Max meter
+
+Context: Patrick allows 2-4 projects at once only if they never use up his
+Claude Max allowance, with usage watched carefully and the builder scaling
+up and down "like Kubernetes" (2026-10-15).
+- Limits: Max has a rolling 5-hour window and a 7-day window; there is no
+  monthly limit to track.
+- What doesn't work: the statusline's `rate_limits` field is not produced
+  in `-p` mode (tested). `total_cost_usd` is only a list-price estimate,
+  which the docs say does not map to plan limits.
+- What works: Claude Code's stream-json output (`--output-format
+  stream-json --verbose`) includes a `rate_limit_event` whose
+  `unifiedWindows.five_hour` and `seven_day` give the account's real
+  utilization (0-1) and reset times (verified 2026-10-16: 8% and 20%).
+
+Decision (`projects/usage.py`):
+- **Read.** The control job runs `scripts/usage_probe.sh`: one one-word Haiku
+  call on the Max token, which reads the meter before every decision. Agent
+  sessions run in stream-json too, so each session's cost and the meter after
+  it are recorded (`usage.py session`, stdlib only).
+- **Scale.** `capacity` maps the meter to how many projects may start agent
+  sessions (4 down to 0), in priority order, with the reason:
+  - The 7-day meter is compared with a straight line from 15% at the start
+    of the week to an 85% ceiling at the reset. The headroom left for
+    Patrick's own use is 15% of the week. Below half the pace line: 4
+    projects; then 3, 2 and 1 as the meter nears the line; 0 once it is 20%
+    past the line or at the ceiling.
+  - The 5-hour window: one project above 50%, none above 80%, so his
+    interactive sessions are never starved.
+  - None while a limit is hit.
+  - Merges and CI re-runs need no session and always go through.
+  - Without a reading, one project. The scan chain's dry-run wake-up check
+    ignores the governor (it only asks whether there is work); the real run
+    decides.
+- **Record and report.** Every run adds a row to the private
+  `usage/builder.jsonl`: project, stage, list-price cost, and the 7-day
+  meter before and after. `projects usage` shows the meter, the capacity,
+  spend per project, and the simple math: the average share of the week one
+  run costs, and how many more runs fit before the ceiling. Each build's
+  Discord note carries the usage line, and the step log prints it.
+
+The constants are in `usage.py` (WEEKLY_CEILING, FIVE_HOUR_STOP/SLOW,
+MAX_PROJECTS). Changing them is a code change with a reason, never a YAML
+knob.
