@@ -11,8 +11,13 @@
 #
 # Gated by repo variable ENABLE_PROJECT_BUILDER=true. Secrets: AGENT_GH_TOKEN
 # (fine-grained PAT: creates project repos, pushes, opens PRs),
-# CLAUDE_CODE_OAUTH_TOKEN (Max plan), CAREER_DEPLOY_KEY, DISCORD_WEBHOOK_URL.
-# This repo is public: logs print stages and statistics only.
+# CLAUDE_CODE_OAUTH_TOKEN (Max plan), CAREER_DEPLOY_KEY, DISCORD_WEBHOOK_URL,
+# PAYLOAD_KEY.
+# This repo is public: logs print stages and statistics only. GitHub prints
+# every step's env values, so private data (the run context with the hub, and
+# the sessions' resume entry, talk tracks and study notes) moves between jobs
+# only encrypted with PAYLOAD_KEY (scripts/seal.sh, AD-43) and is read from
+# files, never from env or plain job outputs.
 
 name: Project builder
 
@@ -69,7 +74,7 @@ jobs:
     timeout-minutes: 15
     outputs:
       stage: ${{ steps.step.outputs.stage }}
-      context: ${{ steps.step.outputs.context }}
+      sealed: ${{ steps.step.outputs.sealed }}
     steps:
       - uses: actions/checkout@v7
       - name: Check out private career repo
@@ -106,22 +111,24 @@ jobs:
         env:
           AGENT_GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
           PROJECT: ${{ inputs.project }}
+          PAYLOAD_KEY: ${{ secrets.PAYLOAD_KEY }}
         run: |
           args=(--out "$RUNNER_TEMP/context.json" --meter "$RUNNER_TEMP/meter.jsonl")
           [ -n "$PROJECT" ] && args+=(--slug "$PROJECT")
           uv run opportunity-radar projects step "${args[@]}"
           echo "stage=$(jq -r .stage "$RUNNER_TEMP/context.json")" >> "$GITHUB_OUTPUT"
-          { echo "context<<CTX_EOF"; cat "$RUNNER_TEMP/context.json"; echo; echo "CTX_EOF"; } >> "$GITHUB_OUTPUT"
+          mkdir -p "$RUNNER_TEMP/ctx" && cp "$RUNNER_TEMP/context.json" "$RUNNER_TEMP/ctx/"
+          echo "sealed=$(bash scripts/seal.sh seal "$RUNNER_TEMP/ctx")" >> "$GITHUB_OUTPUT"
 
       - name: Report a CI re-run to Discord
         if: steps.step.outputs.stage == 'rerun'
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           DISCORD_WEBHOOK_PROJECTS: ${{ secrets.DISCORD_WEBHOOK_PROJECTS }}
-          CONTEXT: ${{ steps.step.outputs.context }}
         run: |
-          printf '**%s**: %s once before trying a fix: %s\n' "$(jq -r .project.title <<< "$CONTEXT")" \
-            "$(jq -r .reason <<< "$CONTEXT")" "$(jq -r .pr_url <<< "$CONTEXT")" > "$RUNNER_TEMP/rerun.md"
+          ctx="$RUNNER_TEMP/context.json"
+          printf '**%s**: %s once before trying a fix: %s\n' "$(jq -r .project.title "$ctx")" \
+            "$(jq -r .reason "$ctx")" "$(jq -r .pr_url "$ctx")" > "$RUNNER_TEMP/rerun.md"
           uv run opportunity-radar notify markdown "$RUNNER_TEMP/rerun.md" --title "🔁 Project builder" --channel projects
 
       - name: Report a failed step to Discord
@@ -143,18 +150,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 355
     outputs:
-      resume_entry: ${{ steps.collect.outputs.resume_entry }}
-      results: ${{ steps.collect.outputs.results }}
-      interview: ${{ steps.collect.outputs.interview }}
-      bullets: ${{ steps.collect.outputs.bullets }}
-      summary: ${{ steps.memory.outputs.summary }}
-      usage: ${{ steps.memory.outputs.usage }}
-      journal: ${{ steps.memory.outputs.journal }}
-      learn: ${{ steps.memory.outputs.learn }}
+      # Private outputs travel sealed (AD-43); resume_entry is only a yes flag.
+      payload: ${{ steps.seal.outputs.payload }}
+      resume_entry: ${{ steps.seal.outputs.resume_entry }}
+      usage: ${{ steps.seal.outputs.usage }}
       pr_url: ${{ steps.pr.outputs.url }}
     env:
       STAGE: ${{ needs.control.outputs.stage }}
-      CONTEXT: ${{ needs.control.outputs.context }}
+      SEALED_CONTEXT: ${{ needs.control.outputs.sealed }}
     steps:
       # Public repo only (prompts, scripts). The private career repo is
       # deliberately NOT checked out here: project sessions never see resume data.
@@ -165,11 +168,18 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Open the run context
+        env:
+          PAYLOAD_KEY: ${{ secrets.PAYLOAD_KEY }}
+        run: |
+          bash radar/scripts/seal.sh open "$RUNNER_TEMP/ctx" <<< "$SEALED_CONTEXT"
+          echo "CTX=$RUNNER_TEMP/ctx/context.json" >> "$GITHUB_ENV"
+
       - name: Clone the project repository
         env:
           GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
         run: |
-          repo=$(jq -r .repo <<< "$CONTEXT")
+          repo=$(jq -r .repo "$CTX")
           git clone -q "https://x-access-token:${GH_TOKEN}@github.com/${repo}.git" work
           # Strip credentials: the agent sessions must not be able to push.
           git -C work remote set-url origin "https://github.com/${repo}.git"
@@ -182,7 +192,7 @@ jobs:
           printf '%s\n' .agent/ CLAUDE.md AGENTS.md .claude/ >> .git/info/exclude
           if ! git rev-parse -q --verify HEAD >/dev/null; then
             git checkout -q -b main
-            title=$(jq -r .project.title <<< "$CONTEXT")
+            title=$(jq -r .project.title "$CTX")
             printf '# %s\n\nStatus: planning.\n' "$title" > README.md
             git add README.md && git commit -q -m "Initial commit"
             echo "NEW_REPO=1" >> "$GITHUB_ENV"
@@ -199,10 +209,10 @@ jobs:
           # The clone already has every branch: origin has no credentials now,
           # so a fetch from this private repo would fail (2026-10-14, PR #7).
           case "$STAGE" in
-            address) git checkout -q -B "$(jq -r .pr_branch <<< "$CONTEXT")" "origin/$(jq -r .pr_branch <<< "$CONTEXT")" ;;
+            address) git checkout -q -B "$(jq -r .pr_branch "$CTX")" "origin/$(jq -r .pr_branch "$CTX")" ;;
             plan)    start dev/plan ;;
             finish)  start dev/release ;;
-            build)   start "dev/m$(( $(jq -r .milestones_done <<< "$CONTEXT") + 1 ))" ;;
+            build)   start "dev/m$(( $(jq -r .milestones_done "$CTX") + 1 ))" ;;
           esac
           if [ -f CONTRIBUTING.md ] && ! git ls-files --error-unmatch CLAUDE.md >/dev/null 2>&1; then
             cp CONTRIBUTING.md CLAUDE.md
@@ -216,7 +226,7 @@ jobs:
           GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
         run: |
           cd work
-          repo=$(jq -r .repo <<< "$CONTEXT")
+          repo=$(jq -r .repo "$CTX")
           git push -q "https://x-access-token:${GH_TOKEN}@github.com/${repo}.git" main:main
           git update-ref refs/remotes/origin/main main
 
@@ -226,10 +236,10 @@ jobs:
       - name: Write the session prompts
         run: |
           p=radar/agents/prompts/projects
-          ctx=$(jq '{project, milestone, milestones_done, milestones_total, feedback, pr_url, candidate}' <<< "$CONTEXT")
+          ctx=$(jq '{project, milestone, milestones_done, milestones_total, feedback, pr_url, candidate}' "$CTX")
           for s in plan build review address finish bullets; do
             { cat "$p/standards.md"; echo; cat "$p/$s.md"; echo; echo "## Context"; echo '```json'; echo "$ctx"; echo '```'
-              echo; echo "## Shared context"; jq -r '.hub // ""' <<< "$CONTEXT"; } > "$RUNNER_TEMP/prompt-$s.md"
+              echo; echo "## Shared context"; jq -r '.hub // ""' "$CTX"; } > "$RUNNER_TEMP/prompt-$s.md"
           done
 
       - name: Existing PR description (address stage)
@@ -237,14 +247,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
         run: |
-          gh pr view "$(jq -r .pr_number <<< "$CONTEXT")" --repo "$(jq -r .repo <<< "$CONTEXT")" \
+          gh pr view "$(jq -r .pr_number "$CTX")" --repo "$(jq -r .repo "$CTX")" \
             --json body -q .body | grep -vE '<!-- (fable-)?review:' > work/.agent/pr.md || true
           # A CI fix needs the failure; the sessions have no GitHub token, so
           # hand them the failed jobs' log tail (stays in the session, not printed).
-          if [[ "$(jq -r .reason <<< "$CONTEXT")" == "CI failing"* ]]; then
-            run=$(gh run list --repo "$(jq -r .repo <<< "$CONTEXT")" --branch "$(jq -r .pr_branch <<< "$CONTEXT")" \
+          if [[ "$(jq -r .reason "$CTX")" == "CI failing"* ]]; then
+            run=$(gh run list --repo "$(jq -r .repo "$CTX")" --branch "$(jq -r .pr_branch "$CTX")" \
               --status failure --limit 1 --json databaseId --jq '.[0].databaseId')
-            gh run view "$run" --repo "$(jq -r .repo <<< "$CONTEXT")" --log-failed 2>/dev/null \
+            gh run view "$run" --repo "$(jq -r .repo "$CTX")" --log-failed 2>/dev/null \
               | tail -c 40000 > work/.agent/ci-failure.log || true
             echo "CI failure log: $(wc -c < work/.agent/ci-failure.log) bytes"
           fi
@@ -259,7 +269,7 @@ jobs:
           # Progress pings only; unset for the agent sessions themselves.
           HEARTBEAT_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_PROJECTS || secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          TITLE=$(jq -r .project.title <<< "$CONTEXT"); export TITLE
+          TITLE=$(jq -r .project.title "$CTX"); export TITLE
           agent=../radar/scripts/project_agent.sh
           # A review that ends without a verdict (Replay M6, 2026-10-14) left
           # the PR unmergeable by autopilot with no word why: run it again once.
@@ -307,7 +317,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
         run: |
-          repo=$(jq -r .repo <<< "$CONTEXT")
+          repo=$(jq -r .repo "$CTX")
           ahead=$(git rev-list --count origin/main..HEAD 2>/dev/null || echo 1)
           if [ "$ahead" = "0" ] && [ "$STAGE" != "address" ]; then
             echo "No commits produced; nothing to open."; echo "url=" >> "$GITHUB_OUTPUT"; exit 0
@@ -319,16 +329,16 @@ jobs:
             printf '\n<!-- review: pass -->\n' >> .agent/pr.md
           fi
           if [ "$STAGE" = "address" ]; then
-            number=$(jq -r .pr_number <<< "$CONTEXT")
+            number=$(jq -r .pr_number "$CTX")
             { cat .agent/reply.md 2>/dev/null || echo "Addressed the review comments."; echo; echo "<!-- ack -->"
-              [[ "$(jq -r .reason <<< "$CONTEXT")" == "CI failing"* ]] && echo "<!-- ci-fix -->"; } > .agent/reply-final.md
+              [[ "$(jq -r .reason "$CTX")" == "CI failing"* ]] && echo "<!-- ci-fix -->"; } > .agent/reply-final.md
             gh pr comment "$number" --repo "$repo" --body-file .agent/reply-final.md
             gh pr edit "$number" --repo "$repo" --body-file .agent/pr.md
-            echo "url=$(jq -r .pr_url <<< "$CONTEXT")" >> "$GITHUB_OUTPUT"
+            echo "url=$(jq -r .pr_url "$CTX")" >> "$GITHUB_OUTPUT"
           else
             case "$STAGE" in
-              plan)   title="Plan: $(jq -r .project.title <<< "$CONTEXT")" ;;
-              build)  title=$(jq -r .milestone <<< "$CONTEXT" | cut -c1-110) ;;
+              plan)   title="Plan: $(jq -r .project.title "$CTX")" ;;
+              build)  title=$(jq -r .milestone "$CTX" | cut -c1-110) ;;
               finish) title="Release readiness" ;;
             esac
             url=$(gh pr create --repo "$repo" --base main --head "$BRANCH" --title "$title" --body-file .agent/pr.md)
@@ -348,38 +358,38 @@ jobs:
           git add -A
           git diff --cached --quiet || git commit -q -m "Continue ${STAGE} work"
           if [ "$(git rev-list --count origin/main..HEAD 2>/dev/null || echo 0)" != "0" ]; then
-            git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/$(jq -r .repo <<< "$CONTEXT").git" "HEAD:refs/heads/${BRANCH}"
+            git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/$(jq -r .repo "$CTX").git" "HEAD:refs/heads/${BRANCH}"
             echo "Saved $(git rev-list --count origin/main..HEAD) commit(s) on ${BRANCH}; the next run continues from them."
           fi
 
-      - name: Collect the resume entry
-        id: collect
-        if: success()
-        working-directory: work
-        run: |
-          if [ -s .agent/RESUME.tex ]; then
-            { echo "resume_entry<<TEX_EOF"; cat .agent/RESUME.tex; echo; echo "TEX_EOF"; } >> "$GITHUB_OUTPUT"
-            results=.agent/RESULTS.md; [ -s "$results" ] || results=RESULTS.md
-            { echo "results<<RES_EOF"; head -c 60000 "$results" 2>/dev/null; echo; echo "RES_EOF"; } >> "$GITHUB_OUTPUT"
-            { echo "interview<<INT_EOF"; head -c 30000 .agent/INTERVIEW.md 2>/dev/null; echo; echo "INT_EOF"; } >> "$GITHUB_OUTPUT"
-            { echo "bullets<<BUL_EOF"; head -c 40000 .agent/BULLETS.md 2>/dev/null; echo; echo "BUL_EOF"; } >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Collect memory for the hub
-        id: memory
+      - name: Seal the private outputs
+        # One encrypted bundle for the record and remember jobs (AD-43). Plain
+        # job outputs would be printed in this public repo's logs as env values.
+        id: seal
         if: always()
         working-directory: work
+        env:
+          PAYLOAD_KEY: ${{ secrets.PAYLOAD_KEY }}
+          OUTCOME: ${{ job.status }}
         run: |
+          out="$RUNNER_TEMP/payload"; mkdir -p "$out"
+          if [ "$OUTCOME" = success ] && [ -s .agent/RESUME.tex ]; then
+            cp .agent/RESUME.tex "$out/RESUME.tex"
+            results=.agent/RESULTS.md; [ -s "$results" ] || results=RESULTS.md
+            head -c 60000 "$results" > "$out/RESULTS.md" 2>/dev/null || true
+            head -c 30000 .agent/INTERVIEW.md > "$out/INTERVIEW.md" 2>/dev/null || true
+            head -c 40000 .agent/BULLETS.md > "$out/BULLETS.md" 2>/dev/null || true
+            echo "resume_entry=yes" >> "$GITHUB_OUTPUT"
+          fi
+          head -c 20000 .agent/summary.md > "$out/summary.md" 2>/dev/null || true
+          head -c 4000 .agent/journal.md > "$out/journal.md" 2>/dev/null || true
           {
-            echo "summary<<SUM_EOF"; head -c 20000 .agent/summary.md 2>/dev/null; echo; echo "SUM_EOF"
-            echo "journal<<JRN_EOF"; head -c 4000 .agent/journal.md 2>/dev/null; echo; echo "JRN_EOF"
-            echo "learn<<LRN_EOF"
-            head -c 40000 .agent/learn.md 2>/dev/null
+            head -c 40000 .agent/learn.md 2>/dev/null || true
             [ -s .agent/review.md ] && { echo; echo "## Review notes"; head -c 15000 .agent/review.md; }
-            echo; echo "LRN_EOF"
-            # Cost and meter per session (AD-42); numbers only, no content.
-            echo "usage=$(jq -cs . "$RUNNER_TEMP"/usage/*.json 2>/dev/null || echo '[]')"
-          } >> "$GITHUB_OUTPUT"
+          } > "$out/learn.md"
+          echo "payload=$(bash ../radar/scripts/seal.sh seal "$out")" >> "$GITHUB_OUTPUT"
+          # Cost and meter per session (AD-42); numbers only, no content.
+          echo "usage=$(jq -cs . "$RUNNER_TEMP"/usage/*.json 2>/dev/null || echo '[]')" >> "$GITHUB_OUTPUT"
 
       - name: Tell Patrick
         if: always()
@@ -391,28 +401,28 @@ jobs:
           OUTCOME: ${{ job.status }}
         run: |
           uv sync --frozen -q
-          title=$(jq -r .project.title <<< "$CONTEXT")
+          title=$(jq -r .project.title "$CTX")
           {
             result="failed ($OUTCOME)"; [ "$OUTCOME" = success ] && result="finished"
             echo "**${title}**: ${STAGE} ${result}."
             if [ -n "$URL" ]; then
-              if [ "$(jq -r .project.autopilot <<< "$CONTEXT")" = true ] && grep -q '<!-- review: pass -->' ../work/.agent/pr.md 2>/dev/null; then
+              if [ "$(jq -r .project.autopilot "$CTX")" = true ] && grep -q '<!-- review: pass -->' ../work/.agent/pr.md 2>/dev/null; then
                 echo "PR: ${URL}. Review passed: autopilot merges it after 5 quiet hours once checks are green (merge now to go faster, or comment to request changes)."
-              elif [ "$(jq -r .project.autopilot <<< "$CONTEXT")" = true ] && [ ! -s ../work/.agent/verdict ]; then
+              elif [ "$(jq -r .project.autopilot "$CTX")" = true ] && [ ! -s ../work/.agent/verdict ]; then
                 echo "PR: ${URL}. The review wrote no verdict (twice), so autopilot will not merge it: merge it yourself, or comment to have it addressed and reviewed again."
               else
                 echo "Review: ${URL} (comment to request changes; merge to continue)."
               fi
             fi
-            [ "$STAGE" = build ] && echo "Milestone: $(jq -r .milestone <<< "$CONTEXT")"
-            reason=$(jq -r .reason <<< "$CONTEXT")
+            [ "$STAGE" = build ] && echo "Milestone: $(jq -r .milestone "$CTX")"
+            reason=$(jq -r .reason "$CTX")
             if [[ "$reason" == "CI failing"* ]]; then
               echo "This run worked on failing CI (${reason#CI failing; }). If CI is still red after the last attempt, the PR needs you."
             fi
             if [ "$OUTCOME" != success ]; then
               echo "Any commits were saved on the branch; the next run continues from them."
             fi
-            usage=$(jq -r '.usage // empty' <<< "$CONTEXT")
+            usage=$(jq -r '.usage // empty' "$CTX")
             [ -n "$usage" ] && echo "Claude usage before this run: ${usage}."
           } > "$RUNNER_TEMP/note.md"
           uv run opportunity-radar notify markdown "$RUNNER_TEMP/note.md" --title "🔨 Project builder" --channel projects
@@ -439,21 +449,20 @@ jobs:
           AGENT_GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           DISCORD_WEBHOOK_PROJECTS: ${{ secrets.DISCORD_WEBHOOK_PROJECTS }}
-          ENTRY: ${{ needs.build.outputs.resume_entry }}
-          RESULTS: ${{ needs.build.outputs.results }}
-          INTERVIEW: ${{ needs.build.outputs.interview }}
-          BULLETS: ${{ needs.build.outputs.bullets }}
           DISCORD_WEBHOOK_RESUME: ${{ secrets.DISCORD_WEBHOOK_RESUME }}
-          CONTEXT: ${{ needs.control.outputs.context }}
+          PAYLOAD_KEY: ${{ secrets.PAYLOAD_KEY }}
+          SEALED_CONTEXT: ${{ needs.control.outputs.sealed }}
+          PAYLOAD: ${{ needs.build.outputs.payload }}
         run: |
-          printf '%s\n' "$ENTRY" > "$RUNNER_TEMP/RESUME.tex"
-          printf '%s\n' "$RESULTS" > "$RUNNER_TEMP/RESULTS.md"
-          printf '%s\n' "$INTERVIEW" > "$RUNNER_TEMP/INTERVIEW.md"
-          printf '%s\n' "$BULLETS" > "$RUNNER_TEMP/BULLETS.md"
-          files=(--entry "$RUNNER_TEMP/RESUME.tex" --results "$RUNNER_TEMP/RESULTS.md" --notes "$RUNNER_TEMP/BULLETS.md")
-          slug=$(jq -r .slug <<< "$CONTEXT")
-          if [ "$(jq -r .stage <<< "$CONTEXT")" = finish ]; then
-            uv run opportunity-radar projects finish "$slug" "${files[@]}" --interview "$RUNNER_TEMP/INTERVIEW.md" --push
+          bash scripts/seal.sh open "$RUNNER_TEMP/ctx" <<< "$SEALED_CONTEXT"
+          d="$RUNNER_TEMP/payload"
+          bash scripts/seal.sh open "$d" <<< "$PAYLOAD"
+          touch "$d/RESULTS.md" "$d/INTERVIEW.md" "$d/BULLETS.md"
+          ctx="$RUNNER_TEMP/ctx/context.json"
+          files=(--entry "$d/RESUME.tex" --results "$d/RESULTS.md" --notes "$d/BULLETS.md")
+          slug=$(jq -r .slug "$ctx")
+          if [ "$(jq -r .stage "$ctx")" = finish ]; then
+            uv run opportunity-radar projects finish "$slug" "${files[@]}" --interview "$d/INTERVIEW.md" --push
           else
             uv run opportunity-radar projects bullets "$slug" "${files[@]}" --push
           fi
@@ -477,44 +486,47 @@ jobs:
       - run: uv sync --frozen
       - name: Update the shared hub
         env:
-          CONTEXT: ${{ needs.control.outputs.context }}
-          SUMMARY: ${{ needs.build.outputs.summary }}
-          JOURNAL: ${{ needs.build.outputs.journal }}
-          LEARN: ${{ needs.build.outputs.learn }}
+          PAYLOAD_KEY: ${{ secrets.PAYLOAD_KEY }}
+          SEALED_CONTEXT: ${{ needs.control.outputs.sealed }}
+          PAYLOAD: ${{ needs.build.outputs.payload }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           DISCORD_WEBHOOK_STUDY: ${{ secrets.DISCORD_WEBHOOK_STUDY }}
           PR_URL: ${{ needs.build.outputs.pr_url }}
           RESULT: ${{ needs.build.result }}
           USAGE: ${{ needs.build.outputs.usage }}
         run: |
-          slug=$(jq -r .slug <<< "$CONTEXT"); stage=$(jq -r .stage <<< "$CONTEXT")
+          bash scripts/seal.sh open "$RUNNER_TEMP/ctx" <<< "$SEALED_CONTEXT"
+          ctx="$RUNNER_TEMP/ctx/context.json"
+          # A build that died before sealing leaves no payload: log the stage only.
+          d="$RUNNER_TEMP/payload"; mkdir -p "$d"
+          [ -n "$PAYLOAD" ] && bash scripts/seal.sh open "$d" <<< "$PAYLOAD"
+          touch "$d/summary.md" "$d/journal.md" "$d/learn.md"
+          slug=$(jq -r .slug "$ctx"); stage=$(jq -r .stage "$ctx")
           # Usage ledger first, so the hub commit below carries it (AD-42).
           printf '%s\n' "${USAGE:-[]}" > "$RUNNER_TEMP/usage.json"
-          before=$(jq -r '.seven_day_before // empty' <<< "$CONTEXT")
+          before=$(jq -r '.seven_day_before // empty' "$ctx")
           uv run opportunity-radar projects usage-record "$slug" "$stage" \
             --sessions "$RUNNER_TEMP/usage.json" ${before:+--before "$before"} || true
-          if [ -n "$(tr -d '[:space:]' <<< "$SUMMARY")" ]; then
-            printf '%s\n' "$SUMMARY" > "$RUNNER_TEMP/summary.md"
-            uv run opportunity-radar hub project-summary "$slug" "$RUNNER_TEMP/summary.md"
+          if [ -n "$(tr -d '[:space:]' < "$d/summary.md")" ]; then
+            uv run opportunity-radar hub project-summary "$slug" "$d/summary.md"
           fi
           {
             echo "Stage **${stage}** ${RESULT}.${PR_URL:+ PR: ${PR_URL}}"
-            [ "$stage" = build ] && echo "Milestone: $(jq -r .milestone <<< "$CONTEXT")"
-            printf '%s\n' "$JOURNAL"
+            [ "$stage" = build ] && echo "Milestone: $(jq -r .milestone "$ctx")"
+            cat "$d/journal.md"
           } > "$RUNNER_TEMP/journal.md"
           note=""
-          if [ -n "$(tr -d '[:space:]' <<< "$LEARN")" ]; then
+          if [ -n "$(tr -d '[:space:]' < "$d/learn.md")" ]; then
             name="$(date -u +%Y-%m-%d)-${stage}"
-            [ "$stage" = build ] && name="${name}-m$(( $(jq -r .milestones_done <<< "$CONTEXT") + 1 ))"
-            printf '%s\n' "$LEARN" > "$RUNNER_TEMP/learn.md"
-            uv run opportunity-radar hub study-note "$slug" "$name" "$RUNNER_TEMP/learn.md"
+            [ "$stage" = build ] && name="${name}-m$(( $(jq -r .milestones_done "$ctx") + 1 ))"
+            uv run opportunity-radar hub study-note "$slug" "$name" "$d/learn.md"
             note="study/${slug}/${name}.md"
             echo "Study notes: career-private/${note}" >> "$RUNNER_TEMP/journal.md"
           fi
           uv run opportunity-radar hub log "builder/${slug}" --file "$RUNNER_TEMP/journal.md" --push
           if [ -n "$note" ]; then
             printf '**%s** (%s): new notes on what to know, why it was built this way, and likely interview questions.\nhttps://github.com/TheAsianFish/career-private/blob/main/%s\n' \
-              "$(jq -r .project.title <<< "$CONTEXT")" "$stage" "$note" > "$RUNNER_TEMP/study-ping.md"
+              "$(jq -r .project.title "$ctx")" "$stage" "$note" > "$RUNNER_TEMP/study-ping.md"
             uv run opportunity-radar notify markdown "$RUNNER_TEMP/study-ping.md" --title "📚 Study notes" --channel study
           fi
 

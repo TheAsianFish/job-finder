@@ -120,6 +120,10 @@ claims only, production engineering, AI stack used well, no AI attribution).
 - A `commit-msg` hook strips AI attribution; commits are authored as
   TheAsianFish.
 - This repo is public, so workflow logs print stages and run statistics only.
+  GitHub prints every step's env values, so the run context (hub, skills)
+  and the sessions' private outputs (resume entry, talk tracks, study notes)
+  travel between jobs encrypted with the `PAYLOAD_KEY` secret
+  (`scripts/seal.sh`, AD-43) and are read from files, never from env.
 
 ## Usage governor (AD-42)
 

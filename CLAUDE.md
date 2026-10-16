@@ -134,6 +134,8 @@ roles are excluded. Skill demand: `uv run opportunity-radar insights skills`
   logged outcomes into the next review; no applications are logged yet). `AGENT_GH_TOKEN` secret
   (fine-grained PAT, all repos) opens those PRs and the project builders' repos.
   Never copy resume or application content into the public repo, PRs, or CI logs.
+  Workflow env values are printed in this public repo's logs: private data
+  crosses jobs only sealed with `PAYLOAD_KEY` (`scripts/seal.sh`, AD-43).
 - pdfLaTeX via TinyTeX (`scripts/install_tinytex.sh`); resume tests that
   compile are skipped when it is absent.
 - Registry: 282 companies in `config/companies.example.yaml` (core/strong

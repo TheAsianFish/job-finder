@@ -778,3 +778,25 @@ Decision (`projects/usage.py`):
 The constants are in `usage.py` (WEEKLY_CEILING, FIVE_HOUR_STOP/SLOW,
 MAX_PROJECTS). Changing them is a code change with a reason, never a YAML
 knob.
+
+## AD-43: Private builder data moves between jobs encrypted (2026-10-16)
+
+Context: the project builder passed its run context (the hub with Patrick's
+profile and journal, his skills summary) and the sessions' outputs (resume
+entry, results, talk tracks, interview prep, study notes, review) from job
+to job as job outputs read through `env:`. GitHub prints every step's env
+values in the log, and this repo is public, so every builder run since the
+hub was added (AD-33, 2026-10-08) published that data. Replay M7's run also
+broke on it: the bullets output's heredoc delimiter failed to parse
+(`Matching delimiter not found 'INT_EOF'`), so no bullets PR was opened.
+
+Decision:
+- Private data crosses jobs only as one encrypted bundle per producer
+  (`scripts/seal.sh`: tar + gzip + AES-256-CBC with PBKDF2, base64 on one
+  line), keyed by the `PAYLOAD_KEY` Actions secret. Logs and outputs show
+  only ciphertext. Artifacts were rejected because a public repo's artifacts
+  can be downloaded by any GitHub user.
+- Each job decrypts into `$RUNNER_TEMP` and reads files, never env. Plain
+  outputs carry non-private values only: the stage, a `resume_entry=yes`
+  flag, the PR URL and the per-session usage numbers.
+- The logs of earlier builder runs that printed the data are deleted.
