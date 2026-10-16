@@ -492,6 +492,12 @@ VOICE_MAX_CHARS = 240
 VOICE_MIN_CHARS = 80
 
 
+def _bold_tex(text: str, phrase: str) -> str:
+    """LaTeX for a bullet with one exact phrase in bold."""
+    before, _, after = text.partition(phrase)
+    return f"{escape(before)}\\textbf{{{escape(phrase)}}}{escape(after)}"
+
+
 def voice_problems(bullets: list[str]) -> list[str]:
     """Style rules a rewrite must meet (AD-47): no weak or repeated lead verb,
     "Built" at most once."""
@@ -536,11 +542,22 @@ def revoice_project(
 Rules:
 - Use only the facts in these bullets. Every number you write must already appear in them;
   do not add a technology, product, dataset or claim that is not there.
-- Keep the substance an engineer would ask about; you may reorder, merge two thin bullets,
-  or drop the weakest one, but write at least {max(2, len(originals) - 1)} and at most
-  {len(originals)} bullets.
-- Each bullet one sentence, {VOICE_MIN_CHARS}-{VOICE_MAX_CHARS} characters, plain text (no
-  LaTeX, no markdown). Different lead verb for every bullet.
+- Never strengthen a claim. A bullet that describes what a feature does or is designed to
+  do ("stays advisory until kappa clears 0.6") must not become a claim that it was done or
+  measured ("validated against human labels"). Keep "designed to", "until", "gates on"
+  wording; keep each number attached to what it measured.
+- Write the way the candidate's own bullets read: lead with the result or the scope when
+  there is one, then the one engineering decision that made it work (and its trade-off in
+  a clause when that is the interesting part). Keep the one mechanism an interviewer would
+  ask about; drop implementation minutiae, configuration detail and secondary tools (they
+  can come up in conversation). Readable in one pass by a recruiter, precise to an engineer.
+- You may reorder, merge two thin bullets, or drop the weakest one: write at least
+  {max(2, len(originals) - 1)} and at most {len(originals)} bullets, ordered as a story
+  (core system and its hardest problem, then how it was proven, then how it ships).
+- Each bullet one sentence, {VOICE_MIN_CHARS}-{VOICE_MAX_CHARS} characters (aim for
+  150-210), plain text (no LaTeX, no markdown). Different lead verb for every bullet.
+- "bold": the bullet's single headline result, copied exactly from its text and containing
+  a number (e.g. "1-in-120 policy breach"), or "" when there is none.
 
 Current bullets:
 {json.dumps(originals, ensure_ascii=False, indent=1)}
@@ -548,12 +565,20 @@ Current bullets:
 The candidate's voice:
 {voice_block(bank)}
 
-Reply with only JSON: {{"bullets": ["...", "..."]}}"""
+Reply with only JSON: {{"bullets": [{{"text": "...", "bold": "..."}}]}}"""
     try:
         data = parse_json_object(runner(prompt))
     except Exception as exc:  # network, auth, timeout: keep the reviewed version
         return block, f"skipped: rewrite failed ({str(exc)[:120]})"
-    bullets = [str(b).strip() for b in data.get("bullets") or [] if str(b).strip()]
+    bullets: list[str] = []
+    bolds: list[str] = []
+    for item in data.get("bullets") or []:
+        text = str(item.get("text") if isinstance(item, dict) else item).strip()
+        bold = str(item.get("bold") or "").strip() if isinstance(item, dict) else ""
+        if text:
+            bullets.append(text)
+            # Only a phrase from the bullet itself, carrying a number, is bolded.
+            bolds.append(bold if bold and bold in text and re.search(r"\d", bold) else "")
     if not max(2, len(originals) - 1) <= len(bullets) <= len(originals):
         return block, f"kept the reviewed version: {len(bullets)} bullets returned"
     corpus_lower = (corpus + " " + entry_text).lower()
@@ -566,7 +591,10 @@ Reply with only JSON: {{"bullets": ["...", "..."]}}"""
     problems = voice_problems(bullets)
     if problems:
         return block, f"kept the reviewed version: {'; '.join(problems)}"
-    items = "\n".join(f"    \\resumeItem{{{to_tex(b, metrics)}}}" for b in bullets)
+    items = "\n".join(
+        f"    \\resumeItem{{{_bold_tex(b, bold) if bold else to_tex(b, metrics)}}}"
+        for b, bold in zip(bullets, bolds, strict=True)
+    )
     head = block[:start].rstrip()
     new = f"{head}\n  \\resumeItemListStart\n{items}\n  \\resumeItemListEnd\n"
     return new, "applied (your voice guide and your own bullets as examples; guard passed)"

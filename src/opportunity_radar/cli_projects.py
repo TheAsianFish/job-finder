@@ -601,7 +601,11 @@ def projects_revoice(
                     console.print(f"[red]push failed: {pushed.stderr.strip()[:150]}[/red]")
                     raise typer.Exit(1)
             console.print(new)
-            console.print(f"Updated {branch} (previous version in prep/{before.name})")
+            console.print(
+                f"Updated {branch} (previous version in prep/{before.name})"
+                if push
+                else "Not pushed (--no-push)"
+            )
         finally:
             git(private, "worktree", "remove", "--force", str(work))
 

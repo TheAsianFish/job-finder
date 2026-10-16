@@ -88,3 +88,16 @@ def test_voice_pass_never_fails_the_pr():
     assert revoice_project(ENTRY, BANK, None, corpus=CORPUS)[1].startswith("skipped")
     too_few = runner_returning(GOOD[:1])
     assert "1 bullets returned" in revoice_project(ENTRY, BANK, too_few, corpus=CORPUS)[1]
+
+
+def test_voice_pass_bolds_only_a_numbered_phrase_from_the_bullet_itself():
+    items = [
+        {"text": GOOD[0], "bold": "12 of 12 seeded model regressions"},
+        {"text": GOOD[1], "bold": "a phrase that is not in the bullet 1"},
+        {"text": GOOD[2], "bold": "regression checks"},  # no number: not bolded
+    ]
+    new, note = revoice_project(
+        ENTRY, BANK, lambda prompt: json.dumps({"bullets": items}), corpus=CORPUS
+    )
+    assert note.startswith("applied"), note
+    assert new.count("\\textbf{") == 1 and "\\textbf{12 of 12 seeded model regressions}" in new
