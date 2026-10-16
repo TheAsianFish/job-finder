@@ -4,6 +4,7 @@
 # 3 hours the builder takes the next step on it:
 #   plan (Fable)  ->  build one milestone (Opus + subagents)  ->  independent
 #   review (Fable)  ->  one PR in the project repo  ->  wait for Patrick
+# (or autopilot), several approved projects side by side (AD-41)
 # Comments on the PR are addressed on the next run. When every milestone is
 # merged, the resume entry (measured numbers only) is proposed to the private
 # career repo as a PR.
@@ -135,6 +136,7 @@ jobs:
       resume_entry: ${{ steps.collect.outputs.resume_entry }}
       results: ${{ steps.collect.outputs.results }}
       interview: ${{ steps.collect.outputs.interview }}
+      bullets: ${{ steps.collect.outputs.bullets }}
       summary: ${{ steps.memory.outputs.summary }}
       journal: ${{ steps.memory.outputs.journal }}
       learn: ${{ steps.memory.outputs.learn }}
@@ -214,7 +216,7 @@ jobs:
         run: |
           p=radar/agents/prompts/projects
           ctx=$(jq '{project, milestone, milestones_done, milestones_total, feedback, pr_url, candidate}' <<< "$CONTEXT")
-          for s in plan build review address finish; do
+          for s in plan build review address finish bullets; do
             { cat "$p/standards.md"; echo; cat "$p/$s.md"; echo; echo "## Context"; echo '```json'; echo "$ctx"; echo '```'
               echo; echo "## Shared context"; jq -r '.hub // ""' <<< "$CONTEXT"; } > "$RUNNER_TEMP/prompt-$s.md"
           done
@@ -248,13 +250,34 @@ jobs:
         run: |
           TITLE=$(jq -r .project.title <<< "$CONTEXT"); export TITLE
           agent=../radar/scripts/project_agent.sh
+          # A review that ends without a verdict (Replay M6, 2026-10-14) left
+          # the PR unmergeable by autopilot with no word why: run it again once.
+          review() {
+            bash $agent fable "$RUNNER_TEMP/prompt-review.md" "$1" "$2" review
+            if [ ! -s .agent/verdict ]; then
+              echo "review: no verdict written; running the review again"
+              bash $agent fable "$RUNNER_TEMP/prompt-review.md" "$1" "$2" review
+            fi
+            echo "review verdict: $(head -1 .agent/verdict 2>/dev/null || echo missing)"
+          }
+          # Resume bullets from what is built and measured so far (AD-41), so a
+          # project joins the swappable pool long before it finishes. Never
+          # fails the run: the bullets are a private by-product.
+          bullets() {
+            bash $agent fable "$RUNNER_TEMP/prompt-bullets.md" 40 120 bullets \
+              || echo "bullets: session failed; the next milestone writes them"
+          }
           case "$STAGE" in
             plan)    bash $agent fable "$RUNNER_TEMP/prompt-plan.md" 60 150 plan ;;
             build)   bash $agent opus  "$RUNNER_TEMP/prompt-build.md" 230 500 build
-                     bash $agent fable "$RUNNER_TEMP/prompt-review.md" 70 200 review ;;
+                     review 70 200 ;;
             address) bash $agent opus  "$RUNNER_TEMP/prompt-address.md" 150 300 address
-                     bash $agent fable "$RUNNER_TEMP/prompt-review.md" 60 150 review ;;
-            finish)  bash $agent fable "$RUNNER_TEMP/prompt-finish.md" 120 250 finish ;;
+                     review 60 150 ;;
+            finish)  bash $agent fable "$RUNNER_TEMP/prompt-finish.md" 120 250 finish
+                     bullets ;;
+          esac
+          case "$STAGE" in
+            build|address) if grep -qx pass .agent/verdict 2>/dev/null; then bullets; fi ;;
           esac
 
       - name: Commit anything left uncommitted
@@ -318,9 +341,9 @@ jobs:
             echo "Saved $(git rev-list --count origin/main..HEAD) commit(s) on ${BRANCH}; the next run continues from them."
           fi
 
-      - name: Collect the resume entry (finish stage)
+      - name: Collect the resume entry
         id: collect
-        if: env.STAGE == 'finish'
+        if: success()
         working-directory: work
         run: |
           if [ -s .agent/RESUME.tex ]; then
@@ -328,6 +351,7 @@ jobs:
             results=.agent/RESULTS.md; [ -s "$results" ] || results=RESULTS.md
             { echo "results<<RES_EOF"; head -c 60000 "$results" 2>/dev/null; echo; echo "RES_EOF"; } >> "$GITHUB_OUTPUT"
             { echo "interview<<INT_EOF"; head -c 30000 .agent/INTERVIEW.md 2>/dev/null; echo; echo "INT_EOF"; } >> "$GITHUB_OUTPUT"
+            { echo "bullets<<BUL_EOF"; head -c 40000 .agent/BULLETS.md 2>/dev/null; echo; echo "BUL_EOF"; } >> "$GITHUB_OUTPUT"
           fi
 
       - name: Collect memory for the hub
@@ -360,7 +384,9 @@ jobs:
             echo "**${title}**: ${STAGE} ${result}."
             if [ -n "$URL" ]; then
               if [ "$(jq -r .project.autopilot <<< "$CONTEXT")" = true ] && grep -q '<!-- review: pass -->' ../work/.agent/pr.md 2>/dev/null; then
-                echo "PR: ${URL}. Review passed: autopilot merges it after 12 quiet hours once checks are green (merge now to go faster, or comment to request changes)."
+                echo "PR: ${URL}. Review passed: autopilot merges it after 5 quiet hours once checks are green (merge now to go faster, or comment to request changes)."
+              elif [ "$(jq -r .project.autopilot <<< "$CONTEXT")" = true ] && [ ! -s ../work/.agent/verdict ]; then
+                echo "PR: ${URL}. The review wrote no verdict (twice), so autopilot will not merge it: merge it yourself, or comment to have it addressed and reviewed again."
               else
                 echo "Review: ${URL} (comment to request changes; merge to continue)."
               fi
@@ -378,7 +404,7 @@ jobs:
 
   record:
     needs: [control, build]
-    if: needs.control.outputs.stage == 'finish' && needs.build.outputs.resume_entry != ''
+    if: needs.build.outputs.resume_entry != ''
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -401,14 +427,21 @@ jobs:
           ENTRY: ${{ needs.build.outputs.resume_entry }}
           RESULTS: ${{ needs.build.outputs.results }}
           INTERVIEW: ${{ needs.build.outputs.interview }}
+          BULLETS: ${{ needs.build.outputs.bullets }}
+          DISCORD_WEBHOOK_RESUME: ${{ secrets.DISCORD_WEBHOOK_RESUME }}
           CONTEXT: ${{ needs.control.outputs.context }}
         run: |
           printf '%s\n' "$ENTRY" > "$RUNNER_TEMP/RESUME.tex"
           printf '%s\n' "$RESULTS" > "$RUNNER_TEMP/RESULTS.md"
           printf '%s\n' "$INTERVIEW" > "$RUNNER_TEMP/INTERVIEW.md"
-          uv run opportunity-radar projects finish "$(jq -r .slug <<< "$CONTEXT")" \
-            --entry "$RUNNER_TEMP/RESUME.tex" --results "$RUNNER_TEMP/RESULTS.md" \
-            --interview "$RUNNER_TEMP/INTERVIEW.md" --push
+          printf '%s\n' "$BULLETS" > "$RUNNER_TEMP/BULLETS.md"
+          files=(--entry "$RUNNER_TEMP/RESUME.tex" --results "$RUNNER_TEMP/RESULTS.md" --notes "$RUNNER_TEMP/BULLETS.md")
+          slug=$(jq -r .slug <<< "$CONTEXT")
+          if [ "$(jq -r .stage <<< "$CONTEXT")" = finish ]; then
+            uv run opportunity-radar projects finish "$slug" "${files[@]}" --interview "$RUNNER_TEMP/INTERVIEW.md" --push
+          else
+            uv run opportunity-radar projects bullets "$slug" "${files[@]}" --push
+          fi
 
   remember:
     needs: [control, build]

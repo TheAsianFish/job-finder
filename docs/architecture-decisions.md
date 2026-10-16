@@ -691,3 +691,45 @@ Decision:
   (`ci_fix_started`: one PR number per session), and the builder counts
   the higher of that and the PR replies. After `CI_FIX_ATTEMPTS` (2) sessions,
   including ones that crash, the PR waits for Patrick.
+
+## AD-41: A pool of projects built side by side, with resume bullets as they grow
+
+Context: on 2026-10-15 Patrick asked for speed. He wants a diverse pool of
+technically sound projects, and STAR bullets for each, that the tailor can
+swap per job posting to get past ATS screens and into interviews. Every
+project is filler that can be swapped, Repolix and Replay included. Before
+this, the builder worked on one project at a time: a run that found the
+project's PR waiting did nothing, even when other projects were approved.
+Autopilot also waited 12 quiet hours before merging, and a project reached
+the resume only after its last milestone.
+
+Decision:
+- **Pool.** `projects step` decides for every approved/in-flight project and
+  `pick` takes an autopilot merge or CI re-run first (no session), then the
+  first project in `projects.yaml` order that has work. Each project still has
+  one open PR at a time, and sessions run one at a time (one concurrency group),
+  so Max usage stays sequential rather than parallel.
+- **Autopilot quiet period 5 hours**, one Max usage window (was 12). Patrick
+  can still stop a merge by commenting.
+- **Bullets during the build.** After a milestone's review passes (and at
+  finish), a Fable session (`agents/prompts/projects/bullets.md`) writes:
+  - the entry with 4-6 STAR bullets, each a different achievement, so the
+    selector can choose per posting;
+  - a talk track per bullet (situation, action and the alternative rejected,
+    how the number was measured, follow-ups, which roles it fits).
+
+  Numbers come only from RESULTS.md, buzzwords are banned, and every named
+  skill must be visible in the code. `projects bullets` upserts the entry (by
+  its repo link, `upsert_project`) through one private PR per project
+  (`projects/<slug>-bullets`); `open_private_pr` updates an open PR on that
+  branch instead of failing.
+- **No pinned projects** (private `resume_rules.yaml`), and the selector's
+  live-entry margin drops from 3.0 to 1.0. A better-fitting reserve now
+  replaces a live project; the margin only breaks near-ties.
+- **A review with no verdict runs once more.** Replay M6's review ended
+  without one, which silently made the PR unmergeable for autopilot. If the
+  second run also writes none, `#projects` says so.
+
+Trade-off: more parallel projects means more PRs and study notes for Patrick
+to keep up with. The talk tracks and the mock interview at finish are the
+guard, because he must be able to defend every bullet he uses.

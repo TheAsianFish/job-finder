@@ -10,24 +10,29 @@ from typer.testing import CliRunner
 
 from opportunity_radar.projects.builder import (
     AGENT_MARK,
+    AUTOPILOT_QUIET,
     CI_FIX_ATTEMPTS,
     CI_FIX_MARK,
     REVIEW_PASS,
     GhError,
     PullRequest,
     RepoState,
+    Stage,
+    comment_block,
     decide,
     insert_reserve_project,
     parse_milestones,
+    pick,
     read_state,
     unbacked_numbers,
+    upsert_project,
     validate_entry,
 )
 from opportunity_radar.projects.portfolio import (
     Project,
+    active_projects,
     add_proposals,
     load_projects,
-    next_project,
     save_projects,
     set_status,
 )
@@ -75,9 +80,9 @@ def test_projects_round_trip_and_pipeline_order(tmp_path):
     loaded = load_projects(path)
     assert [p.ci_fix_started for p in loaded] == [[], [], [7]]
     assert [p.slug for p in loaded] == ["a", "b", "c"]
-    assert next_project(loaded).slug == "c"  # in-flight work first
+    assert [p.slug for p in active_projects(loaded)] == ["c", "b"]  # in-flight work first
     set_status(loaded, "c", "paused")
-    assert next_project(loaded).slug == "b"
+    assert [p.slug for p in active_projects(loaded)] == ["b"]
     with pytest.raises(ValueError):
         set_status(loaded, "a", "shipping")
     with pytest.raises(KeyError):
@@ -191,6 +196,20 @@ def test_ci_fix_sessions_that_crashed_still_count():
     project.ci_fix_started.append(4)
     stage = decide(project, RepoState(True, PLAN, red), NOW)
     assert stage.kind == "wait" and "needs you" in stage.reason
+
+
+def test_pick_works_on_whichever_project_has_work():
+    waiting = (Project(slug="a", title="A"), RepoState(True, PLAN), Stage("wait", reason="review"))
+    building = (Project(slug="b", title="B"), RepoState(True, PLAN), Stage("build"))
+    merging = (Project(slug="c", title="C"), RepoState(True, PLAN), Stage("merge"))
+    assert pick([waiting, building]) is building  # a waiting PR never stalls the pool
+    assert pick([waiting, building, merging]) is merging  # no session needed: first
+    assert pick([waiting]) is waiting  # nothing to do: report why
+    assert pick([]) is None
+
+
+def test_autopilot_quiet_period_is_one_usage_window():
+    assert timedelta(hours=5) == AUTOPILOT_QUIET
 
 
 def test_legacy_review_marker_still_counts():
@@ -342,6 +361,38 @@ def test_resume_entry_is_inserted_as_a_reserve_project():
         insert_reserve_project("\\section{Experience}", ENTRY)
 
 
+def test_upsert_replaces_the_projects_entry_instead_of_adding_another():
+    source = load_fixture("resume_sample.tex")
+    first = upsert_project(source, ENTRY)
+    newer = ENTRY.replace("Cut p95 latency to 840ms", "Cut p95 latency to 610ms")
+    newer = newer.replace(
+        "  \\resumeItemListEnd",
+        "    \\resumeItem{Added a pgvector backend behind the same store interface and API.}\n"
+        "  \\resumeItemListEnd",
+    )
+    second = upsert_project(first, newer)
+    reserve = [p for p in build_bank(second).projects if not p.active and "Evalkit" in p.name]
+    assert len(reserve) == 1  # updated in place, not duplicated
+    texts = " ".join(b.text for b in reserve[0].bullets)
+    assert "610ms" in texts and "840ms" not in texts and "pgvector" in texts
+    assert second.count("Evalkit") == 1
+    live_before = [p.name for p in build_bank(source).projects if p.active]
+    assert [p.name for p in build_bank(second).projects if p.active] == live_before
+
+    # Patrick made it live: it stays live, with the new bullets.
+    made_live = first.replace(comment_block(ENTRY), ENTRY.strip())
+    updated = upsert_project(made_live, newer)
+    live = [p for p in build_bank(updated).projects if p.active and "Evalkit" in p.name]
+    assert len(live) == 1 and "610ms" in " ".join(b.text for b in live[0].bullets)
+
+    # A superseded (%%) copy is never treated as the entry.
+    superseded = source + "\n" + "\n".join("%% " + line for line in ENTRY.splitlines())
+    updated = upsert_project(superseded, ENTRY)
+    assert updated.startswith(superseded.split("%% \\resumeProjectHeading")[0][:200])
+    assert updated.endswith(superseded[-300:])  # the %% copy is untouched
+    assert len([p for p in build_bank(updated).projects if "Evalkit" in p.name]) == 1
+
+
 def test_entry_validation_and_unbacked_numbers():
     assert "fewer than two" in validate_entry("\\resumeProjectHeading{x}{} \\resumeItem{a}")[0]
     assert validate_entry("\\section{X}\\resumeProjectHeading \\resumeItem{a} \\resumeItem{b}")
@@ -433,3 +484,85 @@ def test_cli_step_reruns_red_ci_and_records_fix_attempts(tmp_path, monkeypatch):
     assert CliRunner().invoke(app, [*step, "--dry-run"]).exit_code == 0
     assert reruns == [] and json.loads(out.read_text())["stage"] == "rerun"
     assert load_projects(private_dir() / "projects.yaml")[0].ci_fix_started == [7]
+
+
+def test_cli_step_skips_a_waiting_project_for_one_with_work(tmp_path, monkeypatch):
+    from opportunity_radar import cli_projects
+    from opportunity_radar.cli import app
+
+    save_projects(
+        [
+            Project(slug="replay", title="Replay", status="building"),
+            Project(slug="kiln", title="Kiln", status="approved"),
+        ]
+    )
+    open_pr = [
+        {"number": 8, "url": "u8", "headRefName": "dev/m7", "createdAt": "2026-10-15T07:00:00Z"}
+    ]
+    repos = {"TheAsianFish/replay": FakeGh(prs=open_pr), "TheAsianFish/kiln": FakeGh()}
+
+    def fake(args):
+        repo = next(a for a in args if a.startswith("TheAsianFish/") or a.startswith("repos/"))
+        repo = "/".join(repo.removeprefix("repos/").split("/")[:2])
+        return repos[repo](args)
+
+    monkeypatch.setattr("opportunity_radar.projects.builder.gh_cli", lambda token=None: fake)
+    monkeypatch.setattr(cli_projects, "_candidate_summary", lambda: {})
+    out = tmp_path / "context.json"
+    result = CliRunner().invoke(app, ["projects", "step", "--out", str(out), "--no-push"])
+    assert result.exit_code == 0, result.output
+    context = json.loads(out.read_text())
+    assert context["slug"] == "kiln" and context["stage"] == "build"
+
+
+def test_cli_bullets_updates_one_pr_per_project_and_finish_adds_the_interview(
+    tmp_path, monkeypatch
+):
+    from opportunity_radar import cli_projects
+    from opportunity_radar.cli import app
+
+    save_projects([Project(slug="evalkit", title="Evalkit", status="building")])
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    (worktree / "resume.tex").write_text(load_fixture("resume_sample.tex"), encoding="utf-8")
+    opened: list[dict] = []
+
+    def fake_pr(repo, *, branch, title, body, message, write, token=None):
+        write(worktree)
+        opened.append({"branch": branch, "title": title, "body": body})
+        return "https://github.com/TheAsianFish/career-private/pull/30"
+
+    pings: list[tuple[str, str, str]] = []
+    monkeypatch.setattr("opportunity_radar.resume.private_pr.open_private_pr", fake_pr)
+    monkeypatch.setattr(
+        cli_projects, "_notify", lambda t, m, channel="projects": pings.append((t, m, channel))
+    )
+    entry = tmp_path / "RESUME.tex"
+    entry.write_text(ENTRY, encoding="utf-8")
+    results = tmp_path / "RESULTS.md"
+    results.write_text("Replayed 250 traces. Success 61% -> 78%. p95 840ms.", encoding="utf-8")
+    notes = tmp_path / "BULLETS.md"
+    notes.write_text("## Bullet 1\n- **Situation/Task:** ...", encoding="utf-8")
+    args = ["--entry", str(entry), "--results", str(results), "--notes", str(notes), "--no-push"]
+
+    for _ in range(2):  # a later milestone updates the same PR and the same entry
+        result = CliRunner().invoke(app, ["projects", "bullets", "evalkit", *args])
+        assert result.exit_code == 0, result.output
+    assert [o["branch"] for o in opened] == ["projects/evalkit-bullets"] * 2
+    assert "talk tracks" in opened[0]["body"] and "Merge = this entry is true" in opened[0]["body"]
+    tex = (worktree / "resume.tex").read_text(encoding="utf-8")
+    assert len([p for p in build_bank(tex).projects if "Evalkit" in p.name]) == 1
+    assert (worktree / "prep" / "evalkit-bullets.md").read_text().startswith("## Bullet 1")
+    assert pings[-1][2] == "resume"
+    assert load_projects()[0].status == "building"  # still being built
+
+    interview = tmp_path / "INTERVIEW.md"
+    interview.write_text("1. Walk me through it.", encoding="utf-8")
+    result = CliRunner().invoke(
+        app, ["projects", "finish", "evalkit", *args, "--interview", str(interview)]
+    )
+    assert result.exit_code == 0, result.output
+    assert opened[-1]["branch"].startswith("projects/evalkit-resume-")
+    assert "mock interview" in opened[-1]["body"]
+    assert (worktree / "prep" / "evalkit-interview.md").exists()
+    assert load_projects()[0].status == "done"

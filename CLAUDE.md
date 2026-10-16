@@ -98,8 +98,11 @@ roles are excluded. Skill demand: `uv run opportunity-radar insights skills`
   (`TheAsianFish/<slug>`, private by default), Fable reviews; pipeline state in
   the private repo's `projects.yaml` (`opportunity-radar projects ...`). Only
   autopilot projects (opt-in per project) may merge their own PRs (Fable review
-  pass + green CI + 12 quiet hours). The scan chain wakes the builder within
-  ~10 min when it has work (`scripts/wake_builder.sh`, AD-35); builds post
+  pass + green CI + 5 quiet hours). Every approved project is built side by
+  side (AD-41: the builder picks whichever has work), and each passing
+  milestone proposes resume bullets plus talk tracks as one private PR per
+  project. Red CI is re-run once, then fixed (AD-40). The scan chain wakes the
+  builder within ~10 min when it has work (`scripts/wake_builder.sh`, AD-35); builds post
   progress to `#projects` every 20 min (AD-36). Project repos must read as
   Patrick's own work: commits as TheAsianFish, frequent focused commits,
   `dev/` branches, first-person PRs, CONTRIBUTING.md (never a tracked
@@ -109,10 +112,10 @@ roles are excluded. Skill demand: `uv run opportunity-radar insights skills`
   session to that key (AD-39; `project_agent.sh` enforces Max-only). There
   are no API credits, so live evals stay harness-only ("To measure" in
   RESULTS.md). Failed sessions save their commits on the `dev/` branch and
-  the next run continues. Status 2026-10-13: Replay M1-M4 merged (PRs #2-#5),
-  M5 (PR #6) green and waiting for its autopilot merge, M6-M7 left; Kiln
-  paused 2026-10-13 (next slot kept open for a project Patrick may choose
-  instead, likely his own PyTorch fine-tuning + vision + agent project).
+  the next run continues. Status 2026-10-15: Replay M1-M5 merged, M6 (PR #7)
+  green (its review wrote no verdict, so Patrick merges it by hand), M7 left;
+  Kiln paused 2026-10-13. Patrick wants a diverse pool of projects built in
+  parallel next (approve them in `projects.yaml`).
 - Private career repo `TheAsianFish/career-private` is cloned at
   `resume/private/` (git-ignored; `CAREER_DEPLOY_KEY` deploy key for CI).
   Resume engine: `src/opportunity_radar/resume/` (AD-28, AD-29: assessment-gated
@@ -122,8 +125,9 @@ roles are excluded. Skill demand: `uv run opportunity-radar insights skills`
   a hiring panel (`resume/panel.py`: recruiter, hiring manager, interviewer,
   editor + deterministic ATS seat) whose lead writes ranked changes; AD-38:
   the page is narrative- and STAR-first, ATS coverage is guaranteed in code
-  (skills line names every posting skill he has), and pinned projects in the
-  private `resume_rules.yaml` (Repolix, OS kernel) are always shown; `apply <url>`
+  (skills line names every posting skill he has), and since 2026-10-15
+  no project is pinned (`resume_rules.yaml`): every project competes per posting
+  (AD-41); `apply <url>`
   links the tailored resume used, and `insights.outcomes.lessons()` feeds
   logged outcomes into the next review; no applications are logged yet). `AGENT_GH_TOKEN` secret
   (fine-grained PAT, all repos) opens those PRs and the project builders' repos.

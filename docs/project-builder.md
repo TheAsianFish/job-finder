@@ -9,11 +9,12 @@ approving every step. Decision record: AD-32.
 
 ```mermaid
 flowchart LR
-  S[Scout · Fable · weekly] -->|3 proposals + Discord| P{Patrick approves one}
+  S[Scout · Fable · weekly] -->|3 proposals + Discord| P{Patrick approves any}
   P --> C[Create repo TheAsianFish/slug · private]
   C --> PL[Plan · Fable · PR with PLAN.md]
   PL -->|Patrick merges / comments| B[Build next milestone · Opus + subagents]
   B --> R[Independent review · Fable · fixes + verdict]
+  R -->|pass| BU[Bullets · Fable · PR in career-private]
   R -->|one PR + Discord| W{Patrick}
   W -->|comments| A[Address · Opus, then Fable review]
   A --> W
@@ -22,12 +23,18 @@ flowchart LR
   F -->|PR in career-private, numbers from RESULTS.md only| V{Patrick merges = true}
 ```
 
-- **One project and one open PR at a time.** A run that finds an agent PR
-  waiting for Patrick spends no compute. The pace follows his reviews.
+- **Several projects side by side, one open PR each (AD-41).** Every
+  approved project is in the pool. Each run picks one: an autopilot merge or
+  a CI re-run first (no session needed), then the first project, in
+  `projects.yaml` order, that has work. A project waiting on its PR never
+  stalls the others. Sessions still run one at a time (one workflow
+  concurrency group), so Max usage stays sequential.
 - **Autopilot (opt-in per project).** With `autopilot: true` in
   `projects.yaml`, a PR that passed the Fable review (a hidden `<!-- review:
-  pass -->` marker in its body; the review itself is private), has green CI, and had no activity for 12 hours is
-  merged by the builder. Off by default.
+  pass -->` marker in its body; the review itself is private), has green CI, and had no activity for 5 hours (one Max usage window) is
+  merged by the builder. Off by default. A review that writes no verdict is
+  run once more; if it still writes none, `#projects` says autopilot won't
+  merge that PR.
 - **Wake-up (AD-35).** The ~10-minute scan chain starts the builder as soon as
   it has work (your merge or comments, an autopilot merge, the next
   milestone) and posts what it started to `#projects`.
@@ -35,9 +42,11 @@ flowchart LR
   GitHub, hence the wake-up above), a scout run on Mondays 09:00 PT, a study
   pack on Sundays. Hard caps: Opus build ≤ 230 min, Fable review ≤ 70 min.
   Replay's M1 (scaffold, CI, first vertical slice, review) took 49 minutes.
-- **Red CI.** A failed check on the open PR sends the builder back to fix it
-  (Opus, with the failed jobs' log, then the review), at most twice per PR;
-  after that the PR waits for Patrick. Before 2026-10-13 a red check left the
+- **Red CI (AD-40).** A failed run is first re-run once (outages and flaky
+  jobs). If it fails again, the builder goes back to fix it (Opus, with the
+  failed jobs' log, then the review), at most twice per PR, counting sessions
+  that crash (`ci_fix_started` in `projects.yaml`). After that the PR waits
+  for Patrick. Before 2026-10-13 a red check left the
   PR waiting silently (Replay M5 sat 3 days on a CI cleanup timeout).
 - **Saved work.** If a session fails (usage limit, timeout, a review that
   dies after a good build), its commits are pushed to the `dev/` branch
@@ -112,10 +121,29 @@ claims only, production engineering, AI stack used well, no AI attribution).
   TheAsianFish.
 - This repo is public, so workflow logs print stages and run statistics only.
 
+## Resume bullets during the build (AD-41)
+
+After every milestone whose review passes, a Fable session writes the
+project's entry from what is built and measured so far:
+- **`.agent/RESUME.tex`:** 4-6 STAR bullets, each a different achievement
+  (core system, evals, backend, infra, frontend...), so the tailor can choose
+  per posting.
+- **`.agent/BULLETS.md`:** a talk track for each bullet: situation, action
+  with the rejected alternative, how the number was measured, follow-up
+  questions, and the role families it fits.
+
+Rules are in `agents/prompts/projects/bullets.md`: numbers from RESULTS.md
+only, no buzzword slop, every named skill used in the code. `projects bullets`
+puts the entry in one private PR per project (`projects/<slug>-bullets`,
+updated by later milestones; the talk tracks go to `prep/<slug>-bullets.md`)
+and pings `#resume`. Merging that PR adds the project to the pool now. The
+finish stage still opens the final PR with the mock-interview gate.
+
 ## Truth
 
 A project reaches the resume only through a pull request in the private repo
-that adds it as a commented-out (reserve) entry. The builder flags any number
+that adds it as a commented-out (reserve) entry (or updates the entry already
+there). The builder flags any number
 in its bullets that does not appear in the project's `RESULTS.md` (measured
 by a real run), and merging means "this is true". Patrick should be able to
 explain every line; the private study notes for each milestone

@@ -283,3 +283,36 @@ def test_submit_without_github_saves_for_review(tmp_path, bank, monkeypatch):
         ).proposals
         == []
     )
+
+
+def test_an_open_pr_on_the_same_branch_is_updated_not_duplicated(
+    career_repo, tmp_path, monkeypatch
+):
+    from opportunity_radar.resume.private_pr import open_private_pr
+
+    clone, remote = career_repo
+    bindir = tmp_path / "bin2"
+    bindir.mkdir()
+    calls = tmp_path / "gh2-calls.txt"
+    script = bindir / "gh"
+    script.write_text(
+        f'#!/bin/sh\necho "$@" >> "{calls}"\n'
+        'case "$2" in\n'
+        '  create) echo "a pull request for branch already exists" >&2; exit 1 ;;\n'
+        '  view) echo "https://github.com/TheAsianFish/career-private/pull/30" ;;\n'
+        "esac\n"
+    )
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ['PATH']}")
+
+    def write(work):
+        (work / "notes.md").write_text("v2\n", encoding="utf-8")
+
+    url = open_private_pr(
+        clone, branch="projects/x-bullets", title="Resume bullets: X", body="new body",
+        message="Update resume bullets for X", write=write, token="tok",
+    )  # fmt: skip
+    assert url == "https://github.com/TheAsianFish/career-private/pull/30"
+    log = calls.read_text()
+    assert "pr edit projects/x-bullets" in log and "new body" in log
+    assert _git(remote, "show", "projects/x-bullets:notes.md") == "v2"

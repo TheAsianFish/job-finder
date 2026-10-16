@@ -35,7 +35,8 @@ HEADER = """\
 #   proposed -> approved   start building it (one project at a time, in file order)
 #   any      -> paused     stop working on it;   rejected: never build it
 # `autopilot: true` lets the builder merge its own milestone PRs after an
-# independent Fable review and green CI, if you haven't commented in 12 hours.
+# independent Fable review and green CI, if you haven't commented in 5 hours.
+# Every approved project is built side by side, one agent session at a time.
 """
 
 
@@ -123,13 +124,10 @@ def set_status(projects: list[Project], slug: str, status: str) -> Project:
     return project
 
 
-def next_project(projects: list[Project]) -> Project | None:
-    """One project at a time: finish what's in flight before starting another."""
-    for status in ACTIVE:
-        for project in projects:
-            if project.status == status:
-                return project
-    return None
+def active_projects(projects: list[Project]) -> list[Project]:
+    """Projects the builder works on, in-flight work first (AD-41: several
+    are built side by side; the builder picks whichever has work)."""
+    return [p for status in ACTIVE for p in projects if p.status == status]
 
 
 def add_proposals(projects: list[Project], new: list[Project]) -> list[Project]:

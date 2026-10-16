@@ -90,6 +90,20 @@ def open_private_pr(
          "--title", title[:120], "--body", body],
         capture_output=True, text=True, check=False, env=env,
     )  # fmt: skip
+    if created.returncode != 0 and "already exists" in created.stderr:
+        # A fixed branch (a project's bullets PR) was force-pushed above: the
+        # open PR now shows the new version, so refresh its text and reuse it.
+        edited = subprocess.run(
+            [gh, "pr", "edit", branch, "--repo", slug, "--title", title[:120], "--body", body],
+            capture_output=True, text=True, check=False, env=env,
+        )  # fmt: skip
+        if edited.returncode == 0:
+            viewed = subprocess.run(
+                [gh, "pr", "view", branch, "--repo", slug, "--json", "url", "--jq", ".url"],
+                capture_output=True, text=True, check=False, env=env,
+            )  # fmt: skip
+            if viewed.returncode == 0 and viewed.stdout.strip():
+                return viewed.stdout.strip()
     if created.returncode != 0:
         raise RuntimeError(f"gh pr create failed: {created.stderr.strip()[:150]}")
     return created.stdout.strip().splitlines()[-1]

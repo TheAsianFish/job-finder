@@ -312,7 +312,11 @@ def test_tailor_compiles_one_page_pdf(bank, tmp_path):
 
 
 def test_reviewer_swaps_replace_the_weakest_project_only(bank):
-    posting = Posting.from_text("Backend Intern", "Python PostgreSQL REST APIs Docker Kubernetes")
+    # Every project competes (AD-41): a better-fitting reserve replaces a live
+    # project with no reviewer involved.
+    backend = Posting.from_text("Backend Intern", "Python PostgreSQL REST APIs Docker Kubernetes")
+    assert "VisionLab — Defect Detector" in [e.name for e, _ in select(bank, backend).projects]
+    posting = Posting.from_text("Frontend Intern", "React TypeScript REST APIs")
     plain = select(bank, posting)
     assert "VisionLab — Defect Detector" not in [e.name for e, _ in plain.projects]
     swapped = select(bank, posting, prefer=["Swap the dashboard for the VisionLab defect detector"])

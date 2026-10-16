@@ -13,7 +13,7 @@ reads the project's GitHub repo through `gh` and returns one stage:
              CI_FIX_ATTEMPTS sessions per PR, counting ones that crashed):
              Opus addresses it on that branch
     merge    autopilot only: the open PR passed review + CI and has sat
-             12h without feedback: merge it
+             AUTOPILOT_QUIET (5h) without feedback: merge it
     wait     an open agent PR awaits Patrick: do nothing (no compute spent)
     build    next unchecked milestone in PLAN.md: Opus builds it, Fable
              reviews it, one PR
@@ -21,8 +21,10 @@ reads the project's GitHub repo through `gh` and returns one stage:
              results, proposed to the private repo as a PR
     idle     nothing to do
 
-Only one agent PR is open per project at a time, so the pace follows
-Patrick's reviews unless he opts into autopilot.
+Only one agent PR is open per project at a time, so each project's pace
+follows Patrick's reviews unless he opts into autopilot. Several approved
+projects are built side by side (AD-41): `pick` takes whichever has work, so
+one project waiting on a PR never stalls the others.
 """
 
 from __future__ import annotations
@@ -46,7 +48,10 @@ REVIEW_PASS = "<!-- review: pass -->"
 _PASS_MARKS = (REVIEW_PASS, "<!-- fable-review: pass -->")
 CI_FIX_MARK = "<!-- ci-fix -->"  # on the reply after an automatic CI fix
 CI_FIX_ATTEMPTS = 2
-AUTOPILOT_QUIET = timedelta(hours=12)
+# One Claude Max usage window: Patrick can still stop a merge by commenting.
+AUTOPILOT_QUIET = timedelta(hours=5)
+_FREE_STAGES = ("merge", "rerun")  # no agent session, so they go first
+_IDLE_STAGES = ("wait", "idle")
 _FAILED = {"FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "ERROR", "STARTUP_FAILURE"}
 _CHECKBOX_RE = re.compile(r"^\s*[-*]\s*\[( |x|X)\]\s*(.+?)\s*$")
 
@@ -293,7 +298,7 @@ def decide(project: Project, state: RepoState, now: datetime | None = None) -> S
             and any(m in pr.body for m in _PASS_MARKS)
             and now - quiet_since >= AUTOPILOT_QUIET
         ):
-            return Stage("merge", pr=pr, reason="autopilot: reviewed, green, quiet 12h")
+            return Stage("merge", pr=pr, reason="autopilot: reviewed, green, quiet 5h")
         return Stage("wait", pr=pr, reason="waiting for your review")
     if not state.plan:
         return Stage("plan", reason="no PLAN.md on main")
@@ -303,6 +308,22 @@ def decide(project: Project, state: RepoState, now: datetime | None = None) -> S
     if not state.milestones:
         return Stage("plan", reason="PLAN.md has no milestone checklist")
     return Stage("finish", reason="all milestones merged")  # retried until it succeeds
+
+
+Option = tuple[Project, RepoState, Stage]
+
+
+def pick(options: list[Option]) -> Option | None:
+    """The project to work on this run: a merge or CI re-run first (no agent
+    session), then the first project, in priority order, with work. When none
+    has work, the first one, so its wait reason is what gets reported."""
+    for option in options:
+        if option[2].kind in _FREE_STAGES:
+            return option
+    for option in options:
+        if option[2].kind not in _IDLE_STAGES:
+            return option
+    return options[0] if options else None
 
 
 # ---------------------------------------------------------------- resume entry
@@ -327,6 +348,35 @@ def insert_reserve_project(tex: str, block: str) -> str:
         raise ValueError("Projects section has no \\resumeSubHeadingListEnd")
     line_start = tex.rfind("\n", 0, end) + 1
     return tex[:line_start] + comment_block(block) + "\n\n" + tex[line_start:]
+
+
+_HREF_RE = re.compile(r"\\href\{([^}]+)\}")
+
+
+def upsert_project(tex: str, block: str) -> str:
+    """Replace the project's entry (found by its repo link) with `block`, or
+    add it as a reserve entry. A reserve stays commented out; an entry Patrick
+    made live stays live. Superseded (%%) lines are never touched."""
+    link = _HREF_RE.search(block)
+    if link is None:
+        return insert_reserve_project(tex, block)
+    lines = tex.splitlines()
+    for start, line in enumerate(lines):
+        live = not line.lstrip().startswith("%")
+        body = line.lstrip().removeprefix("% ").removeprefix("%") if not live else line
+        if not body.lstrip().startswith("\\resumeProjectHeading"):
+            continue
+        if link.group(1) not in "\n".join(lines[start : start + 3]):
+            continue
+        end = next((i for i in range(start, len(lines)) if "\\resumeItemListEnd" in lines[i]), None)
+        if end is None:
+            break
+        new = block.strip() if live else comment_block(block)
+        indent = line[: len(line) - len(line.lstrip())] if live else ""
+        replacement = [indent + row if row else row for row in new.splitlines()]
+        out = "\n".join([*lines[:start], *replacement, *lines[end + 1 :]])
+        return out + ("\n" if tex.endswith("\n") else "")
+    return insert_reserve_project(tex, block)
 
 
 def validate_entry(block: str) -> list[str]:

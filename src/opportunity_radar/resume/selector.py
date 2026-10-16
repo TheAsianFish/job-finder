@@ -21,7 +21,9 @@ from dataclasses import dataclass, field
 from opportunity_radar.insights.skills import Skill, default_vocabulary
 from opportunity_radar.resume.bank import Bank, Bullet, Entry
 
-RESERVE_MARGIN = 3.0  # score a reserve entry needs above a live one to replace it
+RESERVE_MARGIN = (
+    1.0  # a reserve must beat a live entry by this to replace it (AD-41: a tie-breaker)
+)
 _WORD_RE = re.compile(r"[a-z][a-z0-9+#.\-]{3,}")
 _STOP = frozenset(
     [

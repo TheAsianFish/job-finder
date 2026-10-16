@@ -1,5 +1,5 @@
 """Portfolio project commands (AD-32): the scout proposes, Patrick approves,
-the builder workflow ships one milestone PR at a time.
+the builder workflow ships one milestone PR per project at a time.
 
 Registered onto the main Typer app by cli.py.
 """
@@ -112,16 +112,16 @@ def projects_step(
     """Decide the builder's next stage (creates the repo / merges on autopilot)."""
     from dataclasses import replace
 
-    from opportunity_radar.projects.builder import GhError, decide, gh_cli, read_state
-    from opportunity_radar.projects.portfolio import find, load_projects, next_project
+    from opportunity_radar.projects.builder import GhError, decide, gh_cli, pick, read_state
+    from opportunity_radar.projects.portfolio import active_projects, find, load_projects
 
     projects = load_projects()
-    project = find(projects, slug) if slug else next_project(projects)
+    candidates = [p for p in [find(projects, slug)] if p] if slug else active_projects(projects)
+    gh = gh_cli(_token())
+    chosen = pick([(p, s, decide(p, s)) for p in candidates for s in [read_state(p.repo_name, gh)]])
     context: dict = {"stage": "idle", "reason": "no approved or in-flight project"}
-    if project is not None:
-        gh = gh_cli(_token())
-        state = read_state(project.repo_name, gh)
-        stage = decide(project, state)
+    if chosen is not None:
+        project, state, stage = chosen
         if not dry_run and stage.kind == "rerun" and stage.pr:
             try:
                 for run_id in stage.pr.rerunnable:
@@ -232,24 +232,17 @@ def projects_scout_merge(
     _notify("🧪 New portfolio project proposals", "\n".join(lines))
 
 
-@projects_app.command("finish")
-def projects_finish(
-    slug: str,
-    entry: Path = typer.Option(..., "--entry", exists=True, help="RESUME.tex from the project"),
-    results: Path = typer.Option(..., "--results", exists=True, help="RESULTS.md (measured)"),
-    interview: Path = typer.Option(
-        None, "--interview", help="INTERVIEW.md: the mock interview to pass first"
-    ),
-    push: bool = typer.Option(True, "--push/--no-push"),
-) -> None:
-    """Propose the finished project's resume entry as a reserve entry (private PR)."""
+def _propose_entry(
+    slug: str, entry: Path, results: Path, notes: Path | None, interview: Path | None, *,
+    final: bool, push: bool,
+) -> None:  # fmt: skip
+    """Put a project's resume entry in front of Patrick as a private PR
+    (merge = true). While the project is being built (AD-41) one PR per
+    project, on a fixed branch, follows the milestones; the final entry at
+    finish gets its own PR with the mock-interview gate."""
     from datetime import date
 
-    from opportunity_radar.projects.builder import (
-        insert_reserve_project,
-        unbacked_numbers,
-        validate_entry,
-    )
+    from opportunity_radar.projects.builder import unbacked_numbers, upsert_project, validate_entry
     from opportunity_radar.projects.portfolio import find, load_projects
     from opportunity_radar.resume.paths import private_dir
     from opportunity_radar.resume.private_pr import open_private_pr
@@ -267,13 +260,30 @@ def projects_finish(
         raise typer.Exit(1)
     unbacked = unbacked_numbers(block, measured)
     repo_url = f"https://github.com/{project.repo_name}"
+    talk = notes.read_text(encoding="utf-8").strip() if notes and notes.exists() else ""
+    mock = interview.read_text(encoding="utf-8").strip() if interview else ""
+    lead = (
+        f"**{project.title}** is built: {repo_url}"
+        if final
+        else f"**{project.title}**, as built so far ({repo_url}). This PR updates after "
+        "each milestone; merge now to use the project already, later versions come as "
+        "new updates."
+    )
+    gate = (
+        "**Before merging, pass the mock interview** in "
+        f"`prep/{project.slug}-interview.md` (on this branch). If you can't answer a "
+        "question, study that part first; that is the point of this gate."
+        if final
+        else f"**Before merging, read the talk tracks** in `prep/{project.slug}-bullets.md`: "
+        "you should be able to tell each bullet's story for five minutes."
+    )
     body = "\n".join(
         [
-            f"**{project.title}** is built: {repo_url}",
+            lead,
             "",
-            "This adds it to `resume.tex` as a **commented-out (reserve)** project, so the "
-            "tailor can swap it in for roles that want it; your master resume is unchanged. "
-            "Uncomment it to show it everywhere.",
+            "This puts it in `resume.tex` as a **commented-out (reserve)** project (or "
+            "updates the entry already there), so the tailor can swap it and pick its bullets "
+            "per posting; the master resume is unchanged. Uncomment it to show it everywhere.",
             "",
             "**Merge = this entry is true.** Edit the bullets on this branch first if needed; "
             "close to reject.",
@@ -289,45 +299,85 @@ def projects_finish(
             block.strip(),
             "```",
             "",
-            "**Before merging, pass the mock interview** in "
-            f"`prep/{project.slug}-interview.md` (on this branch). If you can't answer a "
-            "question, study that part first; that is the point of this gate.",
+            gate,
         ]
     )
-    mock = interview.read_text(encoding="utf-8") if interview else ""
 
     def write(work: Path) -> None:
         source = work / "resume.tex"
         source.write_text(
-            insert_reserve_project(source.read_text(encoding="utf-8"), block), encoding="utf-8"
+            upsert_project(source.read_text(encoding="utf-8"), block), encoding="utf-8"
         )
-        evidence = work / "projects" / f"{project.slug}-RESULTS.md"
-        evidence.parent.mkdir(parents=True, exist_ok=True)
-        evidence.write_text(measured, encoding="utf-8")
-        prep = work / "prep" / f"{project.slug}-interview.md"
-        prep.parent.mkdir(parents=True, exist_ok=True)
-        prep.write_text(
-            mock.strip() + "\n" if mock.strip() else "# Mock interview\n\n(not generated)\n",
-            encoding="utf-8",
-        )
+        files = {f"projects/{project.slug}-RESULTS.md": measured}
+        if talk:
+            files[f"prep/{project.slug}-bullets.md"] = talk + "\n"
+        if final:
+            files[f"prep/{project.slug}-interview.md"] = (
+                mock + "\n" if mock else "# Mock interview\n\n(not generated)\n"
+            )
+        for name, text in files.items():
+            (work / name).parent.mkdir(parents=True, exist_ok=True)
+            (work / name).write_text(text, encoding="utf-8")
 
     url = open_private_pr(
         private_dir(),
-        branch=f"projects/{project.slug}-resume-{date.today().isoformat()}",
-        title=f"Add project to resume: {project.title}",
+        branch=f"projects/{project.slug}-resume-{date.today().isoformat()}"
+        if final
+        else f"projects/{project.slug}-bullets",
+        title=f"{'Add project to resume' if final else 'Resume bullets'}: {project.title}",
         body=body,
-        message=f"Propose resume entry for {project.title}",
+        message=f"{'Propose resume entry' if final else 'Update resume bullets'} for {project.title}",
         write=write,
         token=_token(),
     )
-    project.status = "done"
-    console.print(_save_and_push(projects, f"projects: {project.slug} done", push))
-    _notify(
-        f"🏁 Project finished: {project.title}",
-        f"Repo: {repo_url}\nResume entry for your review: {url}"
-        + (f"\n⚠️ Numbers not backed by RESULTS.md: {', '.join(unbacked)}" if unbacked else ""),
-    )
+    warning = f"\n⚠️ Numbers not backed by RESULTS.md: {', '.join(unbacked)}" if unbacked else ""
+    if final:
+        project.status = "done"
+        console.print(_save_and_push(projects, f"projects: {project.slug} done", push))
+        _notify(
+            f"🏁 Project finished: {project.title}",
+            f"Repo: {repo_url}\nResume entry for your review: {url}{warning}",
+        )
+    else:
+        _notify(
+            f"📝 Resume bullets: {project.title}",
+            f"Updated from the latest milestone; merge to use them (talk tracks inside): {url}"
+            f"{warning}",
+            channel="resume",
+        )
     console.print(f"Resume entry PR: {url}")
+
+
+_ENTRY = typer.Option(..., "--entry", exists=True, help="RESUME.tex from the project")
+_RESULTS = typer.Option(..., "--results", exists=True, help="RESULTS.md (measured)")
+_NOTES = typer.Option(None, "--notes", help="BULLETS.md: each bullet's talk track")
+
+
+@projects_app.command("finish")
+def projects_finish(
+    slug: str,
+    entry: Path = _ENTRY,
+    results: Path = _RESULTS,
+    notes: Path = _NOTES,
+    interview: Path = typer.Option(
+        None, "--interview", help="INTERVIEW.md: the mock interview to pass first"
+    ),
+    push: bool = typer.Option(True, "--push/--no-push"),
+) -> None:
+    """Propose the finished project's resume entry as a reserve entry (private PR)."""
+    _propose_entry(slug, entry, results, notes, interview, final=True, push=push)
+
+
+@projects_app.command("bullets")
+def projects_bullets(
+    slug: str,
+    entry: Path = _ENTRY,
+    results: Path = _RESULTS,
+    notes: Path = _NOTES,
+    push: bool = typer.Option(True, "--push/--no-push"),
+) -> None:
+    """Propose or update a project's resume entry mid-build (one PR per project)."""
+    _propose_entry(slug, entry, results, notes, None, final=False, push=push)
 
 
 # ---------------------------------------------------------------------------
