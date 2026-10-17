@@ -194,7 +194,13 @@ def projects_step(
     from opportunity_radar.projects.portfolio import active_projects, find, load_projects
 
     projects = load_projects()
-    candidates = [p for p in [find(projects, slug)] if p] if slug else active_projects(projects)
+    # Every active project is decided, even for a run started for one slug:
+    # the governor's slots go to the first projects with work (AD-42), and
+    # the slug is only a preference among those allowed to run.
+    wanted = find(projects, slug) if slug else None
+    candidates = active_projects(projects)
+    if wanted is not None and wanted not in candidates:
+        candidates = [wanted, *candidates]
     gh = gh_cli(_token())
     from opportunity_radar.projects.usage import capacity, parse_meter
 
@@ -203,10 +209,6 @@ def projects_step(
     reading = parse_meter(meter.read_text(encoding="utf-8")) if meter and meter.exists() else None
     room = capacity(reading)
     slots = None if dry_run and meter is None else room.projects
-    if slots is not None and slug:
-        # A run for one project still counts its place among all of them.
-        ranked = [p.slug for p in active_projects(projects)]
-        slots = 1 if any(c.slug in ranked[:slots] for c in candidates) else 0
     options = [(p, s, decide(p, s)) for p in candidates for s in [read_state(p.repo_name, gh)]]
     if slots is not None and not room.spare:
         # Evolve rounds are discretionary (AD-44): they wait for spare usage,
@@ -217,7 +219,7 @@ def projects_step(
             else (p, s, st)
             for p, s, st in options
         ]
-    chosen = pick(options, slots)
+    chosen = pick(options, slots, prefer=wanted.slug if wanted else None)
     context: dict = {"stage": "idle", "reason": "no approved or in-flight project"}
     if chosen is not None:
         project, state, stage = chosen

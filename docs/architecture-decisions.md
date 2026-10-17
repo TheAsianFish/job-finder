@@ -945,3 +945,12 @@ Decision:
   146 billed minutes in October to date. Per-PR workflows run only the fast
   offline gate with job timeouts; heavy runs go in `workflow_dispatch`
   workflows or local `make` targets.
+
+Amendment (2026-10-17): the governor's slots go to the first projects, in
+priority order, *that have work*; a project waiting on its PR or on spare
+usage never holds one (a waiting Replay had held the only slot and blocked
+Anvil and Tributary). A run started for one slug is governed the same way,
+with the slug only a preference among projects allowed to run. The wake-up
+no longer posts to Discord (the builder run announces its stage after the
+governor decided, `scripts/announce_stage.sh`) and waits 30 minutes after a
+run that only decided, unless that run merged a PR.

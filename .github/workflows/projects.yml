@@ -120,6 +120,14 @@ jobs:
           mkdir -p "$RUNNER_TEMP/ctx" && cp "$RUNNER_TEMP/context.json" "$RUNNER_TEMP/ctx/"
           echo "sealed=$(bash scripts/seal.sh seal "$RUNNER_TEMP/ctx")" >> "$GITHUB_OUTPUT"
 
+      - name: Announce what this run starts
+        # After the governor decided (AD-42), so held work posts nothing.
+        if: steps.step.outputs.stage != '' && steps.step.outputs.stage != 'wait' && steps.step.outputs.stage != 'idle'
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_PROJECTS: ${{ secrets.DISCORD_WEBHOOK_PROJECTS }}
+        run: bash scripts/announce_stage.sh "$RUNNER_TEMP/context.json"
+
       - name: Report a CI re-run to Discord
         if: steps.step.outputs.stage == 'rerun'
         env:

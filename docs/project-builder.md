@@ -39,7 +39,11 @@ flowchart LR
   merge that PR.
 - **Wake-up (AD-35).** The ~10-minute scan chain starts the builder as soon as
   it has work (your merge or comments, an autopilot merge, the next
-  milestone) and posts what it started to `#projects`.
+  milestone). The builder run, not the wake-up, posts what it starts to
+  `#projects`, after the usage governor decided, so work the governor holds
+  posts nothing; after a run that only decided, the wake-up waits 30 minutes
+  (2026-10-17: it had posted every 10 minutes while the governor held Anvil
+  and Tributary).
 - **Cadence.** A builder step every 3 hours (`17 */3 * * *`, unreliable on
   GitHub, hence the wake-up above), a scout run on Mondays 09:00 PT, a study
   pack on Sundays. Hard caps: Opus build ≤ 230 min, Fable review ≤ 70 min.

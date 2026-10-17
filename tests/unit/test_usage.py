@@ -104,12 +104,18 @@ def test_pick_lets_only_the_governed_number_of_projects_start_sessions():
     waiting = (Project(slug="replay", title="R"), RepoState(True), Stage("wait", reason="review"))
     building = (Project(slug="anvil", title="A"), RepoState(True), Stage("build"))
     merging = (Project(slug="kiln", title="K"), RepoState(True), Stage("merge"))
-    held = pick([waiting, building], slots=1)
+    # A project with nothing to do never holds a slot (2026-10-17).
+    assert pick([waiting, building], slots=1) is building
+    held = pick([waiting, building], slots=0)
     assert held[0].slug == "anvil" and held[2].kind == "wait"
     assert held[2].reason.startswith("usage governor")
-    assert pick([waiting, building], slots=2) is building
     assert pick([waiting, building, merging], slots=0) is merging  # no session: always
     assert pick([waiting], slots=0) is waiting
+    # Slots follow priority among projects with work; a preferred slug only
+    # runs when it is inside them.
+    second = (Project(slug="eddy", title="E"), RepoState(True), Stage("build"))
+    assert pick([building, second], slots=1, prefer="eddy") is building
+    assert pick([building, second], slots=2, prefer="eddy") is second
 
 
 def test_session_record_reads_cost_meter_and_limit_hits():
@@ -156,7 +162,8 @@ def test_cli_records_runs_and_step_obeys_the_meter(tmp_path, monkeypatch):
     assert (row.cost, row.seven_day_before, row.seven_day_after) == (12.0, 0.3, 0.36)
     assert CliRunner().invoke(app, ["projects", "usage"]).exit_code == 0
 
-    # Replay waits on its PR; with one slot, Anvil (second in line) is held.
+    # Replay waits on its PR, so it holds no slot: one slot lets Anvil run,
+    # none holds it.
     save_projects(
         [
             Project(slug="replay", title="Replay", status="building"),
@@ -176,9 +183,9 @@ def test_cli_records_runs_and_step_obeys_the_meter(tmp_path, monkeypatch):
     monkeypatch.setattr(cli_projects, "_candidate_summary", lambda: {})
     out = tmp_path / "context.json"
     step = ["projects", "step", "--out", str(out), "--no-push", "--dry-run"]
-    tight, loose = tmp_path / "tight.jsonl", tmp_path / "loose.jsonl"
+    tight, one, loose = (tmp_path / f"{n}.jsonl" for n in ("tight", "one", "loose"))
     reset = (datetime.now(UTC) + timedelta(days=3.5)).timestamp()
-    for path, five in ((tight, 0.6), (loose, 0.05)):
+    for path, five in ((tight, 0.85), (one, 0.6), (loose, 0.05)):
         event = json.loads(_event(five, 0.05))
         event["rate_limit_info"]["unifiedWindows"]["seven_day"]["resetsAt"] = reset
         path.write_text(json.dumps(event))
@@ -186,9 +193,12 @@ def test_cli_records_runs_and_step_obeys_the_meter(tmp_path, monkeypatch):
     context = json.loads(out.read_text())
     assert context["stage"] == "wait" and context["reason"].startswith("usage governor")
     assert context["seven_day_before"] == 0.05
+    assert CliRunner().invoke(app, [*step, "--meter", str(one)]).exit_code == 0
+    assert json.loads(out.read_text())["stage"] == "build"
+    assert json.loads(out.read_text())["slug"] == "anvil"
     assert CliRunner().invoke(app, [*step, "--meter", str(loose)]).exit_code == 0
     assert json.loads(out.read_text())["slug"] == "anvil"
-    # A run for Anvil alone still counts its place in line.
+    # A run started for Anvil is still governed.
     assert CliRunner().invoke(app, [*step, "--meter", str(tight), "--slug", "anvil"]).exit_code == 0
     assert json.loads(out.read_text())["stage"] == "wait"
     # The scan chain's wake-up check (no meter) only asks whether there is work.

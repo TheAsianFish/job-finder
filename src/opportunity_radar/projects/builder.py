@@ -329,23 +329,31 @@ def decide(project: Project, state: RepoState, now: datetime | None = None) -> S
 Option = tuple[Project, RepoState, Stage]
 
 
-def pick(options: list[Option], slots: int | None = None) -> Option | None:
+def pick(
+    options: list[Option], slots: int | None = None, prefer: str | None = None
+) -> Option | None:
     """The project to work on this run: a merge or CI re-run first (no agent
     session), then the first project, in priority order, with work. When none
     has work, the first one, so its wait reason is what gets reported.
 
     `slots` is the usage governor's project count (AD-42): only the first
-    `slots` projects may start agent sessions; the rest wait their turn."""
+    `slots` projects *that have work* may start agent sessions; the rest wait
+    their turn. A project with nothing to do never holds a slot (2026-10-17:
+    a waiting Replay held the only slot and blocked Anvil and Tributary).
+    `prefer` (a slug) picks that project when it is allowed to run."""
     for option in options:
         if option[2].kind in _FREE_STAGES:
             return option
-    allowed = options if slots is None else options[: max(slots, 0)]
-    for option in allowed:
-        if option[2].kind not in _IDLE_STAGES:
-            return option
-    held = [o for o in options[len(allowed) :] if o[2].kind not in _IDLE_STAGES]
-    if held:
-        project, state, stage = held[0]
+    working = [o for o in options if o[2].kind not in _IDLE_STAGES]
+    allowed = working if slots is None else working[: max(slots, 0)]
+    if prefer:
+        for option in allowed:
+            if option[0].slug == prefer:
+                return option
+    if allowed:
+        return allowed[0]
+    if working:
+        project, state, stage = working[0]
         return project, state, Stage("wait", pr=stage.pr, reason="usage governor: " + (
             f"{project.slug} waits; only {max(slots or 0, 0)} project(s) may run now"
         ))  # fmt: skip
