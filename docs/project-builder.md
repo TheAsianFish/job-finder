@@ -57,9 +57,9 @@ flowchart LR
 - **Saved work.** If a session fails (usage limit, timeout, a review that
   dies after a good build), its commits are pushed to the `dev/` branch
   without a PR, and the next run continues from them (AD-39).
-- **Progress pings (AD-36).** While a session runs, `#projects` gets a line
-  every 20 minutes (elapsed time, commits, latest commit, files changed);
-  two quiet intervals are flagged as possibly stuck.
+- **Stuck warnings (AD-36).** A working session is silent: each run posts
+  when it starts and when it ends. The session is checked every 20 minutes,
+  and `#projects` gets one warning if no file changed for 40 minutes.
 - **Notifications.** When a PR opens, `#projects` says whether autopilot will
   merge it (review passed) or it needs Patrick; `#study` links the private
   study notes for that run.

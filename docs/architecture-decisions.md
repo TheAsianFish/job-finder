@@ -577,6 +577,11 @@ stage still has its hard timeout). The webhook is removed from the agent's
 own environment (`env -u HEARTBEAT_WEBHOOK`); it only exists in the
 background pinger.
 
+Amended 2026-10-17: with several projects building side by side the 20-minute
+lines flooded `#projects`, and each run already announces its start and its
+result. The pinger still checks every 20 minutes but posts only the stuck
+warning, once per quiet streak (no file changes for 40 minutes).
+
 ## AD-37: Hiring panel for resume checks; outcomes feed the next review
 
 Patrick asked whether one reviewer (one model, one viewpoint) is enough. Real

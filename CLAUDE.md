@@ -109,7 +109,7 @@ roles are excluded. Skill demand: `uv run opportunity-radar insights skills`
   redirects any project (AD-44). Evolve rounds run only with spare usage, and agents use
   nothing paid, only free and open-source tools (AD-48). The scan chain wakes the
   builder within ~10 min when it has work (`scripts/wake_builder.sh`, AD-35); builds post
-  progress to `#projects` every 20 min (AD-36). Project repos must read as
+  start and end to `#projects`, plus a warning if a session goes quiet for 40 min (AD-36). Project repos must read as
   Patrick's own work: commits as TheAsianFish, frequent focused commits,
   `dev/` branches, first-person PRs, CONTRIBUTING.md (never a tracked
   CLAUDE.md), no AI mentions; teaching notes go to the private repo's
