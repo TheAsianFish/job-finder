@@ -15,7 +15,7 @@ reads the project's GitHub repo through `gh` and returns one stage:
     merge    autopilot only: the open PR passed review + CI and has sat
              AUTOPILOT_QUIET (5h) without feedback: merge it
     wait     an open agent PR awaits Patrick: do nothing (no compute spent)
-    build    next unchecked milestone in PLAN.md: Opus builds it, Fable
+    build    next unchecked milestone in PLAN.md: Opus builds and
              reviews it, one PR
     evolve   every milestone merged: Fable runs the project, reads its
              measured results and decides whether anything justifies more
@@ -320,9 +320,10 @@ def decide(project: Project, state: RepoState, now: datetime | None = None) -> S
     # measured results justify more work (AD-44): bounded rounds, and a round
     # that adds nothing is not repeated at the same plan size.
     size = len(state.milestones)
-    if len(project.evolved_at) < EVOLVE_ROUNDS and size not in project.evolved_at:
+    rounds = project.evolve_rounds or EVOLVE_ROUNDS
+    if len(project.evolved_at) < rounds and size not in project.evolved_at:
         n = len(project.evolved_at) + 1
-        return Stage("evolve", reason=f"all milestones merged; evolve round {n} of {EVOLVE_ROUNDS}")
+        return Stage("evolve", reason=f"all milestones merged; evolve round {n} of {rounds}")
     return Stage("finish", reason="all milestones merged")  # retried until it succeeds
 
 

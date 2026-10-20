@@ -968,3 +968,26 @@ with the slug only a preference among projects allowed to run. The wake-up
 no longer posts to Discord (the builder run announces its stage after the
 governor decided, `scripts/announce_stage.sh`) and waits 30 minutes after a
 run that only decided, unless that run merged a PR.
+
+## AD-49: Fable only for rare thinking stages; per-project evolve rounds (2026-10-20)
+
+Context: by Tuesday of the week Patrick's Max meter read 47% with Fable at
+68% of its own cap (Fable may use up to half the weekly limit), on pace to
+run out Friday. The builder's session logs since 2026-10-14 showed the
+per-milestone Fable sessions costing more than the Opus builds they
+followed: review about $23 per milestone at list price (one at $30), plus
+bullets (~$6.5) and the bullets reviewer (~$4.7), against $18-32 for the
+Opus build. The study pack also ran on Fable, and the build prompts told
+Opus sessions to spawn `fable` subagents for hard problems.
+
+Decision:
+- **Opus** runs build, address, review, bullets, bullets-review and the
+  study pack (Sonnet fallback). Subagents use `opus` for hard reasoning and
+  adversarial checks; `fable` only where the stage prompt names it.
+- **Fable** stays on scout, plan, evolve and finish: rare sessions where
+  the decision shapes everything after them. It still falls back to Opus if
+  its cap is reached.
+- **Per-project evolve rounds.** `evolve_rounds` in projects.yaml overrides
+  `EVOLVE_ROUNDS` (2) for a project Patrick wants to keep growing. Replay is
+  set to 5 for v2, steered to grow like a product scaling up, every round
+  still bounded to 1-3 measured milestones and governed by the usage meter.

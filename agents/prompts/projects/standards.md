@@ -76,9 +76,11 @@ Process rules:
   writes tests while another implements, one researches an API while another
   scaffolds. Review their output before committing it.
 - **Pick each subagent's model for its job** (the Agent tool's `model`):
-  `fable` for the hardest thinking (architecture calls, subtle bugs, security
+  `opus` for the hardest thinking (architecture calls, subtle bugs, security
   and concurrency review, statistics, adversarially verifying a claim or a
-  finding); `opus` for substantial implementation and integration; `sonnet`
+  finding) and for substantial implementation and integration; `fable` only
+  where the stage prompt names it (plan, evolve, scout), because it has its
+  own small weekly cap; `sonnet`
   for well-specified routine work (boilerplate, straightforward tests, docs,
   mechanical refactors); `haiku` for search, log/CI triage and bulk mechanical
   edits. Use as many or as few as the work needs: several in parallel for

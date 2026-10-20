@@ -169,6 +169,11 @@ def test_evolve_rounds_are_bounded_and_never_repeat_at_one_plan_size():
     # Rounds are bounded: after two, the project finishes.
     project.evolved_at = [3, 5]
     assert decide(project, RepoState(exists=True, plan=grown), NOW).kind == "finish"
+    # Patrick can let one project keep growing: round 2 added M6.
+    project.evolve_rounds = 4
+    six = grown.replace("## Risks", "- [x] M6: Scale experiment\n\n## Risks")
+    stage = decide(project, RepoState(exists=True, plan=six), NOW)
+    assert stage.kind == "evolve" and "round 3 of 4" in stage.reason
     # New milestones from a round are built like any other.
     pending = grown.replace("- [x] M5", "- [ ] M5")
     assert decide(project, RepoState(exists=True, plan=pending), NOW).kind == "build"
@@ -675,6 +680,7 @@ def test_steer_and_problem_first_fields_round_trip(tmp_path):
                 title="Eddy",
                 problem="Score card transactions within a second without losing any.",
                 questions=["What does exactly-once cost?"],
+                evolve_rounds=5,
             ),
             Project(slug="plain", title="Plain"),
         ]
@@ -682,6 +688,7 @@ def test_steer_and_problem_first_fields_round_trip(tmp_path):
     # Empty optional fields stay out of the file.
     text = path.read_text()
     assert text.count("problem:") == 1 and "steer:" not in text and "evolved_at" not in text
+    assert text.count("evolve_rounds:") == 1 and load_projects(path)[0].evolve_rounds == 5
 
     runner = CliRunner()
     assert (

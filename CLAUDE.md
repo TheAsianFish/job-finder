@@ -95,9 +95,9 @@ roles are excluded. Skill demand: `uv run opportunity-radar insights skills`
 - Project builder: `.github/workflows/projects.yml` (AD-32,
   `docs/project-builder.md`; `ENABLE_PROJECT_BUILDER=true`): Fable scouts and
   plans, Opus builds one milestone PR at a time in the project's own repo
-  (`TheAsianFish/<slug>`, private by default), Fable reviews; pipeline state in
+  (`TheAsianFish/<slug>`, private by default) and reviews it (AD-49); pipeline state in
   the private repo's `projects.yaml` (`opportunity-radar projects ...`). Only
-  autopilot projects (opt-in per project) may merge their own PRs (Fable review
+  autopilot projects (opt-in per project) may merge their own PRs (review
   pass + green CI + 5 quiet hours). Every approved project is built side by
   side (AD-41: the builder picks whichever has work), and each passing
   milestone proposes resume bullets plus talk tracks as one private PR per

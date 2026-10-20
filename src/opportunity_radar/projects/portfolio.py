@@ -69,6 +69,9 @@ class Project:
     # The plan's milestone count when each evolve round started, so a round
     # that decides "nothing worth adding" is not repeated (builder.EVOLVE_ROUNDS).
     evolved_at: list[int] = field(default_factory=list)
+    # Patrick's per-project override of builder.EVOLVE_ROUNDS (0 = default),
+    # for a project he wants to keep growing (Replay v2, 2026-10-20).
+    evolve_rounds: int = 0
 
     @property
     def repo_name(self) -> str:
@@ -105,6 +108,7 @@ def load_projects(path: Path | None = None) -> list[Project]:
         data["autopilot"] = bool(data.get("autopilot"))
         data["ci_fix_started"] = [int(n) for n in data.get("ci_fix_started") or []]
         data["evolved_at"] = [int(n) for n in data.get("evolved_at") or []]
+        data["evolve_rounds"] = int(data.get("evolve_rounds") or 0)
         out.append(Project(**data))
     return out
 
@@ -115,7 +119,14 @@ def save_projects(projects: list[Project], path: Path | None = None) -> None:
     rows = [asdict(p) for p in projects]
     for row in rows:
         # Optional fields stay out of the file until a project has them.
-        for key in ("problem", "questions", "ci_fix_started", "steer", "evolved_at"):
+        for key in (
+            "problem",
+            "questions",
+            "ci_fix_started",
+            "steer",
+            "evolved_at",
+            "evolve_rounds",
+        ):
             if not row[key]:
                 del row[key]
     target.write_text(

@@ -13,10 +13,10 @@ flowchart LR
   P --> C[Create repo TheAsianFish/slug · private]
   C --> PL[Plan · Fable · PR with PLAN.md]
   PL -->|Patrick merges / comments| B[Build next milestone · Opus + subagents]
-  B --> R[Independent review · Fable · fixes + verdict]
-  R -->|pass| BU[Bullets · Fable · PR in career-private]
+  B --> R[Independent review · Opus · fixes + verdict]
+  R -->|pass| BU[Bullets · Opus · PR in career-private]
   R -->|one PR + Discord| W{Patrick}
-  W -->|comments| A[Address · Opus, then Fable review]
+  W -->|comments| A[Address · Opus, then review]
   A --> W
   W -->|merge| B
   B -->|all milestones merged| E[Evolve · Fable · run it, add ≤3 measured milestones or none]
@@ -32,7 +32,7 @@ flowchart LR
   stalls the others. Sessions still run one at a time (one workflow
   concurrency group), so Max usage stays sequential.
 - **Autopilot (opt-in per project).** With `autopilot: true` in
-  `projects.yaml`, a PR that passed the Fable review (a hidden `<!-- review:
+  `projects.yaml`, a PR that passed the review (a hidden `<!-- review:
   pass -->` marker in its body; the review itself is private), has green CI, and had no activity for 5 hours (one Max usage window) is
   merged by the builder. Off by default. A review that writes no verdict is
   run once more; if it still writes none, `#projects` says autopilot won't
@@ -46,7 +46,7 @@ flowchart LR
   and Tributary).
 - **Cadence.** A builder step every 3 hours (`17 */3 * * *`, unreliable on
   GitHub, hence the wake-up above), a scout run on Mondays 09:00 PT, a study
-  pack on Sundays. Hard caps: Opus build ≤ 230 min, Fable review ≤ 70 min.
+  pack on Sundays. Hard caps: Opus build ≤ 230 min, review ≤ 70 min.
   Replay's M1 (scaffold, CI, first vertical slice, review) took 49 minutes.
 - **Red CI (AD-40).** A failed run is first re-run once (outages and flaky
   jobs). If it fails again, the builder goes back to fix it (Opus, with the
@@ -91,9 +91,9 @@ private: `.agent/learn.md` and `.agent/review.md` are saved to
 
 | Stage | Model | Why |
 |---|---|---|
-| Scout, plan, review, finish, study | Fable 5.1 (`--model fable`, falls back to Opus) | Most capable: research, architecture, a demanding review that re-runs tests/evals, and the resume entry, results write-up and interview prep |
-| Build, address comments | Opus 5.5 (`--model opus`) | Long agentic coding sessions |
-| Subagents (any stage) | Chosen per task | `fable` for hard reasoning and adversarial verification, `opus` for big implementation, `sonnet` for routine well-specified work, `haiku` for search and CI/log triage; as many or as few as the work needs (`standards.md`) |
+| Scout, plan, evolve, finish | Fable 5.1 (`--model fable`, falls back to Opus) | Rare, decisive thinking: research, architecture, what to build next, the release write-up |
+| Build, address comments, review, bullets, study | Opus 5.5 (`--model opus`) | Long agentic coding sessions and the per-milestone review, resume bullets and study pack (moved off Fable 2026-10-20, AD-49) |
+| Subagents (any stage) | Chosen per task | `opus` for hard reasoning, adversarial verification and big implementation, `fable` only in plan, evolve and scout, `sonnet` for routine well-specified work, `haiku` for search and CI/log triage; as many or as few as the work needs (`standards.md`) |
 | Replay/Kiln's own model calls | Cheapest that answers | No API key in sessions (AD-39), so live evals are harness-only for now; the model per call is recorded in RESULTS.md |
 
 All prompts live in `agents/prompts/projects/` and start with
@@ -143,6 +143,8 @@ scales how many projects may start sessions, like an autoscaler:
 - **The 5-hour window:** one project above 50%, none above 80%, so your own
   sessions always have room.
 - Merges and CI re-runs always go through.
+- **Evolve rounds:** 2 per project, or the project's `evolve_rounds` in
+  projects.yaml (AD-49).
 - **Evolve rounds only with spare usage** (AD-48): well behind the weekly
   pace and the 5-hour window under half used; otherwise they wait, unless
   no other project has work (then the normal limits apply).
@@ -175,7 +177,7 @@ capacity, spend per project, and how many more runs fit this week.
 
 ## Resume bullets during the build (AD-41)
 
-After every milestone whose review passes, a Fable session writes the
+After every milestone whose review passes, an Opus session writes the
 project's entry from what is built and measured so far:
 - **`.agent/RESUME.tex`:** 4-6 STAR bullets, each a different achievement
   (core system, evals, backend, infra, frontend...), so the tailor can choose
