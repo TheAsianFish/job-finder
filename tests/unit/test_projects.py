@@ -21,6 +21,7 @@ from opportunity_radar.projects.builder import (
     Stage,
     comment_block,
     decide,
+    hold_evolve,
     insert_reserve_project,
     parse_milestones,
     pick,
@@ -633,15 +634,9 @@ def test_cli_step_records_an_evolve_round_once(tmp_path, monkeypatch):
     assert CliRunner().invoke(app, [*step, "--dry-run"]).exit_code == 0
     assert load_projects(private_dir() / "projects.yaml")[0].evolved_at == []
 
-    # Evolving is discretionary: with the 5-hour window over half used it
-    # waits, and the round is not used up.
+    # No spare usage (the 5-hour window over half used), but no other
+    # project has work, so the round runs under the normal governor.
     usage(0.6, 0.05)
-    result = CliRunner().invoke(app, step)
-    context = json.loads(out.read_text())
-    assert context["stage"] == "wait" and "spare Claude usage" in context["reason"], result.output
-    assert load_projects(private_dir() / "projects.yaml")[0].evolved_at == []
-    usage(0.05, 0.02)  # plenty of room
-
     result = CliRunner().invoke(app, step)
     assert result.exit_code == 0, result.output
     context = json.loads(out.read_text())
@@ -651,6 +646,21 @@ def test_cli_step_records_an_evolve_round_once(tmp_path, monkeypatch):
     # The round committed nothing (no new milestones): next run finishes.
     result = CliRunner().invoke(app, step)
     assert json.loads(out.read_text())["stage"] == "finish", result.output
+
+
+def test_evolve_waits_for_spare_usage_only_while_others_have_work():
+    replay = Project(slug="replay", title="Replay", status="building")
+    anvil = Project(slug="anvil", title="Anvil", status="building")
+    evolve = (replay, RepoState(exists=True), Stage("evolve"))
+    build = (anvil, RepoState(exists=True), Stage("build", milestone="M6"))
+    waiting = (anvil, RepoState(exists=True), Stage("wait", reason="waiting for your review"))
+
+    held = hold_evolve([evolve, build], "ahead of pace")
+    assert held[0][2].kind == "wait" and "spare Claude usage" in held[0][2].reason
+    assert held[1] == build  # required work is untouched
+    # Nothing else to do: the round is the only use of the slot.
+    assert hold_evolve([evolve, waiting], "ahead of pace") == [evolve, waiting]
+    assert hold_evolve([evolve], "ahead of pace") == [evolve]
 
 
 def test_steer_and_problem_first_fields_round_trip(tmp_path):

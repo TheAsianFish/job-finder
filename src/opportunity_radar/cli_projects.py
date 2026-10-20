@@ -185,9 +185,9 @@ def projects_step(
 
     from opportunity_radar.projects.builder import (
         GhError,
-        Stage,
         decide,
         gh_cli,
+        hold_evolve,
         pick,
         read_state,
     )
@@ -211,14 +211,7 @@ def projects_step(
     slots = None if dry_run and meter is None else room.projects
     options = [(p, s, decide(p, s)) for p in candidates for s in [read_state(p.repo_name, gh)]]
     if slots is not None and not room.spare:
-        # Evolve rounds are discretionary (AD-44): they wait for spare usage,
-        # so required work on every project goes first.
-        options = [
-            (p, s, Stage("wait", reason=f"evolve waits for spare Claude usage ({room.summary()})"))
-            if st.kind == "evolve"
-            else (p, s, st)
-            for p, s, st in options
-        ]
+        options = hold_evolve(options, room.summary())
     chosen = pick(options, slots, prefer=wanted.slug if wanted else None)
     context: dict = {"stage": "idle", "reason": "no approved or in-flight project"}
     if chosen is not None:

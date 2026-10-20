@@ -360,6 +360,21 @@ def pick(
     return options[0] if options else None
 
 
+def hold_evolve(options: list[Option], why: str) -> list[Option]:
+    """Without spare usage, evolve rounds wait so other projects' required
+    work goes first (AD-48). When no other project has work, a round is the
+    only use of the slot and runs under the normal governor (2026-10-20:
+    Patrick paused the rest to finish Replay, and spare usage never came)."""
+    if not any(st.kind not in (*_IDLE_STAGES, "evolve") for _, _, st in options):
+        return options
+    return [
+        (p, s, Stage("wait", reason=f"evolve waits for spare Claude usage ({why})"))
+        if st.kind == "evolve"
+        else (p, s, st)
+        for p, s, st in options
+    ]
+
+
 # ---------------------------------------------------------------- resume entry
 
 

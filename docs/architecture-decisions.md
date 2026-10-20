@@ -951,6 +951,13 @@ Decision:
   offline gate with job timeouts; heavy runs go in `workflow_dispatch`
   workflows or local `make` targets.
 
+Amended 2026-10-20: an evolve round waits for spare usage only while another
+project has required work (a build, a fix, a plan). When nothing else has
+work, the round is the only use of the slot, so it runs under the normal
+governor (pace and 5-hour limits still apply). Patrick paused Anvil,
+Tributary and Switchboard to finish Replay before applying again, and with
+the meter near pace, spare usage would not have come before the weekly reset.
+
 ## AD-42 amendment: slots go to projects with work; runs announce themselves (2026-10-17)
 
 The governor's slots go to the first projects, in
