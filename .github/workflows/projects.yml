@@ -416,10 +416,10 @@ jobs:
           fi
           head -c 20000 .agent/summary.md > "$out/summary.md" 2>/dev/null || true
           head -c 4000 .agent/journal.md > "$out/journal.md" 2>/dev/null || true
-          {
-            head -c 40000 .agent/learn.md 2>/dev/null || true
-            [ -s .agent/review.md ] && { echo; echo "## Review notes"; head -c 15000 .agent/review.md; }
-          } > "$out/learn.md"
+          # The reviewer adds its lessons to learn.md; its full report stays
+          # out of the study notes (2026-10-22: about 40% of each note was
+          # review logistics).
+          head -c 40000 .agent/learn.md > "$out/learn.md" 2>/dev/null || true
           echo "payload=$(bash ../radar/scripts/seal.sh seal "$out")" >> "$GITHUB_OUTPUT"
           # Cost and meter per session (AD-42); numbers only, no content.
           echo "usage=$(jq -cs . "$RUNNER_TEMP"/usage/*.json 2>/dev/null || echo '[]')" >> "$GITHUB_OUTPUT"
@@ -575,7 +575,7 @@ jobs:
   study:
     if: vars.ENABLE_PROJECT_BUILDER == 'true' && (github.event.schedule == '0 17 * * 0' || inputs.action == 'study')
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 180  # a guide session per project that moved, then the pack
     steps:
       - uses: actions/checkout@v7
       - name: Check out private career repo
@@ -594,9 +594,13 @@ jobs:
         run: |
           since=$(date -u -d '8 days ago' +%Y-%m-%d)
           out="$RUNNER_TEMP/merged-prs.md"; : > "$out"
+          : > "$RUNNER_TEMP/guide-repos.txt"
           for repo in $(uv run python -c "from opportunity_radar.projects.portfolio import load_projects; print(' '.join(p.repo for p in load_projects() if p.repo))"); do
-            gh pr list --repo "$repo" --state merged --search "merged:>=$since" --json title,body,url \
-              --jq '.[] | "# \(.title)\n\(.url)\n\n\(.body)\n"' >> "$out" || true
+            prs=$(gh pr list --repo "$repo" --state merged --search "merged:>=$since" --json title,body,url \
+              --jq '.[] | "# \(.title)\n\(.url)\n\n\(.body)\n"' || true)
+            [ -n "$prs" ] || continue
+            echo "$prs" >> "$out"
+            echo "$repo" >> "$RUNNER_TEMP/guide-repos.txt"
           done
           # The teaching notes live privately (study/<slug>/<date>-<stage>.md, AD-34).
           for f in resume/private/study/*/*.md; do
@@ -606,6 +610,41 @@ jobs:
           echo "merged PR + study notes: $(wc -c < "$out") bytes"
       - name: Install Claude Code
         run: npm install -g @anthropic-ai/claude-code >/dev/null
+      - name: Check out the projects that moved this week
+        env:
+          GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/guides"
+          while read -r repo; do
+            [ -n "$repo" ] || continue
+            git clone -q --depth 50 "https://x-access-token:${GH_TOKEN}@github.com/${repo}.git" "$RUNNER_TEMP/guides/${repo#*/}"
+            git -C "$RUNNER_TEMP/guides/${repo#*/}" remote set-url origin "https://github.com/${repo}.git"
+          done < "$RUNNER_TEMP/guide-repos.txt"
+          echo "projects to refresh: $(wc -l < "$RUNNER_TEMP/guide-repos.txt")"
+      - name: Refresh each project's interview guide (Opus)
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          # One living guide per project that merged work this week, rewritten
+          # from the code and the milestone notes (2026-10-22): the notes
+          # alone had grown to 80,000 words of fragments nobody could study.
+          priv="$GITHUB_WORKSPACE/resume/private"
+          for dir in "$RUNNER_TEMP"/guides/*/; do
+            [ -d "$dir" ] || continue
+            slug=$(basename "$dir")
+            mkdir -p "$priv/study/$slug"
+            prompt=$(sed -e "s#\$GUIDE#$priv/study/$slug/GUIDE.md#g" -e "s#\$NOTES#$priv/study/$slug/#g" \
+                         -e "s#\$RESUME#$priv/resume.tex#g" agents/prompts/projects/guide.md)
+            for model in opus sonnet; do
+              if (cd "$dir" && timeout 45m env -u ANTHROPIC_API_KEY claude -p "$prompt" --model "$model" \
+                    --max-turns 120 --add-dir "$priv" \
+                    --allowedTools "Read,Glob,Grep,Write,Edit,Bash(git log *),Bash(git show *)" \
+                    > "$RUNNER_TEMP/guide-$slug.log" 2>&1); then
+                echo "$slug: guide written ($model)"; break
+              fi
+              echo "$slug: guide failed with $model"
+            done
+          done
       - name: Write the study pack (Opus)
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

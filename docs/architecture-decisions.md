@@ -991,3 +991,33 @@ Decision:
   `EVOLVE_ROUNDS` (2) for a project Patrick wants to keep growing. Replay is
   set to 5 for v2, steered to grow like a product scaling up, every round
   still bounded to 1-3 measured milestones and governed by the usage meter.
+
+## AD-50: One living interview guide per project; shorter milestone notes (2026-10-22)
+
+Context: two weeks of builds had produced 34 study files, about 80,000
+words. Each milestone note was accurate but written for a reviewer: dense
+fragments, terms used before they were explained, `file:line` pointers that
+went stale, and the full review report (test counts, authorship checks)
+pasted in as about 40% of every note. Nothing gave Patrick the whole project
+in one place, nothing tied the material to his resume bullets, and the weekly
+pack nagged four unstarted "his piece" tasks.
+
+Decision:
+- **`study/<slug>/GUIDE.md`**, rewritten (not appended) every Sunday by an
+  Opus session in a read-only checkout of each project that merged work that
+  week (`agents/prompts/projects/guide.md`). It is layered so he can stop at
+  any depth: the 30-second version, the problem, the architecture with one
+  end-to-end trace, every part of the stack in depth, 3-5 deep dives with
+  worked examples, the numbers and how they were measured, each resume bullet
+  with its likely follow-ups, a spoken-answer drill and a glossary. Prose
+  that explains, not fragments; code by file and function.
+- **Milestone notes** (`.agent/learn.md`) become the guide's raw material:
+  600-1,200 words of prose on what only that session knows. The reviewer adds
+  a short "What the review caught" section of lessons instead of its report.
+- **The weekly pack** points into the guides, puts resume projects first, adds
+  two questions to answer aloud, and names only one "his piece".
+
+Trade-offs: the guide costs one Opus session per moving project per week (at
+most two while only Replay and Anvil build), instead of per milestone, so it
+can lag a milestone by a few days; the milestone note covers that gap. A
+rewrite rather than an append keeps it coherent and bounded in length.

@@ -72,8 +72,13 @@ and committed as TheAsianFish (commit-msg hook strips attribution lines),
 CLAUDE.md (copied to an untracked one for sessions), no mention of AI
 authorship or of Patrick in third person. Agents commit often, one logical
 step per commit. All teaching, "his piece", review notes and the verdict stay
-private: `.agent/learn.md` and `.agent/review.md` are saved to
-`career-private/study/<slug>/<date>-<stage>.md` and announced in `#study`.
+private: `.agent/learn.md` (the milestone's note, with the reviewer's
+lessons) is saved to `career-private/study/<slug>/<date>-<stage>.md` and
+announced in `#study`; the full review stays in the PR's hidden verdict.
+Every Sunday the study job rewrites `study/<slug>/GUIDE.md` for each project
+that merged work that week (AD-50): one living interview guide, layered from
+the 30-second pitch through every part of the stack to deep dives, the
+numbers, the resume bullets and a spoken-answer drill.
 
 ## What Patrick does
 
@@ -207,6 +212,6 @@ that adds it as a commented-out (reserve) entry (or updates the entry already
 there). The builder flags any number
 in its bullets that does not appear in the project's `RESULTS.md` (measured
 by a real run), and merging means "this is true". Patrick should be able to
-explain every line; the private study notes for each milestone
-(`career-private/study/<slug>/`), the Sunday study pack and the mock interview
+explain every line; each project's interview guide
+(`career-private/study/<slug>/GUIDE.md`), the milestone notes beside it, the Sunday study pack and the mock interview
 written at the finish stage are how he learns the codebase.

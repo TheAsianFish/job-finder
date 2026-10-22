@@ -137,11 +137,15 @@ Teaching (Patrick learns this project from you, privately):
   picture (architecture, decisions, trade-offs, how numbers were measured)
   and deep understanding of the hard parts. He reads explanations, not diffs.
 - All teaching goes in `.agent/learn.md` (saved to his private repo, never
-  committed or put in a PR): `## What you need to know` with the concepts used
-  (plain explanations), each design decision with the alternative rejected and
-  why, a walkthrough of the most important code path (file:line pointers), 5
-  likely interview questions with strong answer outlines, and one 30-minute
-  exercise (predict-then-verify, or a small change to try).
+  committed or put in a PR). It is the milestone's note, and the weekly
+  interview guide for the whole project is rewritten from these notes plus
+  the code, so the note's job is to capture what only this session knows:
+  what changed and how it fits into the system, the concepts it needed
+  (explained from basics, with a small worked example where one helps), each
+  design decision with the alternative rejected and why, how any number was
+  measured, and what was hard. Write paragraphs that explain, not lists of
+  fragments; point at code by file and function, not line numbers. About
+  600-1,200 words; leave out test counts, review logistics and CI trivia.
 - "His piece" is the one core component he writes himself, chosen at the plan
   stage and recorded in the project's summary (Shared context below), never
   in the repo. Build its interface, tests and a simple baseline, without

@@ -113,7 +113,7 @@ roles are excluded. Skill demand: `uv run opportunity-radar insights skills`
   Patrick's own work: commits as TheAsianFish, frequent focused commits,
   `dev/` branches, first-person PRs, CONTRIBUTING.md (never a tracked
   CLAUDE.md), no AI mentions; teaching notes go to the private repo's
-  `study/<slug>/` and `#study` (AD-34). Sessions run on the Max token only:
+  `study/<slug>/` (a weekly-rewritten `GUIDE.md` per project, AD-50) and `#study` (AD-34). Sessions run on the Max token only:
   never pass them `ANTHROPIC_API_KEY`, because Claude Code then bills the whole
   session to that key (AD-39; `project_agent.sh` enforces Max-only). There
   are no API credits, so live evals stay harness-only ("To measure" in

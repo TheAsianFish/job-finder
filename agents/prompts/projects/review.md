@@ -15,7 +15,10 @@ really met.
   `haiku`/`sonnet` for mechanical checks. Then have an `opus` subagent try to
   refute each finding before you act on it; drop findings that don't survive.
 - Check `.agent/learn.md`: would it genuinely prepare Patrick for interview
-  questions on this milestone? Improve it if it is thin or inaccurate.
+  questions on this milestone? Fix it if it is thin, inaccurate or a list of
+  fragments, then add `## What the review caught`: one short paragraph per
+  real finding on the lesson it teaches (the mistake, why it happens, the
+  fix). Not your checklist, counts or verdict; those stay in your review.
 - Check authorship (see the standards): nothing saying or implying that AI
   wrote or reviewed the work, and no "Patrick", anywhere in the diff, commit messages
   (`git log main..HEAD`), or `.agent/pr.md`; no CLAUDE.md/AGENTS.md/.claude/
