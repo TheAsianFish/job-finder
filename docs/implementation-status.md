@@ -221,6 +221,24 @@ dbt Labs, Canva, Grammarly, Tempus, Rippling.
   keywords; the lead owns the page; reviewer swaps by short project name
   now match.
 
+## Scan reliability fixes (2026-11-09, AD-51)
+
+Root-caused "alerts slowed down while jobs kept being posted". Matching and
+the Simplify feed were healthy: about 600 new postings and 6-14 immediate
+alerts per weekday all through October. The losses were operational:
+
+- **Chain breaks**: one dispatch call with no retry. Two 5xx responses and
+  two runs that died at startup stopped scanning for about 17 hours in total
+  (mostly US daytime), plus the outage from 2026-11-09 18:07 UTC. The new
+  `chain` job (`scripts/chain_scan.sh`) retries, watches the new run start,
+  and dispatches again if needed.
+- **Resume checks dead since 2026-10-13**: a stale cached TinyTeX
+  (`tlmgr itself needs to be updated`) failed the install step, and 40-90% of
+  weekday runs were red. The install script now heals itself, and the cache
+  key changes monthly.
+- **DB cache miss on 2026-10-23**: an auto-baseline; pruning is now skipped
+  after a failed restore.
+
 ## Known gaps / deferred (with reasons)
 
 - **iCIMS / SuccessFactors / Taleo**: placeholder adapters by spec §8.8 (no

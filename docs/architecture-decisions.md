@@ -1041,3 +1041,47 @@ Patrick with the reason "needs you". The Discord note says which path a PR is on
 Trade-offs: up to two extra Opus sessions per stuck milestone, under the
 usage governor like any other stage. Non-autopilot projects are unchanged:
 Patrick reviews those himself.
+
+## AD-51: The scan chain confirms its successor; TinyTeX heals itself (2026-11-09)
+
+Context: Patrick saw #job alerts thin out in late October and early November.
+The scan logs (every run since 2026-10-01) showed three operational faults,
+none in matching or scoring:
+
+- **The chain broke on single API errors.** "Chain the next scan" called
+  `gh workflow run` once. HTTP 502 (2026-11-04) and HTTP 500 (2026-11-05)
+  responses, plus two runs that GitHub failed before any job started
+  (2026-10-14, 2026-11-09), stopped scanning until GitHub's cron happened to
+  fire: about 17 hours with no scans between 2026-10-14 and 2026-11-06,
+  mostly US daytime (7.3 h on Nov 4, 2.9 h on Nov 5), and again from
+  2026-11-09 18:07 UTC.
+- **Every resume check since 2026-10-13 failed.** The cached TinyTeX had an
+  outdated `tlmgr`, so `tlmgr install` stopped with "tlmgr itself needs to
+  be updated". The cache key only hashed the install script, so the stale
+  copy came back every run. A pending check stays pending for 6 hours, so
+  each alert turned the next ~36 runs red: 40-90% of runs failed on
+  weekdays, which hid the real chain failures.
+- **One DB cache lookup came back empty (2026-10-23 07:18 UTC).** The run
+  auto-baselined from an empty database (safe by design), then pruning
+  deleted the older snapshots.
+
+Decision:
+- Chaining moves to its own `chain` job (`scripts/chain_scan.sh`) after the
+  scan job. Concurrency is now set on the scan job, not the whole workflow, so
+  the next run's scan can start while the chain job is still watching. The
+  script paces runs as before (CHAIN_MIN_INTERVAL_SECONDS), retries the
+  dispatch on errors (10/30/60/120/240 s), then watches the new run. If that
+  run ends before any job starts, it dispatches again, up to 3 times. A
+  superseded (cancelled) scan job never chains, so cron restarts cannot fork
+  the chain.
+- `install_tinytex.sh` updates `tlmgr` in place when an install fails, and
+  reinstalls TinyTeX from scratch if that is not enough. The TinyTeX cache key
+  gains the month (scan and agents workflows), so the cached copy is never
+  more than a month old.
+- The DB-cache prune is skipped when the restore found nothing, which keeps
+  older snapshots for a manual restore.
+
+Trade-offs: one extra short job per scan run (free on a public repo). A run
+that GitHub fails at startup can still only be revived by its predecessor's
+chain job or by cron; with the watch window (~6 min per dispatch) that covers
+the failures seen so far.
