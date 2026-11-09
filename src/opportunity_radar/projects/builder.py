@@ -10,8 +10,10 @@ reads the project's GitHub repo through `gh` and returns one stage:
              a registry 500 clear without a code change)
     address  an open agent PR has feedback newer than the agent's last
              commit/reply, or its CI failed again after the re-run (at most
-             CI_FIX_ATTEMPTS sessions per PR, counting ones that crashed):
-             Opus addresses it on that branch
+             CI_FIX_ATTEMPTS sessions per PR, counting ones that crashed),
+             or, on autopilot, the independent review asked for changes (at
+             most REVIEW_FIX_ATTEMPTS sessions per PR): Opus addresses it on
+             that branch
     merge    autopilot only: the open PR passed review + CI and has sat
              AUTOPILOT_QUIET (5h) without feedback: merge it
     wait     an open agent PR awaits Patrick: do nothing (no compute spent)
@@ -54,6 +56,10 @@ REVIEW_PASS = "<!-- review: pass -->"
 _PASS_MARKS = (REVIEW_PASS, "<!-- fable-review: pass -->")
 CI_FIX_MARK = "<!-- ci-fix -->"  # on the reply after an automatic CI fix
 CI_FIX_ATTEMPTS = 2
+# The review's "changes" verdict (2026-11-09: Tributary M3 and Switchboard M4
+# waited 1-3 weeks on it, unnoticed): on autopilot it is addressed like red CI.
+REVIEW_CHANGES = "<!-- review: changes -->"
+REVIEW_FIX_ATTEMPTS = 2
 # One Claude Max usage window: Patrick can still stop a merge by commenting.
 AUTOPILOT_QUIET = timedelta(hours=5)
 # How many times a project may extend its own plan after finishing it
@@ -300,6 +306,26 @@ def decide(project: Project, state: RepoState, now: datetime | None = None) -> S
                     reason=f"CI failing; fix attempt {n} of {CI_FIX_ATTEMPTS}",
                 )
             return Stage("wait", pr=pr, reason="CI still failing after automatic fixes; needs you")
+        if project.autopilot and REVIEW_CHANGES in pr.body:
+            attempts = project.review_fix_started.count(pr.number)
+            if attempts < REVIEW_FIX_ATTEMPTS:
+                note = [
+                    "The independent review found that this milestone does not meet its "
+                    "definition of done yet; its open items are in the PR description. "
+                    "Finish them on this branch, or, where one cannot be done here (a paid "
+                    "key, a credential), say so plainly and record it under To measure."
+                ]
+                n = attempts + 1
+                return Stage(
+                    "address",
+                    pr=replace(pr, feedback=note),
+                    reason=f"review asked for changes; fix attempt {n} of {REVIEW_FIX_ATTEMPTS}",
+                )
+            return Stage(
+                "wait",
+                pr=pr,
+                reason="review still asks for changes after automatic fixes; needs you",
+            )
         quiet_since = pr.last_activity or pr.created
         if (
             project.autopilot

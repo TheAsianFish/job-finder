@@ -1021,3 +1021,23 @@ Trade-offs: the guide costs one Opus session per moving project per week (at
 most two while only Replay and Anvil build), instead of per milestone, so it
 can lag a milestone by a few days; the milestone note covers that gap. A
 rewrite rather than an append keeps it coherent and bounded in length.
+
+## AD-40 amendment: a review's "changes" verdict is addressed automatically (2026-11-09)
+
+Context: the per-milestone review writes `pass` or `changes`. Only `pass` left
+a marker on the PR, so a `changes` verdict looked to the builder like a PR
+awaiting Patrick, and nothing told him it needed him. Tributary's M3 (a
+definition of done that named a paid Claude recording) waited three weeks and
+Switchboard's M4 (a build session that stopped after one item) two.
+
+Decision: the workflow marks the verdict on the PR (`<!-- review: changes -->`).
+On autopilot projects the builder treats it like red CI: an `address` stage
+whose feedback is "finish the open items in the PR description, or say
+plainly why one cannot be done here", at most `REVIEW_FIX_ATTEMPTS` (2)
+sessions per PR, counted when they start (`review_fix_started` in
+`projects.yaml`), each followed by a new review. After that the PR waits for
+Patrick with the reason "needs you". The Discord note says which path a PR is on.
+
+Trade-offs: up to two extra Opus sessions per stuck milestone, under the
+usage governor like any other stage. Non-autopilot projects are unchanged:
+Patrick reviews those himself.

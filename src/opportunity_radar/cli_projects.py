@@ -249,6 +249,9 @@ def projects_step(
         if not dry_run and stage.reason.startswith("CI failing") and stage.pr:
             project.ci_fix_started.append(stage.pr.number)
             changed = True
+        if not dry_run and stage.reason.startswith("review asked") and stage.pr:
+            project.review_fix_started.append(stage.pr.number)
+            changed = True
         if not dry_run and stage.kind == "evolve":
             # Counted when the round starts, like CI fixes: a round that
             # decides nothing is worth adding is not run again (AD-44).

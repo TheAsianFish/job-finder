@@ -358,6 +358,9 @@ jobs:
           # Autopilot reads a neutral hidden marker; the review itself stays private.
           if grep -qx pass .agent/verdict 2>/dev/null; then
             printf '\n<!-- review: pass -->\n' >> .agent/pr.md
+          elif grep -qx changes .agent/verdict 2>/dev/null; then
+            # On autopilot the builder addresses it next (REVIEW_FIX_ATTEMPTS).
+            printf '\n<!-- review: changes -->\n' >> .agent/pr.md
           fi
           if [ "$STAGE" = "address" ]; then
             number=$(jq -r .pr_number "$CTX")
@@ -441,6 +444,8 @@ jobs:
             if [ -n "$URL" ]; then
               if [ "$(jq -r .project.autopilot "$CTX")" = true ] && grep -q '<!-- review: pass -->' ../work/.agent/pr.md 2>/dev/null; then
                 echo "PR: ${URL}. Review passed: autopilot merges it after 5 quiet hours once checks are green (merge now to go faster, or comment to request changes)."
+              elif [ "$(jq -r .project.autopilot "$CTX")" = true ] && grep -q '<!-- review: changes -->' ../work/.agent/pr.md 2>/dev/null; then
+                echo "PR: ${URL}. The review asked for changes: the builder addresses them on its next runs (up to 2 sessions), then asks you."
               elif [ "$(jq -r .project.autopilot "$CTX")" = true ] && [ ! -s ../work/.agent/verdict ]; then
                 echo "PR: ${URL}. The review wrote no verdict (twice), so autopilot will not merge it: merge it yourself, or comment to have it addressed and reviewed again."
               else

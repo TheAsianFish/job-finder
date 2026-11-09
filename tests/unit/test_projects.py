@@ -14,6 +14,8 @@ from opportunity_radar.projects.builder import (
     AUTOPILOT_QUIET,
     CI_FIX_ATTEMPTS,
     CI_FIX_MARK,
+    REVIEW_CHANGES,
+    REVIEW_FIX_ATTEMPTS,
     REVIEW_PASS,
     GhError,
     PullRequest,
@@ -73,7 +75,12 @@ def test_projects_round_trip_and_pipeline_order(tmp_path):
         Project(slug="a", title="Alpha", status="proposed"),
         Project(slug="b", title="Beta", status="approved"),
         Project(
-            slug="c", title="Gamma", status="building", repo="TheAsianFish/c", ci_fix_started=[7]
+            slug="c",
+            title="Gamma",
+            status="building",
+            repo="TheAsianFish/c",
+            ci_fix_started=[7],
+            review_fix_started=[8],
         ),
     ]
     save_projects(projects, path)
@@ -81,6 +88,7 @@ def test_projects_round_trip_and_pipeline_order(tmp_path):
     assert path.read_text().count("ci_fix_started") == 1  # omitted when empty
     loaded = load_projects(path)
     assert [p.ci_fix_started for p in loaded] == [[], [], [7]]
+    assert [p.review_fix_started for p in loaded] == [[], [], [8]]
     assert [p.slug for p in loaded] == ["a", "b", "c"]
     assert [p.slug for p in active_projects(loaded)] == ["c", "b"]  # in-flight work first
     set_status(loaded, "c", "paused")
@@ -185,7 +193,7 @@ def test_autopilot_merges_only_reviewed_green_quiet_prs():
     assert decide(project, RepoState(True, PLAN, ready), NOW).kind == "merge"
     for pr in (
         _pr(checks_green=False, body=REVIEW_PASS),
-        _pr(checks_green=True, body="<!-- review: changes -->"),
+        _pr(checks_green=True, body="Summary, no verdict"),
         _pr(checks_green=True, body=REVIEW_PASS, last_activity=NOW - timedelta(hours=2)),
     ):
         assert decide(project, RepoState(True, PLAN, pr), NOW).kind == "wait"
@@ -204,6 +212,21 @@ def test_failed_ci_gets_bounded_automatic_fixes():
     assert stage.kind == "wait" and "needs you" in stage.reason
     pending = _pr(checks_green=False, body=REVIEW_PASS)  # still running: just wait
     assert decide(project, RepoState(True, PLAN, pending), NOW).kind == "wait"
+
+
+def test_review_changes_get_bounded_automatic_fixes_on_autopilot():
+    # Tributary M3 and Switchboard M4 (2026-11-09) waited weeks on a
+    # "changes" verdict nobody saw.
+    project = Project(slug="e", title="E", status="building", autopilot=True)
+    pr = _pr(checks_green=True, body=f"Open items\n{REVIEW_CHANGES}")
+    stage = decide(project, RepoState(True, PLAN, pr), NOW)
+    assert stage.kind == "address" and stage.reason.startswith("review asked for changes")
+    assert "definition of done" in stage.pr.feedback[0]
+    project.review_fix_started = [pr.number] * REVIEW_FIX_ATTEMPTS
+    stage = decide(project, RepoState(True, PLAN, pr), NOW)
+    assert stage.kind == "wait" and "needs you" in stage.reason
+    project.autopilot, project.review_fix_started = False, []  # Patrick reviews it himself
+    assert decide(project, RepoState(True, PLAN, pr), NOW).kind == "wait"
 
 
 def test_failed_ci_is_rerun_once_before_a_fix_session():

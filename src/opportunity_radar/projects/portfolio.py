@@ -63,6 +63,9 @@ class Project:
     # One PR number per automatic CI-fix session started, so attempts that
     # crash before replying on the PR still count (builder.CI_FIX_ATTEMPTS).
     ci_fix_started: list[int] = field(default_factory=list)
+    # The same for sessions started on a review's "changes" verdict
+    # (builder.REVIEW_FIX_ATTEMPTS).
+    review_fix_started: list[int] = field(default_factory=list)
     # Directions from Patrick (or his working session) that every session
     # follows; the plan and evolve stages fold them into PLAN.md (AD-44).
     steer: list[str] = field(default_factory=list)
@@ -107,6 +110,7 @@ def load_projects(path: Path | None = None) -> list[Project]:
             data[key] = str(data.get(key) or "")
         data["autopilot"] = bool(data.get("autopilot"))
         data["ci_fix_started"] = [int(n) for n in data.get("ci_fix_started") or []]
+        data["review_fix_started"] = [int(n) for n in data.get("review_fix_started") or []]
         data["evolved_at"] = [int(n) for n in data.get("evolved_at") or []]
         data["evolve_rounds"] = int(data.get("evolve_rounds") or 0)
         out.append(Project(**data))
@@ -123,6 +127,7 @@ def save_projects(projects: list[Project], path: Path | None = None) -> None:
             "problem",
             "questions",
             "ci_fix_started",
+            "review_fix_started",
             "steer",
             "evolved_at",
             "evolve_rounds",

@@ -54,6 +54,12 @@ flowchart LR
   that crash (`ci_fix_started` in `projects.yaml`). After that the PR waits
   for Patrick. Before 2026-10-13 a red check left the
   PR waiting silently (Replay M5 sat 3 days on a CI cleanup timeout).
+- **Review asks for changes (AD-40 amendment).** On autopilot, a "changes"
+  verdict from the independent review is addressed like red CI: up to two
+  Opus sessions per PR (`review_fix_started`) finish the open items listed in
+  the PR description, each followed by a fresh review; then the PR waits for
+  Patrick. Before 2026-11-09 such a PR waited silently (Tributary M3 three
+  weeks, Switchboard M4 two).
 - **Saved work.** If a session fails (usage limit, timeout, a review that
   dies after a good build), its commits are pushed to the `dev/` branch
   without a PR, and the next run continues from them (AD-39).
