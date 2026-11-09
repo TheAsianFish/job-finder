@@ -59,6 +59,26 @@ once per entry, and only when nothing more specific fits.
   state-of-the-art, innovative, end-to-end solution, synergy, spearheaded.
 - Claims the code or the measurements don't support, or scope inflation.
 
+## Impressive, not jargon (Patrick, 2026-11-09)
+
+The bar is a senior engineer at a top firm (Google, Databricks, Jane Street)
+reading the line and wanting to ask about it. Test every bullet:
+- **So what?** Someone who never saw the project understands what problem
+  was solved and why it was hard, in plain words. If the reader needs the
+  README to parse it, rewrite it.
+- **Against what?** A result is strongest compared with something known: a
+  baseline, the naive approach, a production tool (DuckDB, the fixed-sample
+  test), or a correctness count ("0 lost updates where the naive version
+  lost N"). A number with no reference point is weaker than one with it.
+- **Every technical term earns its place:** it is the mechanism that makes
+  the bullet hard (a cost-based join optimizer, fencing tokens, queue-position
+  modeling), or the keyword the target role searches for. Anything else
+  (library names, internal module names, acronyms a recruiter can't parse,
+  config details) goes. Prefer the concept to the tool: "a vectorized
+  executor" over "arrow-rs RecordBatch pipelines".
+- **Depth over volume.** One bullet that shows judgment (the trade-off, the
+  diagnosis, the surprising measurement) beats two that list features.
+
 ## The entry as a whole
 
 Order the bullets as a story: the core system and its hardest problem first,

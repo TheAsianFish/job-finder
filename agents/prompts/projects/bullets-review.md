@@ -32,7 +32,12 @@ For each bullet, check in this order, and record the outcome:
 6. **ATS.** The posting keywords this bullet should carry for the role
    families it claims (`Fits:`) appear naturally, as the real names of
    things used, never stuffed.
-7. **Voice.** Does it follow "Patrick's resume voice" (in this prompt)?
+7. **Senior-engineer test.** Apply "Impressive, not jargon" from the voice
+   guide: a reader who never saw the project gets the problem and why it was
+   hard, the result has a reference point, and every technical term carries
+   the story or a target-role keyword. Cut clutter; a shorter, clearer bullet
+   that impresses beats a dense one.
+8. **Voice.** Does it follow "Patrick's resume voice" (in this prompt)?
    Weak or repeated lead verbs, more than two technologies, a jargon chain,
    a bare ratio like "7/32", or no result: rewrite it.
 
