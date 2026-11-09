@@ -8,7 +8,10 @@
 # an hourly cron fired about four times a day here. So each run dispatches
 # the next one when it finishes, paced so runs start CHAIN_MIN_INTERVAL_SECONDS
 # (default 600) apart, while the cron below only restarts the chain if it
-# ever breaks. Stop the chain with:  gh variable set CHAIN_SCANS --body false
+# ever breaks. The `chain` job (scripts/chain_scan.sh, AD-51) retries the
+# dispatch on API errors and dispatches again if the new run dies before any
+# job starts; a single 5xx used to stop scanning for hours.
+# Stop the chain with:  gh variable set CHAIN_SCANS --body false
 #
 # Each run decides its own scope (`scan --mode auto`): the full registry when
 # the last full scan is about an hour old, otherwise the hot set (core-tier
@@ -28,12 +31,6 @@ on:
     - cron: "*/10 * * * *"
   workflow_dispatch:
 
-# One run at a time against one SQLite state; a newer pending run replaces
-# an older pending one, which is exactly the right behaviour for a poller.
-concurrency:
-  group: opportunity-radar-scan
-  cancel-in-progress: false
-
 permissions:
   actions: write    # dispatch the next run in the chain; prune old DB caches
   contents: read
@@ -43,12 +40,25 @@ jobs:
     if: vars.ENABLE_CLOUD_SCAN == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    # One scan at a time against one SQLite state; a newer pending scan
+    # replaces an older pending one, which is exactly right for a poller.
+    # Job-level (not workflow-level) so the next run's scan can start while
+    # this run's chain job confirms it did (AD-51).
+    concurrency:
+      group: opportunity-radar-scan
+      cancel-in-progress: false
+    outputs:
+      started: ${{ steps.start.outputs.epoch }}
     env:
       HAS_CAREER_KEY: ${{ secrets.CAREER_DEPLOY_KEY != '' }}
       HAS_CLAUDE_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
     steps:
       - name: Record start time
-        run: echo "RUN_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+        id: start
+        run: |
+          echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+          echo "RUN_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+          echo "MONTH=$(date -u +%Y-%m)" >> "$GITHUB_ENV"
 
       - uses: actions/checkout@v7
 
@@ -71,6 +81,7 @@ jobs:
       # artifact uploaded by a *previous* run without an explicit run-id.
       # Cache restore-keys match across runs by prefix (newest first).
       - name: Restore previous database
+        id: restore
         uses: actions/cache/restore@v6
         with:
           path: data/opportunity_radar.db
@@ -96,12 +107,15 @@ jobs:
         if: env.HAS_CAREER_KEY == 'true'
         run: echo "pending=$(uv run opportunity-radar resume deliver --count 2>/dev/null | tail -1)" >> "$GITHUB_OUTPUT"
 
+      # Monthly key: a cached TinyTeX goes stale as CTAN moves on, and a stale
+      # tlmgr failed every resume check from 2026-10-13 to 2026-11-09 (AD-51).
+      # install_tinytex.sh also self-heals within a month.
       - name: Cache TinyTeX
         if: steps.resumes.outputs.pending != '' && steps.resumes.outputs.pending != '0'
         uses: actions/cache@v6
         with:
           path: ~/.TinyTeX
-          key: tinytex-${{ runner.os }}-${{ hashFiles('scripts/install_tinytex.sh') }}
+          key: tinytex-${{ runner.os }}-${{ hashFiles('scripts/install_tinytex.sh') }}-${{ env.MONTH }}
 
       - name: Install pdfLaTeX and Claude Code
         if: steps.resumes.outputs.pending != '' && steps.resumes.outputs.pending != '0'
@@ -142,8 +156,12 @@ jobs:
 
       # Only the newest state matters; keep three for safety, drop the rest
       # instead of letting ~100 MB snapshots fill the 10 GB cache quota.
+      # Never after a failed restore: on 2026-10-23 a cache lookup came back
+      # empty, the run re-baselined from scratch, and pruning then deleted the
+      # older good snapshots too. Skipping the prune keeps them for a manual
+      # restore (AD-51).
       - name: Prune old database caches
-        if: always()
+        if: always() && steps.restore.outputs.cache-matched-key != ''
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -151,17 +169,29 @@ jobs:
           gh cache list --key radar-db- --sort created_at --order desc --limit 100 \
             --json id --jq '.[3:][].id' | xargs -r -n1 gh cache delete || true
 
+  # Its own job, after the scan job has released the concurrency group, so it
+  # can watch the dispatched run actually start: dispatches are retried on
+  # API errors and repeated when a run dies before any job starts (AD-51).
+  # A scan job cancelled as a superseded pending run never chains (the run
+  # that replaced it does).
+  chain:
+    needs: scan
+    if: >-
+      always() && vars.CHAIN_SCANS == 'true'
+      && (needs.scan.result == 'success' || needs.scan.result == 'failure')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts
+
       - name: Chain the next scan
-        if: always() && vars.CHAIN_SCANS == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          REF: ${{ github.ref_name }}
+          RUN_STARTED: ${{ needs.scan.outputs.started }}
           MIN_GAP: ${{ vars.CHAIN_MIN_INTERVAL_SECONDS || '600' }}
-        run: |
-          elapsed=$(( $(date +%s) - RUN_STARTED ))
-          wait=$(( MIN_GAP - elapsed ))
-          if [ "$wait" -gt 0 ]; then
-            echo "Run took ${elapsed}s; next scan in ${wait}s."
-            sleep "$wait"
-          fi
-          gh workflow run "${{ github.workflow }}" --ref "${{ github.ref_name }}"
+        run: bash scripts/chain_scan.sh
