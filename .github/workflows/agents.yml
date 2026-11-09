@@ -77,11 +77,15 @@ jobs:
           fi
           uv run opportunity-radar insights skills
 
+      # Monthly key: a cached TinyTeX goes stale as CTAN moves on (AD-51).
+      - name: Month for the TinyTeX cache key
+        run: echo "MONTH=$(date -u +%Y-%m)" >> "$GITHUB_ENV"
+
       - name: Cache TinyTeX
         uses: actions/cache@v6
         with:
           path: ~/.TinyTeX
-          key: tinytex-${{ runner.os }}-${{ hashFiles('scripts/install_tinytex.sh') }}
+          key: tinytex-${{ runner.os }}-${{ hashFiles('scripts/install_tinytex.sh') }}-${{ env.MONTH }}
 
       - name: Install Claude Code and pdfLaTeX
         run: |
