@@ -710,7 +710,7 @@ jobs:
           prompt=agents/prompts/projects/scout.md
           tools="Read,Glob,Grep,Write,WebSearch,WebFetch,Bash(date *),Bash(uv run opportunity-radar hub *)"
           for model in fable opus; do
-            if timeout 45m claude -p "$(cat $prompt)" --model "$model" --max-turns 80 \
+            if timeout 45m claude -p < "$prompt" --model "$model" --max-turns 80 \
                  --allowedTools "$tools" > "$RUNNER_TEMP/scout.log" 2>&1; then
               echo "scout finished ($model)"; break
             fi

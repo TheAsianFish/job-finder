@@ -118,7 +118,7 @@ jobs:
           else
             cp "agents/prompts/${TASK}.md" /tmp/prompt.md
           fi
-          claude -p "$(cat /tmp/prompt.md)" \
+          claude -p < /tmp/prompt.md \
             --model opus \
             --max-turns 60 \
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(uv run opportunity-radar *),Bash(sqlite3 *),Bash(git log *),Bash(git diff *),Bash(git show *),Bash(git -C resume/private log *),Bash(date *)" \

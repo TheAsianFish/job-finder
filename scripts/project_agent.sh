@@ -24,12 +24,16 @@ fi
 no_api=(-u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_BASE_URL
         -u CLAUDE_CODE_USE_BEDROCK -u CLAUDE_CODE_USE_VERTEX -u CLAUDE_CODE_USE_FOUNDRY)
 
+# The prompt goes in on stdin: as one argument it hits Linux's 128 KiB
+# per-argument limit (MAX_ARG_STRLEN) and exec fails with exit 126 before
+# Claude starts. Since 2026-11-10 the shared hub context alone is ~100 KB,
+# and every bullets session failed that way.
 run() {
-  timeout "${minutes}m" env -u HEARTBEAT_WEBHOOK "${no_api[@]}" claude -p "$(cat "$prompt")" \
+  timeout "${minutes}m" env -u HEARTBEAT_WEBHOOK "${no_api[@]}" claude -p \
     --model "$1" \
     --permission-mode bypassPermissions \
     --max-turns "$turns" \
-    --output-format stream-json --verbose > "$log" 2> "${log}.err"
+    --output-format stream-json --verbose < "$prompt" > "$log" 2> "${log}.err"
 }
 
 # Warn #projects if the session goes quiet for 40 minutes (AD-36).
