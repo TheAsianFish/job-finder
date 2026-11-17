@@ -19,6 +19,8 @@ flowchart LR
   W -->|comments| A[Address · Opus, then review]
   A --> W
   W -->|merge| B
+  B -->|every 3 milestones, opt-in| O[Oversee · Fable · frontier check, ≤3 directions → steer]
+  O --> B
   B -->|all milestones merged| E[Evolve · Fable · run it, add ≤3 measured milestones or none]
   E -->|reviewed plan PR| W
   E -->|nothing clears the bar, or 2 rounds done| F[Finish · release readiness + resume entry]
@@ -102,7 +104,7 @@ numbers, the resume bullets and a spoken-answer drill.
 
 | Stage | Model | Why |
 |---|---|---|
-| Scout, plan, evolve, finish | Fable 5.1 (`--model fable`, falls back to Opus) | Rare, decisive thinking: research, architecture, what to build next, the release write-up |
+| Scout, plan, evolve, finish, oversee | Fable 5.1 (`--model fable`, falls back to Opus) | Rare, decisive thinking: research, architecture, what to build next, the release write-up |
 | Build, address comments, review, bullets, study | Opus 5.5 (`--model opus`) | Long agentic coding sessions and the per-milestone review, resume bullets and study pack (moved off Fable 2026-10-20, AD-49) |
 | Subagents (any stage) | Chosen per task | `opus` for hard reasoning, adversarial verification and big implementation, `fable` only in plan, evolve and scout, `sonnet` for routine well-specified work, `haiku` for search and CI/log triage; as many or as few as the work needs (`standards.md`) |
 | Replay/Kiln's own model calls | Cheapest that answers | No API key in sessions (AD-39), so live evals are harness-only for now; the model per call is recorded in RESULTS.md |
@@ -185,6 +187,32 @@ capacity, spend per project, and how many more runs fit this week.
   adds a direction every later session on that project must follow
   (`--clear` drops them; no text lists them). Use it to redirect a project
   between PRs.
+
+## The frontier and the overseer (AD-52)
+
+- **Frontier.** A project's `frontier` in projects.yaml lists the strongest
+  outside results on its problem (leaderboards, papers, well-known repos,
+  competition standings), each with number, protocol, source and date. It is
+  the reference point for every headline result: plans carry a Frontier
+  table and at least one question aimed at an outside result; reviews reject
+  "beats X" claims without a same-protocol number; the scout must name a
+  frontier and say how a proposal out-ambitions the strongest project.
+- **Overseer** (`oversee: true`). After M2, every 3 merged milestones, and
+  before each evolve round, an independent Fable session researches the
+  frontier from primary sources only, re-checks the project's headline
+  number, and returns a verdict (ahead / at / behind / unclear) plus at most
+  3 directions with reasons. It changes nothing in the repo; `projects
+  oversee` refreshes `frontier`, appends the directions to `steer`
+  ("Overseer <date>: ... (why: ...)", newest 6 kept; yours never drop),
+  saves the report to `career-private/reports/frontier/`, and posts the
+  verdict to #projects. Remove a direction you disagree with by editing
+  `steer` in projects.yaml.
+- **Plans are reviewed.** An Opus review follows every plan; on autopilot a
+  passing plan merges after 5 quiet hours like a milestone.
+- **Project credentials.** `secrets: [NAME, ...]` lets that project's
+  sessions see those builder secrets (Augur: METACULUS_TOKEN,
+  ASKNEWS_CLIENT_ID, ASKNEWS_CLIENT_SECRET, set as job-finder Actions
+  secrets). Every other project sees none; Anthropic keys never.
 
 ## Resume bullets during the build (AD-41)
 

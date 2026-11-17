@@ -1085,3 +1085,67 @@ Trade-offs: one extra short job per scan run (free on a public repo). A run
 that GitHub fails at startup can still only be revived by its predecessor's
 chain job or by cron; with the watch window (~6 min per dispatch) that covers
 the failures seen so far.
+
+## AD-52: An overseer grades projects against the outside world; plans get a review gate; prompts go on stdin (2026-11-17)
+
+Context: Patrick approved two flagship projects (Augur, a forecasting agent
+fleet entered in Metaculus's prize tournament; Hindsight, a look-ahead-free
+re-test of published LLM trading agents) and asked for projects that are
+"always better than the last", worried that agents grading their own work
+are "limited by in-circle information". The evidence agreed: every project
+so far compared itself with its own baselines and earlier numbers, and the
+2026-11-15 portfolio review found Switchboard and Tributary reporting several
+negative or inconclusive headlines that no outside reference had prompted.
+Two operational faults surfaced in the same review:
+
+- **Every bullets session since 2026-11-10 exited 126.** Prompts were passed
+  to `claude -p` as one argument; the shared hub context reached ~100 KB, so
+  the bullets prompt passed Linux's 128 KiB `MAX_ARG_STRLEN` and exec failed
+  before Claude started. Finish runs therefore never wrote a resume entry,
+  projects stayed `finishing`, and finish re-ran (Tributary got a second
+  "Release readiness" PR, #18). Build prompts (~112 KB) were next.
+- **Plan PRs had no review, so autopilot never merged them.** Lease's and
+  Tern's plans waited a week for Patrick while the builder idled.
+
+Decision:
+- Prompts go to `claude -p` on stdin (`project_agent.sh`, the scout, the
+  weekly agent); verified with a 155 KB prompt.
+- **Frontier.** A project carries `frontier` in projects.yaml: the strongest
+  outside results on its problem, each with number, protocol, source and
+  date. The standards make it the reference point for every headline result
+  ("beat the frontier, not yourself"): like-for-like comparisons, no "beats
+  X" without a same-protocol number. Plan (a Frontier table in Evaluation, at
+  least one question aimed at an outside result), plan review, milestone
+  review, evolve and bullets read it; the scout must name a frontier and say
+  on which axis a proposal is more ambitious than the strongest project in
+  the pool.
+- **Overseer (opt-in, `oversee: true`).** A new builder stage, `oversee`:
+  after M2, then every 3 merged milestones, and before each evolve round
+  (`OVERSEE_FIRST`, `OVERSEE_EVERY`; `overseen_at` records each, so none
+  repeats). An independent Fable session researches the frontier from
+  primary sources only (the hub, PLAN.md and RESULTS.md are what is checked,
+  not evidence), re-checks the project's headline number, and writes a
+  verdict (ahead / at / behind / unclear), the re-verified frontier and at
+  most 3 directions, each with its reason. It commits nothing and opens no
+  PR (scratch branch `dev/oversee`). `projects oversee` replaces the frontier,
+  appends the directions to `steer` as "Overseer <date>: ... (why: ...)",
+  keeps the newest 6 overseer directions (Patrick's own never drop), saves
+  the report to `career-private/reports/frontier/`, and posts the verdict to
+  #projects. Steer already binds every session (AD-44), so the next
+  milestones and evolve rounds follow it.
+- **Plan review gate.** The plan stage is followed by an Opus review
+  (`plan-review.md`) with the same pass/changes markers as milestones, so
+  autopilot projects merge reviewed plans after 5 quiet hours, and "changes"
+  verdicts get the bounded automatic fixes.
+- **Project credentials.** `secrets` in projects.yaml names builder secrets a
+  project's sessions may see (now METACULUS_TOKEN, ASKNEWS_CLIENT_ID,
+  ASKNEWS_CLIENT_SECRET, for Augur). The workflow unsets every listed
+  secret a project does not name; Anthropic keys are never passable
+  (project_agent.sh strips them, AD-39).
+
+Trade-offs: an oversight costs one Fable session (Fable has its own weekly
+cap) every ~3 milestones per opted-in project. The overseer's directions are
+automatic changes, so each carries its evidence and lands in projects.yaml,
+the journal and #projects, never silently. Exposing a Metaculus token to an
+agent session is a small, opted-in risk (a bot account with sponsored
+credits, no payment method); sessions still never print or commit secrets.

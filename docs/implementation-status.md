@@ -239,6 +239,20 @@ alerts per weekday all through October. The losses were operational:
 - **DB cache miss on 2026-10-23**: an auto-baseline; pruning is now skipped
   after a failed restore.
 
+## Frontier overseer and flagship projects (2026-11-17, AD-52)
+
+- **Bullets sessions failed with exit 126 since 2026-11-10**: prompts over
+  128 KiB as one argument. Prompts now go on stdin; finish runs can mark a
+  project done again.
+- **Overseer**: opt-in `oversee` stage researches the outside state of the
+  art, re-checks the project's headline number, and steers (frontier plus at
+  most 3 reasoned directions, `projects oversee`). Plans get a review gate,
+  so autopilot merges reviewed plans. `secrets` lets a project's sessions use
+  named credentials (Metaculus/AskNews for Augur).
+- **Augur** (forecasting agent fleet, Metaculus FutureEval) and **Hindsight**
+  (LLM trading agents re-tested without look-ahead) approved with 4 evolve
+  rounds, oversight on, and an initial frontier.
+
 ## Known gaps / deferred (with reasons)
 
 - **iCIMS / SuccessFactors / Taleo**: placeholder adapters by spec §8.8 (no

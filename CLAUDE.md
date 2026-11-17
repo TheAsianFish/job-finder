@@ -118,10 +118,17 @@ roles are excluded. Skill demand: `uv run opportunity-radar insights skills`
   session to that key (AD-39; `project_agent.sh` enforces Max-only). There
   are no API credits, so live evals stay harness-only ("To measure" in
   RESULTS.md). Failed sessions save their commits on the `dev/` branch and
-  the next run continues. Status 2026-10-15: Replay M1-M5 merged, M6 (PR #7)
-  green (its review wrote no verdict, so Patrick merges it by hand), M7 left;
-  Kiln paused 2026-10-13. Patrick wants a diverse pool of projects built in
-  parallel next (approve them in `projects.yaml`).
+  the next run continues. Prompts go to `claude -p` on stdin (over 128 KiB
+  as an argument they failed with exit 126, AD-52). Projects are graded
+  against the outside world: `frontier` in projects.yaml, and an opt-in
+  overseer stage (`oversee: true`) that re-researches the state of the art
+  every 3 milestones and before evolve rounds and steers with reasons;
+  plans get a review gate so autopilot merges them; `secrets` passes named
+  credentials to one project's sessions (AD-52). Status 2026-11-17: Replay,
+  Anvil done; Switchboard, Tributary finishing (release steps are
+  Patrick's); Tape, Lease, Tern building; Augur (Metaculus forecasting
+  fleet) and Hindsight (look-ahead-free LLM trading audit) approved as
+  flagships with 4 evolve rounds and oversight on.
 - Private career repo `TheAsianFish/career-private` is cloned at
   `resume/private/` (git-ignored; `CAREER_DEPLOY_KEY` deploy key for CI).
   Resume engine: `src/opportunity_radar/resume/` (AD-28, AD-29: assessment-gated
