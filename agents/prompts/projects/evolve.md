@@ -15,6 +15,9 @@ good outcome when nothing clears the bar.
 - Read PLAN.md (the Goal, the questions it set out to answer, the risks),
   RESULTS.md (what was measured; what is still "To measure"), README's
   roadmap, `git log --oneline`, and TODO/FIXME notes in the code.
+- Read `project.frontier` (the strongest outside results, kept current by the
+  overseer, AD-52): the measurement candidate should close the gap to, or
+  surpass, the best of them under the same protocol.
 - Read `project.problem`, `project.questions` and `project.steer` in the
   Context. **`steer` is direction from Patrick: honour every item.** If a
   steer item is not done yet, it is your first candidate.

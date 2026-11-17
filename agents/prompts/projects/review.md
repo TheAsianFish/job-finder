@@ -14,6 +14,10 @@ really met.
   (correctness, security, tests/evals, design), `opus` for the subtle ones and
   `haiku`/`sonnet` for mechanical checks. Then have an `opus` subagent try to
   refute each finding before you act on it; drop findings that don't survive.
+- Check every comparison with outside work (`project.frontier`, AD-52): a
+  claim of beating or matching a named result needs a same-protocol number
+  in RESULTS.md and the source of the other number; reword any claim that
+  overstates it.
 - Check `.agent/learn.md`: would it genuinely prepare Patrick for interview
   questions on this milestone? Fix it if it is thin, inaccurate or a list of
   fragments, then add `## What the review caught`: one short paragraph per

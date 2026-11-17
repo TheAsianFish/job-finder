@@ -15,6 +15,7 @@ case "$stage" in
   merged)  what="autopilot merged the reviewed PR" ;;
   evolve)  what="plan done; checking whether the results justify more milestones" ;;
   finish)  what="all milestones merged; preparing the release and resume entry" ;;
+  oversee) what="checking the results against the outside state of the art" ;;
   *)       exit 0 ;;  # wait, idle, rerun (posted separately): nothing to announce
 esac
 [ -n "$title" ] || exit 0

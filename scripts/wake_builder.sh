@@ -49,7 +49,7 @@ if ! uv run opportunity-radar projects step --dry-run --no-push --out "$ctx" >/d
 fi
 stage=$(jq -r .stage "$ctx")
 case "$stage" in
-  create|plan|build|address|evolve|merge|finish|rerun) ;;
+  create|plan|build|address|evolve|merge|finish|rerun|oversee) ;;
   *) echo "builder: nothing to do (${stage})"; exit 0 ;;
 esac
 

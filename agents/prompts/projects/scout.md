@@ -44,7 +44,17 @@ Each must be buildable by an agent team in 5-8 milestone PRs, on a laptop
 and in CI with free, open-source tools only (nothing paid: no paid APIs,
 cloud or SaaS; no GPU; no credentials), with a measured result
 by the second milestone. Differentiate from what exists; no clones of
-tutorials. Agentic AI is welcome where the problem calls for it (he likes
+tutorials.
+
+**Each new project must be better than the last (AD-52).** Name its
+frontier: the strongest outside result on the problem (leaderboard, paper,
+well-known repository or competition standing, with the number, source and
+date), and a question that aims to match or beat it under the same protocol.
+Reimplementing a celebrated system from its paper and then beating it on its
+own benchmark is a good shape. Each proposal must also be more ambitious than
+the strongest project already in the pool on at least one axis it names
+(harder problem, stronger outside reference, real external result such as a
+competition rank), and say which. Agentic AI is welcome where the problem calls for it (he likes
 it); never bolt an agent onto a problem that does not need one.
 
 The projects form a **pool** (AD-41): the tailor swaps projects and their
@@ -63,7 +73,8 @@ under 800 words) and `/tmp/scout.json`:
   "pitch": "2 sentences: what it does about the problem",
   "why": "where real teams hit this (sources) + demand evidence + gap closed",
   "skills": ["..."], "stack": ["each one needed by the problem"],
-  "release": "how anyone runs it (package, CLI, Docker/Helm, Action)"}]}
+  "release": "how anyone runs it (package, CLI, Docker/Helm, Action)",
+  "frontier": ["who/what: number on benchmark (source URL, date)", "..."]}]}
 Do not edit projects.yaml yourself and do not create repositories. Finally
 record what you proposed and why:
 `uv run opportunity-radar hub log "scout" "<2-4 lines>"`.

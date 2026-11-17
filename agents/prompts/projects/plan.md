@@ -17,7 +17,11 @@ plan; do not implement features yet.
      there because the problem needs it, and the decision table says which
      part of the problem), `## Evaluation`
      (datasets, metrics, baselines, how each resume-worthy number will be
-     measured), `## Release` (how real users get it and what the maintainer
+     measured, and a **Frontier** table: the strongest outside results on
+     this problem, from `project.frontier` re-verified at their sources plus
+     newer ones your research finds, each with number, protocol, source and
+     date, and how this project will be compared with them like for like; at
+     least one question aims to match or beat one of them, AD-52), `## Release` (how real users get it and what the maintainer
      must provide), `## Risks`, and
      `## Milestones`: 5-8 checkbox items
      (`- [ ] M1: title — definition of done`). Each milestone is one PR of
@@ -26,7 +30,8 @@ plan; do not implement features yet.
      slice that already touches the core problem; the core works by M3, and
      later milestones climb the question ladder (each one an experiment with
      a hypothesis and a measured result); the last milestone is release
-     readiness + RESULTS.md. Fold every item of `project.steer` into the plan.
+     readiness + RESULTS.md. Fold every item of `project.steer` into the plan;
+     when a steer item sets the milestone count, it overrides 5-8.
    - `CONTRIBUTING.md`: setup, commands, conventions, quality gates (the
      contributor guide; also what future sessions read first).
    - `README.md` skeleton (title, one-paragraph pitch, "status: in progress").

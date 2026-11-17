@@ -38,7 +38,8 @@ ONE project entry in Jake's resume template, exactly this shape:
 - **STAR in one sentence:** what you built (strong, plain verb), the hard
   engineering decision or problem, and the result, measured when
   RESULTS.md has the number. Shape: "Built X that does Y by Z, cutting/raising
-  M from A to B". The result is concrete: a number, a capability, a user
+  M from A to B". The strongest reference point is an outside one from
+  `project.frontier` (AD-52) when RESULTS.md compares with it like for like. The result is concrete: a number, a capability, a user
   outcome. It is never "improving efficiency" or "enhancing reliability".
 - **Every number appears in RESULTS.md from a real run.** Unmeasured: state
   the outcome without a number. Harness-only evals ("To measure") are

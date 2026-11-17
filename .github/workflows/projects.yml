@@ -154,7 +154,7 @@ jobs:
 
   build:
     needs: control
-    if: contains(fromJSON('["plan","build","address","evolve","finish"]'), needs.control.outputs.stage)
+    if: contains(fromJSON('["plan","build","address","evolve","finish","oversee"]'), needs.control.outputs.stage)
     runs-on: ubuntu-latest
     timeout-minutes: 355
     outputs:
@@ -221,6 +221,9 @@ jobs:
             plan)    start dev/plan ;;
             evolve)  start dev/evolve ;;
             finish)  start dev/release ;;
+            # Oversight changes nothing in the repo (AD-52); a scratch branch
+            # keeps anything it writes by mistake away from main.
+            oversee) start dev/oversee ;;
             build)   start "dev/m$(( $(jq -r .milestones_done "$CTX") + 1 ))" ;;
           esac
           if [ -f CONTRIBUTING.md ] && ! git ls-files --error-unmatch CLAUDE.md >/dev/null 2>&1; then
@@ -246,7 +249,7 @@ jobs:
         run: |
           p=radar/agents/prompts/projects
           ctx=$(jq '{project, milestone, milestones_done, milestones_total, feedback, pr_url, candidate}' "$CTX")
-          for s in plan build review address evolve evolve-review finish bullets bullets-review; do
+          for s in plan plan-review build review address evolve evolve-review finish bullets bullets-review oversee; do
             { cat "$p/standards.md"; echo; cat "$p/$s.md"; echo; echo "## Context"; echo '```json'; echo "$ctx"; echo '```'
               # Only the bullets sessions see the previous entry and Patrick's comments (AD-45).
               case "$s" in bullets*) echo; cat radar/agents/prompts/resume-style.md
@@ -280,7 +283,21 @@ jobs:
           # (2026-10-10, AD-39). Evals that need a model run as harness-only.
           # Progress pings only; unset for the agent sessions themselves.
           HEARTBEAT_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_PROJECTS || secrets.DISCORD_WEBHOOK_URL }}
+          # Project credentials (AD-52): set here, then unset below unless the
+          # project names them in `secrets` (projects.yaml). Never Anthropic
+          # keys; project_agent.sh strips those regardless.
+          METACULUS_TOKEN: ${{ secrets.METACULUS_TOKEN }}
+          ASKNEWS_CLIENT_ID: ${{ secrets.ASKNEWS_CLIENT_ID }}
+          ASKNEWS_CLIENT_SECRET: ${{ secrets.ASKNEWS_CLIENT_SECRET }}
         run: |
+          allowed=$(jq -r '.project.secrets // [] | .[]' "$CTX")
+          for name in METACULUS_TOKEN ASKNEWS_CLIENT_ID ASKNEWS_CLIENT_SECRET; do
+            if grep -qx "$name" <<< "$allowed" && [ -n "${!name:-}" ]; then
+              echo "project credential available: $name"
+            else
+              unset "$name"
+            fi
+          done
           TITLE=$(jq -r .project.title "$CTX"); export TITLE
           agent=../radar/scripts/project_agent.sh
           # A review that ends without a verdict (Replay M6, 2026-10-14) left
@@ -312,7 +329,10 @@ jobs:
             fi
           }
           case "$STAGE" in
-            plan)    bash $agent fable "$RUNNER_TEMP/prompt-plan.md" 60 150 plan ;;
+            # A reviewed plan can merge on autopilot like a milestone (AD-52):
+            # Lease's and Tern's unreviewed plans waited a week for a merge.
+            plan)    bash $agent fable "$RUNNER_TEMP/prompt-plan.md" 60 150 plan
+                     review 45 120 "$RUNNER_TEMP/prompt-plan-review.md" ;;
             build)   bash $agent opus  "$RUNNER_TEMP/prompt-build.md" 230 500 build
                      review 70 200 ;;
             address) bash $agent opus  "$RUNNER_TEMP/prompt-address.md" 150 300 address
@@ -327,6 +347,8 @@ jobs:
                      fi ;;
             finish)  bash $agent fable "$RUNNER_TEMP/prompt-finish.md" 120 250 finish
                      bullets ;;
+            # AD-52: an independent check against the outside state of the art.
+            oversee) bash $agent fable "$RUNNER_TEMP/prompt-oversee.md" 90 200 oversee ;;
           esac
           case "$STAGE" in
             build|address) if grep -qx pass .agent/verdict 2>/dev/null; then bullets; fi ;;
@@ -348,6 +370,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
         run: |
+          if [ "$STAGE" = oversee ]; then
+            echo "Oversight opens no PR (AD-52)."; echo "url=" >> "$GITHUB_OUTPUT"; exit 0
+          fi
           repo=$(jq -r .repo "$CTX")
           ahead=$(git rev-list --count origin/main..HEAD 2>/dev/null || echo 1)
           if [ "$ahead" = "0" ] && [ "$STAGE" != "address" ]; then
@@ -385,7 +410,7 @@ jobs:
         # build) must not throw away commits: push the branch without a PR so
         # the next run continues from it. The 2026-10-10 M5 build lost ~20
         # minutes of work this way.
-        if: failure() && env.BRANCH != '' && env.STAGE != 'address'
+        if: failure() && env.BRANCH != '' && env.STAGE != 'address' && env.STAGE != 'oversee'
         working-directory: work
         env:
           GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
@@ -423,6 +448,10 @@ jobs:
           # out of the study notes (2026-10-22: about 40% of each note was
           # review logistics).
           head -c 40000 .agent/learn.md > "$out/learn.md" 2>/dev/null || true
+          if [ "$OUTCOME" = success ] && [ -s .agent/oversight.json ]; then
+            head -c 20000 .agent/oversight.json > "$out/oversight.json"
+            head -c 60000 .agent/oversight.md > "$out/oversight.md" 2>/dev/null || true
+          fi
           echo "payload=$(bash ../radar/scripts/seal.sh seal "$out")" >> "$GITHUB_OUTPUT"
           # Cost and meter per session (AD-42); numbers only, no content.
           echo "usage=$(jq -cs . "$RUNNER_TEMP"/usage/*.json 2>/dev/null || echo '[]')" >> "$GITHUB_OUTPUT"
@@ -453,6 +482,7 @@ jobs:
               fi
             fi
             [ "$STAGE" = build ] && echo "Milestone: $(jq -r .milestone "$CTX")"
+            [ "$STAGE" = oversee ] && [ "$OUTCOME" = success ] && echo "The frontier check and any new directions follow in a separate message."
             if [ "$STAGE" = evolve ] && [ -z "$URL" ] && [ "$OUTCOME" = success ]; then
               echo "The plan is done and nothing new cleared the bar, so the project finishes next (reasons in #study)."
             fi
@@ -538,6 +568,7 @@ jobs:
           PAYLOAD: ${{ needs.build.outputs.payload }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           DISCORD_WEBHOOK_STUDY: ${{ secrets.DISCORD_WEBHOOK_STUDY }}
+          DISCORD_WEBHOOK_PROJECTS: ${{ secrets.DISCORD_WEBHOOK_PROJECTS }}
           PR_URL: ${{ needs.build.outputs.pr_url }}
           RESULT: ${{ needs.build.result }}
           USAGE: ${{ needs.build.outputs.usage }}
@@ -571,6 +602,11 @@ jobs:
             echo "Study notes: career-private/${note}" >> "$RUNNER_TEMP/journal.md"
           fi
           uv run opportunity-radar hub log "builder/${slug}" --file "$RUNNER_TEMP/journal.md" --push
+          # AD-52: the overseer's frontier and directions go into projects.yaml.
+          if [ "$stage" = oversee ] && [ -s "$d/oversight.json" ]; then
+            uv run opportunity-radar projects oversee "$slug" --data "$d/oversight.json" \
+              --report "$d/oversight.md" --push
+          fi
           if [ -n "$note" ]; then
             printf '**%s** (%s): new notes on what to know, why it was built this way, and likely interview questions.\nhttps://github.com/TheAsianFish/career-private/blob/main/%s\n' \
               "$(jq -r .project.title "$ctx")" "$stage" "$note" > "$RUNNER_TEMP/study-ping.md"

@@ -35,6 +35,17 @@ The bar (non-negotiable):
   No key is available at the moment: that is expected, not a failure. Keep
   live tests skipped without a key, replay committed real recordings where
   they exist, and never fake a live result.
+- **Beat the frontier, not yourself (AD-52).** The reference point for every
+  headline result is the strongest outside result on the same problem: a
+  leaderboard, a paper, a well-known repository, a competition standing
+  (`project.frontier`, with sources and dates). A project's own earlier
+  numbers and a baseline it built are useful, but never the only comparison.
+  Compare like for like (same benchmark or dataset, metric, protocol, and a
+  stated compute or cost budget), reproduce the outside number under your
+  protocol where you can, and say plainly where the comparison is unfair.
+  Never claim "state of the art" or "beats X" without a same-protocol number
+  in RESULTS.md, with the source of X. An independent overseer checks this
+  every few milestones and its directions arrive in `project.steer`.
 - **Production engineering.** Typed code (mypy/pyright strict or TypeScript
   strict), formatted and linted, unit + integration tests (offline, fast,
   deterministic; network mocked), CI on GitHub Actions, Dockerfile where it
@@ -106,8 +117,10 @@ Process rules:
   manually triggered workflow (`workflow_dispatch`) or a `make` target run
   locally, never on every push. Cache dependencies.
 - Never sign up for services, buy anything, publish packages, or deploy.
-  The only credential you may use is `ANTHROPIC_API_KEY` (a capped key for
-  evals/integration tests); never print it, write it to files, or commit it.
+  The only credentials you may use are `ANTHROPIC_API_KEY` (a capped key for
+  evals/integration tests) and the ones `project.secrets` names (present in
+  your environment only for that project, for the purpose its plan states);
+  never print them, write them to files or logs, or commit them.
   Hosted services (Supabase, Vercel, Fly.io, ...) are chosen in PLAN.md's
   Release section with the exact secrets the maintainer must add. Prepare releases (build config, workflow with `if:` guards,
   RELEASE.md with exact steps and the secrets the maintainer must add).
