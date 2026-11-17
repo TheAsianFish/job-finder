@@ -46,17 +46,31 @@ permissions:
 
 jobs:
   keycheck:
-    # Verifies PROJECTS_ANTHROPIC_API_KEY with one 1-token Haiku call. Prints
-    # HTTP status and error type only; never the key or the response text.
+    # Verifies the project credentials that are set: PROJECTS_ANTHROPIC_API_KEY
+    # with one 1-token Haiku call, METACULUS_TOKEN with one authenticated API
+    # read (AD-52). Prints HTTP status and error type only; never a key or a
+    # response body.
     if: vars.ENABLE_PROJECT_BUILDER == 'true' && github.event_name == 'workflow_dispatch' && inputs.action == 'keycheck'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Check the Metaculus token
+        env:
+          METACULUS_TOKEN: ${{ secrets.METACULUS_TOKEN }}
+        run: |
+          if [ -z "$METACULUS_TOKEN" ]; then echo "METACULUS_TOKEN is not set (skipped)"; exit 0; fi
+          # Unauthenticated or bad tokens get 403 on every API read.
+          code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Token $METACULUS_TOKEN" \
+            "https://www.metaculus.com/api/posts/?limit=1")
+          echo "Metaculus API: HTTP $code"
+          [ "$code" = "200" ] || { echo "METACULUS_TOKEN was rejected"; exit 1; }
+          echo "Metaculus token works."
+
       - name: Check the projects API key
         env:
           ANTHROPIC_API_KEY: ${{ secrets.PROJECTS_ANTHROPIC_API_KEY }}
         run: |
-          if [ -z "$ANTHROPIC_API_KEY" ]; then echo "PROJECTS_ANTHROPIC_API_KEY is not set"; exit 1; fi
+          if [ -z "$ANTHROPIC_API_KEY" ]; then echo "PROJECTS_ANTHROPIC_API_KEY is not set (skipped)"; exit 0; fi
           code=$(curl -s -o /tmp/r.json -w '%{http_code}' https://api.anthropic.com/v1/messages \
             -H "x-api-key: $ANTHROPIC_API_KEY" -H "anthropic-version: 2023-06-01" \
             -H "content-type: application/json" \
