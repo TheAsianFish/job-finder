@@ -39,9 +39,10 @@ maintainers' benchmark posts.
 ## 2. Find where the project really stands
 
 - Read RESULTS.md, README and PLAN.md (Goal, Questions, Evaluation).
-- Re-run the headline eval or benchmark when it is cheap here (minutes, not
-  hours; free); otherwise check that the committed raw outputs produce the
-  reported number. A number you could not reproduce is not a standing.
+- Re-run the headline eval or benchmark only if it finishes within about 15
+  minutes here (your session has a hard limit); otherwise recompute the
+  reported number from the committed raw outputs. A number you could not
+  reproduce either way is not a standing.
 - Compare like for like. Name every difference that makes a comparison
   unfair (subset vs full benchmark, smaller model, different metric, cost,
   leakage risk). If no like-for-like comparison exists yet, the verdict is

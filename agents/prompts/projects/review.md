@@ -10,6 +10,16 @@ really met.
 - Run everything yourself: the full quality gate, the test suite, and any
   eval/benchmark the milestone touches (for real when `ANTHROPIC_API_KEY` is
   set). Compare the numbers to what `.agent/pr.md` and RESULTS.md claim.
+- **Your session has a hard time limit (about an hour), and a review cut off
+  by it writes no verdict, so the PR cannot merge.** Start nothing you do not
+  expect to finish in 15 minutes: no full-day or full-dataset runs, large
+  downloads or long benchmark ladders. Check a heavy measurement from its
+  committed raw outputs (recompute the reported numbers from them) plus a
+  reduced run that exercises the same code path (a sample, one rung, one
+  seed), and say in `.agent/review.md` which numbers you re-derived and how.
+  Write `.agent/verdict` as soon as you have decided, before any optional
+  extra checks. (Tape M3's review timed out twice on 2026-11-17 re-running
+  full-day benchmarks.)
 - For a large diff, fan out reviewer subagents in parallel, one per dimension
   (correctness, security, tests/evals, design), `opus` for the subtle ones and
   `haiku`/`sonnet` for mechanical checks. Then have an `opus` subagent try to
