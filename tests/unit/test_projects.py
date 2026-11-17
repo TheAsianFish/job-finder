@@ -782,3 +782,176 @@ def test_bullet_history_reaches_only_the_bullets_prompts(tmp_path, monkeypatch):
         [sys.executable, str(script), str(ctx)], capture_output=True, text=True, check=True
     ).stdout
     assert "first version" in first
+
+
+# ---------------------------------------------------------------- oversight (AD-52)
+
+LONG_PLAN = """# Plan
+
+## Milestones
+- [x] M1: Scaffold
+- [x] M2: First measured result
+- [ ] M3: Core
+- [ ] M4: Experiment
+- [ ] M5: Experiment
+- [ ] M6: Release
+"""
+
+
+def _merged(n: int) -> RepoState:
+    plan = LONG_PLAN.replace("[x]", "[ ]")
+    for i in range(1, n + 1):
+        plan = plan.replace(f"- [ ] M{i}:", f"- [x] M{i}:")
+    return RepoState(exists=True, plan=plan)
+
+
+def test_oversight_runs_after_m2_then_every_three_merges_and_only_when_opted_in():
+    from opportunity_radar.projects.builder import oversight_due
+
+    plain = Project(slug="p", title="P", status="building")
+    assert decide(plain, _merged(2), NOW).kind == "build"  # opt-in only
+
+    project = Project(slug="p", title="P", status="building", oversee=True)
+    assert decide(project, _merged(1), NOW).kind == "build"  # nothing measured yet
+    stage = decide(project, _merged(2), NOW)
+    assert stage.kind == "oversee" and "frontier" in stage.reason
+    project.overseen_at = [2]
+    assert decide(project, _merged(2), NOW).kind == "build"  # never twice at one count
+    assert not oversight_due(project, 4)
+    assert decide(project, _merged(5), NOW).kind == "oversee"
+    # An open PR always comes first: oversight never interrupts a review.
+    waiting = RepoState(exists=True, plan=_merged(5).plan, pr=_pr())
+    assert decide(project, waiting, NOW).kind == "wait"
+
+
+def test_oversight_runs_before_each_evolve_round_but_not_before_finish():
+    project = Project(slug="p", title="P", status="building", oversee=True, overseen_at=[2, 5])
+    stage = decide(project, _merged(6), NOW)
+    assert stage.kind == "oversee" and "plan finished" in stage.reason
+    project.overseen_at.append(6)
+    assert decide(project, _merged(6), NOW).kind == "evolve"
+    project.evolved_at = [6, 6]  # rounds used up: finish without another check
+    assert decide(project, _merged(6), NOW).kind == "finish"
+
+
+def test_oversight_is_validated_bounded_and_keeps_patricks_directions():
+    from opportunity_radar.projects.builder import apply_oversight, parse_oversight
+
+    parsed = parse_oversight(
+        {
+            "verdict": "Behind",
+            "headline": "Top bots score  0.12 higher.",
+            "frontier": ["GreeneiBot2 won Spring 2026 (source, 2026)", " "],
+            "steer": [
+                {"direction": "Add an ensemble of five forecasters", "why": "every top-10 bot did"},
+                {"direction": "No reason given"},
+                {"direction": "Cut retrieval to the open date", "reason": "leakage"},
+                {"direction": "Third", "why": "x"},
+                {"direction": "Fourth is dropped", "why": "cap"},
+            ],
+        }
+    )
+    assert parsed.verdict == "behind" and parsed.headline == "Top bots score 0.12 higher."
+    assert parsed.frontier == ["GreeneiBot2 won Spring 2026 (source, 2026)"]
+    assert [d for d, _ in parsed.steer] == [
+        "Add an ensemble of five forecasters",
+        "Cut retrieval to the open date",
+        "Third",
+    ]
+    assert parse_oversight({"verdict": "winning"}).verdict == "unclear"
+
+    project = Project(slug="p", title="P", steer=["Patrick: keep it laptop-sized"])
+    project.steer += [f"Overseer 2026-11-0{i}: old {i} (why: x)" for i in range(1, 6)]
+    added = apply_oversight(project, parsed, "2026-11-17")
+    assert added[0] == (
+        "Overseer 2026-11-17: Add an ensemble of five forecasters (why: every top-10 bot did)"
+    )
+    assert project.steer[0] == "Patrick: keep it laptop-sized"
+    overseer = [s for s in project.steer if s.startswith("Overseer ")]
+    assert len(overseer) == 6 and overseer[-3:] == added  # oldest overseer items drop
+    assert project.frontier == parsed.frontier
+    # An oversight that found no frontier keeps the last verified one.
+    apply_oversight(project, parse_oversight({"verdict": "unclear"}), "2026-11-18")
+    assert project.frontier == parsed.frontier
+
+
+def test_cli_oversee_applies_directions_and_saves_the_report(tmp_path, monkeypatch):
+    from opportunity_radar import cli_projects
+    from opportunity_radar.cli import app
+    from opportunity_radar.resume.paths import private_dir
+
+    save_projects(
+        [Project(slug="augur", title="Augur", status="building", oversee=True,
+                 secrets=["METACULUS_TOKEN"], frontier=["old (2025)"])]
+    )  # fmt: skip
+    sent: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        cli_projects, "_notify", lambda t, m, channel="projects": sent.append((t, m))
+    )
+    data = tmp_path / "oversight.json"
+    data.write_text(
+        json.dumps(
+            {
+                "verdict": "behind",
+                "headline": "Ranked 41 of 110.",
+                "frontier": ["GreeneiBot2 won Spring 2026 (lesswrong.com, 2026)"],
+                "steer": [{"direction": "Ensemble five forecasters", "why": "top bots do"}],
+            }
+        )
+    )
+    report = tmp_path / "oversight.md"
+    report.write_text("# Frontier\n\nDetails.\n")
+    result = CliRunner().invoke(
+        app,
+        ["projects", "oversee", "augur", "--data", str(data), "--report", str(report),
+         "--no-push"],
+    )  # fmt: skip
+    assert result.exit_code == 0, result.output
+    augur = load_projects(private_dir() / "projects.yaml")[0]
+    assert augur.frontier == ["GreeneiBot2 won Spring 2026 (lesswrong.com, 2026)"]
+    assert augur.steer[-1].endswith("Ensemble five forecasters (why: top bots do)")
+    assert augur.secrets == ["METACULUS_TOKEN"] and augur.oversee
+    saved = list((private_dir() / "reports" / "frontier").glob("augur-*.md"))
+    assert len(saved) == 1 and "Details." in saved[0].read_text()
+    title, body = sent[0]
+    assert title == "🔭 Frontier check" and "behind" in body and "Ensemble five" in body
+    assert (
+        CliRunner()
+        .invoke(app, ["projects", "oversee", "nope", "--data", str(data), "--no-push"])
+        .exit_code
+        == 1
+    )
+
+
+def test_cli_step_records_an_oversight_once(tmp_path, monkeypatch):
+    from opportunity_radar import cli_projects
+    from opportunity_radar.cli import app
+    from opportunity_radar.resume.paths import private_dir
+
+    save_projects([Project(slug="augur", title="Augur", status="building", oversee=True)])
+    gh = FakeGh(plan=_merged(2).plan)
+    monkeypatch.setattr("opportunity_radar.projects.builder.gh_cli", lambda token=None: gh)
+    monkeypatch.setattr(cli_projects, "_candidate_summary", lambda: {})
+    out = tmp_path / "context.json"
+    step = ["projects", "step", "--out", str(out), "--no-push"]
+    assert CliRunner().invoke(app, step).exit_code == 0
+    context = json.loads(out.read_text())
+    assert context["stage"] == "oversee" and context["project"]["overseen_at"] == [2]
+    assert load_projects(private_dir() / "projects.yaml")[0].overseen_at == [2]
+    assert CliRunner().invoke(app, step).exit_code == 0
+    assert json.loads(out.read_text())["stage"] == "build"
+
+
+def test_oversight_fields_stay_out_of_the_file_until_set(tmp_path):
+    from opportunity_radar.resume.paths import private_dir
+
+    save_projects(
+        [Project(slug="a", title="A", oversee=True, frontier=["X (2026)"], secrets=["T"]),
+         Project(slug="b", title="B")]
+    )  # fmt: skip
+    text = (private_dir() / "projects.yaml").read_text()
+    for key in ("frontier:", "oversee:", "secrets:"):
+        assert text.count(key) == 1
+    assert "overseen_at" not in text
+    a = load_projects(private_dir() / "projects.yaml")[0]
+    assert a.oversee and a.frontier == ["X (2026)"] and a.secrets == ["T"]

@@ -19,6 +19,12 @@ reads the project's GitHub repo through `gh` and returns one stage:
     wait     an open agent PR awaits Patrick: do nothing (no compute spent)
     build    next unchecked milestone in PLAN.md: Opus builds and
              reviews it, one PR
+    oversee  opt-in (`oversee: true`, AD-52): every OVERSEE_EVERY merged
+             milestones from M2 on, and once before each evolve round, an
+             independent Fable session researches the outside state of the
+             art, re-checks the project's numbers against it, and steers
+             (frontier + at most 3 directions, applied by `projects oversee`);
+             it opens no PR
     evolve   every milestone merged: Fable runs the project, reads its
              measured results and decides whether anything justifies more
              work; if so it appends at most 3 milestones to PLAN.md as a
@@ -65,6 +71,10 @@ AUTOPILOT_QUIET = timedelta(hours=5)
 # How many times a project may extend its own plan after finishing it
 # (AD-44). Bounded so a project ends; Patrick's `steer` can always add more.
 EVOLVE_ROUNDS = 2
+# Oversight cadence (AD-52): first after M2 (the first measured result),
+# then every this many merged milestones, and before every evolve round.
+OVERSEE_FIRST = 2
+OVERSEE_EVERY = 3
 _FREE_STAGES = ("merge", "rerun")  # no agent session, so they go first
 _IDLE_STAGES = ("wait", "idle")
 _FAILED = {"FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "ERROR", "STARTUP_FAILURE"}
@@ -338,7 +348,12 @@ def decide(project: Project, state: RepoState, now: datetime | None = None) -> S
     if not state.plan:
         return Stage("plan", reason="no PLAN.md on main")
     todo = [m for m in state.milestones if not m.done]
+    done = len(state.milestones) - len(todo)
     if todo:
+        if oversight_due(project, done):
+            return Stage(
+                "oversee", reason=f"{done} milestones merged; checking against the frontier"
+            )
         return Stage("build", milestone=todo[0].title, reason=f"{len(todo)} milestone(s) left")
     if not state.milestones:
         return Stage("plan", reason="PLAN.md has no milestone checklist")
@@ -348,9 +363,69 @@ def decide(project: Project, state: RepoState, now: datetime | None = None) -> S
     size = len(state.milestones)
     rounds = project.evolve_rounds or EVOLVE_ROUNDS
     if len(project.evolved_at) < rounds and size not in project.evolved_at:
+        if project.oversee and done not in project.overseen_at:
+            # The evolve round plans from where the project stands against
+            # the outside world, not only against its own earlier numbers.
+            return Stage("oversee", reason="plan finished; checking against the frontier first")
         n = len(project.evolved_at) + 1
         return Stage("evolve", reason=f"all milestones merged; evolve round {n} of {rounds}")
     return Stage("finish", reason="all milestones merged")  # retried until it succeeds
+
+
+def oversight_due(project: Project, done: int) -> bool:
+    """Mid-plan oversight (AD-52): after the first measured milestones, then
+    every OVERSEE_EVERY merges; never twice at one milestone count."""
+    if not project.oversee or done < OVERSEE_FIRST or done in project.overseen_at:
+        return False
+    last = max(project.overseen_at, default=None)
+    return last is None or done - last >= OVERSEE_EVERY
+
+
+OVERSEER_STEER = "Overseer"  # prefix of the directions oversight adds (AD-52)
+OVERSEER_KEEP = 6  # older overseer directions drop off; Patrick's never do
+VERDICTS = ("ahead", "at", "behind", "unclear")
+
+
+@dataclass
+class Oversight:
+    verdict: str
+    headline: str
+    frontier: list[str]
+    steer: list[tuple[str, str]]  # (direction, why)
+
+
+def parse_oversight(raw: dict) -> Oversight:
+    """Validate the overseer's JSON: a known verdict, at most 3 directions,
+    each with a reason (automatic changes are never a black box)."""
+    verdict = str(raw.get("verdict") or "unclear").strip().lower()
+    steer: list[tuple[str, str]] = []
+    for item in raw.get("steer") or []:
+        if not isinstance(item, dict):
+            continue
+        direction = " ".join(str(item.get("direction") or "").split())
+        why = " ".join(str(item.get("why") or item.get("reason") or "").split())
+        if direction and why:
+            steer.append((direction, why))
+    frontier = [" ".join(str(f).split()) for f in raw.get("frontier") or [] if str(f).strip()]
+    return Oversight(
+        verdict=verdict if verdict in VERDICTS else "unclear",
+        headline=" ".join(str(raw.get("headline") or "").split())[:400],
+        frontier=frontier[:12],
+        steer=steer[:3],
+    )
+
+
+def apply_oversight(project: Project, oversight: Oversight, day: str) -> list[str]:
+    """Fold an oversight into the project: the frontier is replaced (it is
+    re-verified each time), directions are added with their reason and date,
+    and only the newest OVERSEER_KEEP overseer directions are kept."""
+    if oversight.frontier:
+        project.frontier = oversight.frontier
+    added = [f"{OVERSEER_STEER} {day}: {d} (why: {w})" for d, w in oversight.steer]
+    mine = [s for s in project.steer if not s.startswith(f"{OVERSEER_STEER} ")]
+    theirs = [s for s in project.steer if s.startswith(f"{OVERSEER_STEER} ")] + added
+    project.steer = mine + theirs[-OVERSEER_KEEP:]
+    return added
 
 
 Option = tuple[Project, RepoState, Stage]

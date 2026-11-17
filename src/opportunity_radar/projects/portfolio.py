@@ -75,6 +75,18 @@ class Project:
     # Patrick's per-project override of builder.EVOLVE_ROUNDS (0 = default),
     # for a project he wants to keep growing (Replay v2, 2026-10-20).
     evolve_rounds: int = 0
+    # The strongest outside results this project is measured against, each
+    # with its source and date (AD-52). Kept current by the overseer from web
+    # research, never from the project's own numbers or the hub.
+    frontier: list[str] = field(default_factory=list)
+    # Opt-in: an independent overseer checks the results against `frontier`
+    # every few milestones and before each evolve round, and steers (AD-52).
+    oversee: bool = False
+    # Milestones merged when each oversight ran, so one never repeats.
+    overseen_at: list[int] = field(default_factory=list)
+    # Builder secrets this project's sessions may see, by name (AD-52; e.g.
+    # METACULUS_TOKEN). Never Anthropic keys: sessions stay on the Max plan.
+    secrets: list[str] = field(default_factory=list)
 
     @property
     def repo_name(self) -> str:
@@ -104,7 +116,7 @@ def load_projects(path: Path | None = None) -> list[Project]:
         data["slug"] = slugify(str(data.get("slug") or data["title"]))
         status = str(data.get("status") or "proposed").lower()
         data["status"] = status if status in STATUSES else "proposed"
-        for key in ("skills", "stack", "questions", "steer"):
+        for key in ("skills", "stack", "questions", "steer", "frontier", "secrets"):
             data[key] = [str(x) for x in data.get(key) or []]
         for key in ("problem", "pitch", "why", "release", "repo", "proposed", "notes", "title"):
             data[key] = str(data.get(key) or "")
@@ -113,6 +125,8 @@ def load_projects(path: Path | None = None) -> list[Project]:
         data["review_fix_started"] = [int(n) for n in data.get("review_fix_started") or []]
         data["evolved_at"] = [int(n) for n in data.get("evolved_at") or []]
         data["evolve_rounds"] = int(data.get("evolve_rounds") or 0)
+        data["oversee"] = bool(data.get("oversee"))
+        data["overseen_at"] = [int(n) for n in data.get("overseen_at") or []]
         out.append(Project(**data))
     return out
 
@@ -131,6 +145,10 @@ def save_projects(projects: list[Project], path: Path | None = None) -> None:
             "steer",
             "evolved_at",
             "evolve_rounds",
+            "frontier",
+            "oversee",
+            "overseen_at",
+            "secrets",
         ):
             if not row[key]:
                 del row[key]

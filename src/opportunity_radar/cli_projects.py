@@ -257,6 +257,10 @@ def projects_step(
             # decides nothing is worth adding is not run again (AD-44).
             project.evolved_at.append(len(state.milestones))
             changed = True
+        if not dry_run and stage.kind == "oversee":
+            # Counted when it starts, like evolve rounds (AD-52).
+            project.overseen_at.append(sum(m.done for m in state.milestones))
+            changed = True
         if not dry_run and stage.kind == "create":
             gh(
                 ["repo", "create", project.repo_name, "--private",
@@ -297,6 +301,44 @@ def projects_step(
         console.print(f"usage: {context['usage']}")
 
 
+@projects_app.command("oversee")
+def projects_oversee(
+    slug: str,
+    data: Path = typer.Option(..., "--data", exists=True, help="The overseer's oversight.json"),
+    report: Path = typer.Option(None, "--report", help="The overseer's report (oversight.md)"),
+    push: bool = typer.Option(True, "--push/--no-push"),
+) -> None:
+    """Apply an oversight (AD-52): refresh the frontier, add its directions."""
+    from datetime import date
+
+    from opportunity_radar.projects.builder import apply_oversight, parse_oversight
+    from opportunity_radar.projects.portfolio import OWNER, find, load_projects
+    from opportunity_radar.resume.paths import private_dir
+
+    projects = load_projects()
+    project = find(projects, slug)
+    if project is None:
+        console.print(f"[red]No project {slug!r} in projects.yaml[/red]")
+        raise typer.Exit(1)
+    oversight = parse_oversight(json.loads(data.read_text(encoding="utf-8")))
+    day = date.today().isoformat()
+    added = apply_oversight(project, oversight, day)
+    saved = ""
+    if report is not None and report.exists() and report.read_text(encoding="utf-8").strip():
+        target = private_dir() / "reports" / "frontier" / f"{project.slug}-{day}.md"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(report.read_text(encoding="utf-8"), encoding="utf-8")
+        saved = f"reports/frontier/{target.name}"
+    console.print(_save_and_push(projects, f"projects: oversight {project.slug}", push))
+    marks = {"ahead": "🟢 ahead of", "at": "🟡 level with", "behind": "🔴 behind"}
+    stand = marks.get(oversight.verdict, "⚪ not yet comparable with")
+    lines = [f"**{project.title}** is {stand} the frontier. {oversight.headline}".strip()]
+    lines += [f"- Steer: {d}" for d in added] or ["- No new directions."]
+    if saved:
+        lines.append(f"Report: https://github.com/{OWNER}/career-private/blob/main/{saved}")
+    _notify("🔭 Frontier check", "\n".join(lines))
+
+
 @projects_app.command("scout-merge")
 def projects_scout_merge(
     proposals_file: Path = typer.Argument(..., exists=True, help="JSON list from the scout"),
@@ -322,6 +364,7 @@ def projects_scout_merge(
                 skills=[str(s) for s in item.get("skills") or []],
                 stack=[str(s) for s in item.get("stack") or []],
                 release=str(item.get("release") or ""),
+                frontier=[str(f) for f in item.get("frontier") or []],
             )
         )
     projects = load_projects()
