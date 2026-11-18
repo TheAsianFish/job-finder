@@ -1139,7 +1139,9 @@ Decision:
   verdicts get the bounded automatic fixes.
 - **Project credentials.** `secrets` in projects.yaml names builder secrets a
   project's sessions may see (now METACULUS_TOKEN, ASKNEWS_CLIENT_ID,
-  ASKNEWS_CLIENT_SECRET, for Augur). The workflow unsets every listed
+  ASKNEWS_CLIENT_SECRET, OPENROUTER_API_KEY, for Augur; Metaculus's
+  sponsored credits now arrive as an OpenRouter key, the old proxy host is
+  gone). The workflow unsets every listed
   secret a project does not name; Anthropic keys are never passable
   (project_agent.sh strips them, AD-39).
 

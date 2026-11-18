@@ -48,7 +48,7 @@ jobs:
   keycheck:
     # Verifies the project credentials that are set: PROJECTS_ANTHROPIC_API_KEY
     # with one 1-token Haiku call, METACULUS_TOKEN with one authenticated API
-    # read (AD-52). Prints HTTP status and error type only; never a key or a
+    # read, OPENROUTER_API_KEY with its own key-info read (AD-52). Prints HTTP status and error type only; never a key or a
     # response body.
     if: vars.ENABLE_PROJECT_BUILDER == 'true' && github.event_name == 'workflow_dispatch' && inputs.action == 'keycheck'
     runs-on: ubuntu-latest
@@ -65,6 +65,19 @@ jobs:
           echo "Metaculus API: HTTP $code"
           [ "$code" = "200" ] || { echo "METACULUS_TOKEN was rejected"; exit 1; }
           echo "Metaculus token works."
+
+      - name: Check the OpenRouter key
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          if [ -z "$OPENROUTER_API_KEY" ]; then echo "OPENROUTER_API_KEY is not set (skipped)"; exit 0; fi
+          # Key info only: free tier flag and remaining limit, never the key.
+          code=$(curl -s -o /tmp/or.json -w '%{http_code}' -H "Authorization: Bearer $OPENROUTER_API_KEY" \
+            "https://openrouter.ai/api/v1/key")
+          echo "OpenRouter API: HTTP $code"
+          [ "$code" = "200" ] || { echo "OPENROUTER_API_KEY was rejected"; exit 1; }
+          jq -r '"free tier: \(.data.is_free_tier), limit remaining: \(.data.limit_remaining // "none")"' /tmp/or.json || true
+          echo "OpenRouter key works."
 
       - name: Check the projects API key
         env:
@@ -303,9 +316,10 @@ jobs:
           METACULUS_TOKEN: ${{ secrets.METACULUS_TOKEN }}
           ASKNEWS_CLIENT_ID: ${{ secrets.ASKNEWS_CLIENT_ID }}
           ASKNEWS_CLIENT_SECRET: ${{ secrets.ASKNEWS_CLIENT_SECRET }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           allowed=$(jq -r '.project.secrets // [] | .[]' "$CTX")
-          for name in METACULUS_TOKEN ASKNEWS_CLIENT_ID ASKNEWS_CLIENT_SECRET; do
+          for name in METACULUS_TOKEN ASKNEWS_CLIENT_ID ASKNEWS_CLIENT_SECRET OPENROUTER_API_KEY; do
             if grep -qx "$name" <<< "$allowed" && [ -n "${!name:-}" ]; then
               echo "project credential available: $name"
             else

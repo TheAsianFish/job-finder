@@ -211,8 +211,9 @@ capacity, spend per project, and how many more runs fit this week.
   passing plan merges after 5 quiet hours like a milestone.
 - **Project credentials.** `secrets: [NAME, ...]` lets that project's
   sessions see those builder secrets (Augur: METACULUS_TOKEN,
-  ASKNEWS_CLIENT_ID, ASKNEWS_CLIENT_SECRET, set as job-finder Actions
-  secrets). Every other project sees none; Anthropic keys never.
+  ASKNEWS_CLIENT_ID, ASKNEWS_CLIENT_SECRET, OPENROUTER_API_KEY, set as
+  job-finder Actions secrets; `keycheck` verifies the Metaculus and
+  OpenRouter ones). Every other project sees none; Anthropic keys never.
 
 ## Resume bullets during the build (AD-41)
 
